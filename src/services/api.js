@@ -55,7 +55,18 @@ export const verifyOtp = async (phone, otp) => {
 // ======================
 // PROFILE API (NEW)
 // ======================
+// api.js — replace saveProfile export with this:
 export const saveProfile = async (data) => {
-  const res = await API.post("/auth/profile", data);
+  const phone = localStorage.getItem("phone"); // ✅ retrieved after OTP verify
+
+  if (!phone) {
+    throw new Error("Phone not found. Please verify OTP first.");
+  }
+
+  const res = await API.post("/auth/profile", {
+    ...data,
+    phone, // ✅ always injected automatically
+  });
+
   return res.data;
 };
