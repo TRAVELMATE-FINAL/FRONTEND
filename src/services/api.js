@@ -4,7 +4,7 @@ import axios from "axios";
 // AXIOS INSTANCE
 // ======================
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: import.meta.env.VITE_API_URL + "/api",
   headers: {
     "Content-Type": "application/json",
   },
@@ -55,9 +55,10 @@ export const verifyOtp = async (phone, otp) => {
 // ======================
 // PROFILE API (NEW)
 // ======================
-// api.js — replace saveProfile export with this:
+
+// 🔹 SAVE PROFILE
 export const saveProfile = async (data) => {
-  const phone = localStorage.getItem("phone"); // ✅ retrieved after OTP verify
+  const phone = localStorage.getItem("phone");
 
   if (!phone) {
     throw new Error("Phone not found. Please verify OTP first.");
@@ -65,8 +66,21 @@ export const saveProfile = async (data) => {
 
   const res = await API.post("/auth/profile", {
     ...data,
-    phone, // ✅ always injected automatically
+    phone,
   });
+
+  return res.data;
+};
+
+// 🔹 GET PROFILE  ✅ ADD THIS
+export const getProfile = async () => {
+  const phone = localStorage.getItem("phone");
+
+  if (!phone) {
+    throw new Error("Phone not found. Please login again.");
+  }
+
+  const res = await API.get(`/auth/profile?phone=${phone}`);
 
   return res.data;
 };

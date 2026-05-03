@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveProfile } from "../services/api";
+import { useState, useRef, useEffect } from "react";
 
 export default function ProfileSetup() {
   const navigate = useNavigate();
@@ -16,19 +16,26 @@ export default function ProfileSetup() {
   const [errors, setErrors]     = useState({});
   const [loading, setLoading]   = useState(false);
 
-  const handlePhoto = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setErrors((prev) => ({ ...prev, photo: "Please upload an image file." }));
-      return;
-    }
-    setErrors((prev) => ({ ...prev, photo: "" }));
-    const reader = new FileReader();
-    reader.onload = () => setPhoto(reader.result);
-    reader.readAsDataURL(file);
+  // ✅ ADD HERE
+useEffect(() => {
+  return () => {
+    if (photo) URL.revokeObjectURL(photo);
   };
+}, [photo]);
 
+  const handlePhoto = (e) => {
+  const file = e.target.files[0];
+
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    setErrors((prev) => ({ ...prev, photo: "Please upload an image file." }));
+    return;
+  }
+
+  setErrors((prev) => ({ ...prev, photo: "" }));
+  setPhoto(file); // ✅ correct
+};
   const validate = () => {
     const errs = {};
     if (!fullName.trim())
@@ -47,13 +54,39 @@ export default function ProfileSetup() {
       if (dobDate > today) errs.dob = "Date of birth cannot be in the future.";
     }
 
+    if (!city.trim())
+  errs.city = "City is required.";
+
     if (about && about.length > 300)
       errs.about = "Bio must be under 300 characters.";
 
     return errs;
   };
 
+const uploadToCloudinary = async () => {
+  if (!photo) return "";
 
+  const formData = new FormData();
+  formData.append("file", photo);
+  formData.append("upload_preset", "TRAVELMATE");
+
+  const res = await fetch(
+    "https://api.cloudinary.com/v1_1/dm2kibnbx/image/upload",
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  const data = await res.json();
+
+  if (!data.secure_url) {
+    console.log("Upload error:", data);
+    throw new Error("Image upload failed");
+  }
+
+  return data.secure_url;
+};
 
 const handleSubmit = async () => {
   if (loading) return;
@@ -68,23 +101,36 @@ const handleSubmit = async () => {
 
   if (!phone) {
     setErrors({ api: "Session expired. Please login again." });
-    navigate("/");
+    navigate("/", { replace: true });
     return;
   }
 
   setLoading(true);
 
   try {
-    await saveProfile({
-      phone,
-      fullName: fullName.trim(),
-      email,
-      dob,
-      city: city.trim(),
-      about: about.trim(),
-      gender,
-      photo,
-    });
+    const photoUrl = photo ? await uploadToCloudinary() : "";
+
+    console.log("FINAL PAYLOAD:", {
+  phone,
+  fullName,
+  email,
+  dob,
+  city,
+  about,
+  gender,
+  photo: photoUrl,
+});
+
+await saveProfile({
+  phone,
+  fullName: fullName.trim(),
+  email,
+  dob,
+  city: city.trim(),
+  about: about.trim(),
+  gender,
+  photo: photoUrl, // ✅ URL, not file
+});
 
     navigate("/find-ride", { replace: true });  
 
@@ -138,7 +184,11 @@ const handleSubmit = async () => {
           <div style={s.avatarSection}>
             <div style={s.avatarWrap} onClick={() => fileRef.current.click()}>
               {photo ? (
-                <img src={photo} alt="profile" style={s.avatarImg} />
+               <img
+  src={URL.createObjectURL(photo)}
+  alt="profile"
+  style={s.avatarImg}
+/>
               ) : (
                 <div style={s.avatarPlaceholder}>
                   <svg width="38" height="38" viewBox="0 0 24 24" fill="none"

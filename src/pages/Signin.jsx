@@ -74,7 +74,7 @@ export default function Signin() {
                 icon: "👥",
                 title: "Meet Like-Minded People",
                 desc: "Connect with others going your way",
-                bg: "#162d56",
+                bg: "#1e3a6e",
               },
               {
                 icon: "🎉",
