@@ -281,7 +281,10 @@ export default function FindFriend() {
                 <div className="tm-card__map">
                   <RideMap ride={ride} />
                 </div>
-                <button className="tm-card__connect">
+                <button
+                  className="tm-card__connect"
+                  onClick={() => navigate(`/connect-unlock?rideId=${ride._id}`)}
+                >
                   Connect <ArrowRight size={16} strokeWidth={2.4} />
                 </button>
               </div>

@@ -53,9 +53,9 @@ export default function Signin() {
 };
 
   return (
-    <div style={styles.root}>
+    <div className="signin-page" style={styles.root}>
       {/* Left Panel */}
-      <div style={styles.left}>
+      <div className="signin-left" style={styles.left}>
         <div style={styles.leftContent}>
           <h1 style={styles.heroTitle}>
             Join the community <span style={styles.emoji}>🤝</span>
@@ -109,8 +109,8 @@ export default function Signin() {
       </div>
 
       {/* Right Panel */}
-      <div style={styles.right}>
-        <div style={styles.form}>
+      <div className="signin-right" style={styles.right}>
+        <div className="signin-form" style={styles.form}>
           <h2 style={styles.formTitle}>Create your account</h2>
           <p style={styles.formSub}>Join 50,000+ verified travelers</p>
 
@@ -425,6 +425,19 @@ const styles = {
     color: "#fff",
     boxShadow: "0 8px 24px rgba(37,99,235,0.25)",
     cursor: "pointer",
+  },
+
+  btn: {
+    width: "100%",
+    height: 56,
+    background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+    color: "#fff",
+    border: "none",
+    borderRadius: 12,
+    fontSize: 17,
+    fontWeight: 600,
+    cursor: "pointer",
+    marginTop: 12,
   },
 
   btnDisabled: {

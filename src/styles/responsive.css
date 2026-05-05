@@ -1,0 +1,98 @@
+/* styles/responsive.css
+   Global mobile + tablet overrides.
+   Uses !important to override the inline `style={…}` props on Signin,
+   OtpVerify, and ProfileSetup pages — those pages don't use class-based CSS,
+   so this is the only way to make them responsive without rewriting them.
+*/
+
+/* ============== TABLET (≤ 1024px) ============== */
+@media (max-width: 1024px) {
+  /* Signin: stack the two columns */
+  .signin-page {
+    height: auto !important;
+    flex-direction: column !important;
+  }
+  .signin-left {
+    padding: 32px 24px !important;
+    flex: none !important;
+  }
+  .signin-right {
+    padding: 32px 24px !important;
+    justify-content: center !important;
+    flex: none !important;
+  }
+  .signin-form { max-width: 100% !important; }
+
+  /* OtpVerify card a bit narrower */
+  .otp-card { width: 90% !important; max-width: 480px !important; }
+
+  /* ProfileSetup card width */
+  .profile-card { width: 90% !important; max-width: 720px !important; }
+}
+
+/* ============== MOBILE (≤ 600px) ============== */
+@media (max-width: 600px) {
+  /* Signin */
+  .signin-page { padding: 0 !important; }
+  .signin-left {
+    padding: 28px 18px !important;
+    text-align: center;
+  }
+  .signin-left h1 { font-size: 28px !important; line-height: 1.15 !important; }
+  .signin-left p  { font-size: 14px !important; }
+  .signin-right {
+    padding: 24px 18px !important;
+    padding-left: 18px !important;
+  }
+  .signin-form h2 { font-size: 24px !important; }
+  .signin-form input, .signin-form select { font-size: 14px !important; }
+  .signin-form button { height: 50px !important; font-size: 15px !important; }
+
+  /* OtpVerify */
+  .otp-page { padding: 16px !important; }
+  .otp-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 24px 18px !important;
+  }
+  .otp-card h2 { font-size: 22px !important; }
+  .otp-card input {
+    width: 38px !important;
+    height: 46px !important;
+    font-size: 18px !important;
+  }
+
+  /* ProfileSetup */
+  .profile-page { padding: 16px !important; }
+  .profile-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 22px 18px !important;
+  }
+  .profile-card h2 { font-size: 22px !important; }
+
+  /* Hero (FindRide page) — keep search card readable on phones */
+  .search-card__fields {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .hero__title    { font-size: 28px !important; }
+  .hero__subtitle { font-size: 14px !important; }
+  .hero__inner    { padding: 24px 16px !important; }
+}
+
+/* ============== EXTRA SMALL (≤ 380px) ============== */
+@media (max-width: 380px) {
+  .otp-card input {
+    width: 32px !important;
+    height: 42px !important;
+    font-size: 16px !important;
+  }
+  .signin-left h1 { font-size: 24px !important; }
+}
+
+/* Prevent unwanted horizontal scroll site-wide on small screens */
+html, body, #root {
+  max-width: 100%;
+  overflow-x: hidden;
+}

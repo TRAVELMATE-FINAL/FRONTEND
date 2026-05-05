@@ -3,8 +3,9 @@ import Signin from "./pages/Signin";
 import OtpVerify from "./pages/OtpVerify";
 import ProfileSetup from "./pages/ProfileSetup";
 import FindRide from "./pages/FindRide";
-import PostRide from "./pages/PostRide";     
+import PostRide from "./pages/PostRide";
 import FindFriend from "./pages/Findfriend";
+import ConnectUnlock from "./pages/ConnectUnlock";
 
 export default function App() {
   return (
@@ -15,7 +16,8 @@ export default function App() {
         <Route path="/profile-setup" element={<ProfileSetup />} />
         <Route path="/find-ride" element={<FindRide />} />
         <Route path="/find-friend" element={<FindFriend />} />  {/* ✅ added */}
-        <Route path="/post-ride" element={<PostRide />} />  
+        <Route path="/post-ride" element={<PostRide />} />
+        <Route path="/connect-unlock" element={<ConnectUnlock />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

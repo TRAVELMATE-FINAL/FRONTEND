@@ -153,11 +153,11 @@ await saveProfile({
       `}</style>
 
       {/* full-page background */}
-      <div style={s.page}>
+      <div className="profile-page" style={s.page}>
         <div style={s.bgText} aria-hidden="true">TravelMate</div>
 
         {/* card */}
-        <div style={s.card}>
+        <div className="profile-card" style={s.card}>
 
           {/* ── header icon ── */}
           <div style={s.headerIcon}>

@@ -190,6 +190,7 @@ export default function PostRide() {
       }
 
       // ── Save to MongoDB ─────────────────────────────────────────────────
+      const userPhone = localStorage.getItem('phone') || '';
       const res = await axios.post(`${API}/api/rides`, {
         from,
         to,
@@ -202,6 +203,10 @@ export default function PostRide() {
         gender,
         distance: dist || '',
         duration: dur  || '',
+        userPhone,
+        // Defaults for the Connect/Unlock page (user can edit later from profile)
+        vehicle: 'Bike',
+        seatsAvailable: 1,
       });
 
       if (res.status === 201) {

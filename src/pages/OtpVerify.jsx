@@ -107,7 +107,7 @@ export default function OtpVerify() {
     : "";
 
   return (
-    <div style={styles.root}>
+    <div className="otp-page" style={styles.root}>
       {/* Background watermark */}
       <div style={styles.bgText} aria-hidden="true">TravelMate</div>
 
@@ -117,7 +117,7 @@ export default function OtpVerify() {
 </button>
 
       {/* OTP Card */}
-      <div style={styles.card}>
+      <div className="otp-card" style={styles.card}>
         {/* Phone icon */}
         <div style={styles.iconWrap}>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -341,7 +341,7 @@ const styles = {
   secure: {
     fontSize: 12,
     color: "#9ca3af",
-    borderTop: "1px solid #f3f4f6",
-    paddingTop: 16,
+    borderTop: "1px solid #e5e7eb",
+    paddingTop: 12,
   },
 };
