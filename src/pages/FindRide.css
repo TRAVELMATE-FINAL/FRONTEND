@@ -1,0 +1,9 @@
+.page-find-ride {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-find-ride main {
+  flex: 1;
+}

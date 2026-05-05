@@ -1,0 +1,89 @@
+/* components/LocationSearch/LocationSearch.css */
+
+.locsearch {
+  position: relative;
+  width: 100%;
+}
+
+.locsearch__input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 15px;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.locsearch__input:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+.locsearch__dropdown {
+  position: absolute;
+  z-index: 1000;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.locsearch__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #0f172a;
+  user-select: none;
+}
+
+.locsearch__option--active,
+.locsearch__option:hover {
+  background: #f5f3ff;
+  color: #5b21b6;
+}
+
+.locsearch__pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.locsearch__name {
+  font-weight: 600;
+  flex: 1;
+}
+
+.locsearch__sub {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.locsearch__empty {
+  position: absolute;
+  z-index: 1000;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #64748b;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}

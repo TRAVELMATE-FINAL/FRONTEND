@@ -1,0 +1,96 @@
+/* =====================================================
+   TRAVEL MATE — DESIGN TOKENS
+   ===================================================== */
+:root {
+  /* ---------- BRAND COLORS ---------- */
+  --color-primary: #ffcb05;          /* yellow CTA */
+  --color-primary-hover: #f0bd00;
+  --color-primary-text: #1a1a4e;     /* dark text on yellow */
+
+  --color-purple: #6c2bd9;           /* logo accent */
+
+  /* ---------- BACKGROUNDS ---------- */
+  --color-bg: #ffffff;
+  --color-bg-dark: #1a1a4e;          /* hero / why-choose dark navy */
+  --color-bg-darker: #15152f;        /* footer */
+  --color-bg-light: #f7f8fc;
+  --color-surface: #ffffff;
+
+  /* ---------- TEXT ---------- */
+  --color-text: #1a1a4e;
+  --color-text-secondary: #5a5b7a;
+  --color-text-muted: #9ca0b8;
+  --color-text-on-dark: #ffffff;
+  --color-text-on-dark-muted: #c5c7e0;
+
+  /* ---------- BORDERS ---------- */
+  --color-border: #e6e8f0;
+  --color-border-input: #dde0ec;
+  --color-border-dark: #2a2a5e;
+
+  /* ---------- STEP COLORS (How It Works) ---------- */
+  --color-step-1: #ec4899;           /* pink */
+  --color-step-2: #22c55e;           /* green */
+  --color-step-3: #3b82f6;           /* blue */
+
+  /* ---------- TYPOGRAPHY ---------- */
+  --font-family-base: 'Plus Jakarta Sans', system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --font-size-xs: 0.75rem;     /* 12px */
+  --font-size-sm: 0.875rem;    /* 14px */
+  --font-size-base: 1rem;      /* 16px */
+  --font-size-md: 1.125rem;    /* 18px */
+  --font-size-lg: 1.5rem;      /* 24px */
+  --font-size-xl: 2rem;        /* 32px */
+  --font-size-2xl: 2.75rem;    /* 44px */
+  --font-size-3xl: 3.5rem;     /* 56px */
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  --line-height-tight: 1.15;
+  --line-height-snug: 1.3;
+  --line-height-base: 1.5;
+  --line-height-loose: 1.7;
+
+  /* ---------- SPACING ---------- */
+  --space-1: 0.25rem;   /* 4 */
+  --space-2: 0.5rem;    /* 8 */
+  --space-3: 0.75rem;   /* 12 */
+  --space-4: 1rem;      /* 16 */
+  --space-5: 1.25rem;   /* 20 */
+  --space-6: 1.5rem;    /* 24 */
+  --space-8: 2rem;      /* 32 */
+  --space-10: 2.5rem;   /* 40 */
+  --space-12: 3rem;     /* 48 */
+  --space-16: 4rem;     /* 64 */
+  --space-20: 5rem;     /* 80 */
+  --space-24: 6rem;     /* 96 */
+
+  /* ---------- RADIUS ---------- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-pill: 999px;
+
+  /* ---------- SHADOWS ---------- */
+  --shadow-sm: 0 1px 2px rgba(20, 22, 60, 0.06);
+  --shadow-md: 0 4px 12px rgba(20, 22, 60, 0.08);
+  --shadow-lg: 0 12px 32px rgba(20, 22, 60, 0.12);
+  --shadow-card: 0 18px 48px rgba(10, 12, 50, 0.18);
+
+  /* ---------- LAYOUT ---------- */
+  --container-max: 1200px;
+  --container-px: 1.25rem;
+
+  /* ---------- TRANSITIONS ---------- */
+  --t-fast: 150ms ease;
+  --t-base: 220ms ease;
+  --t-slow: 380ms ease;
+}
