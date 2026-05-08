@@ -1,57 +1,14 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import Header from "../components/Header/Header.jsx";
+import Footer from "../components/Footer/Footer.jsx";
 
 const API_BASE = "http://localhost:5000";
 
-// ── Icons ────────────────────────────────────────────────────────────────────
-const ClockIcon = () => (
-  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-  </svg>
-);
-const UsersIcon = () => (
-  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
-const LockIcon = () => (
-  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-    <rect x="3" y="11" width="18" height="11" rx="2" />
-    <path d="M7 11V7a5 5 0 0 1 9.9-1" />
-  </svg>
-);
-const AlertIcon = () => (
-  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10" />
-    <line x1="12" y1="8" x2="12" y2="12" />
-    <line x1="12" y1="16" x2="12.01" y2="16" />
-  </svg>
-);
-const EyeIcon = () => (
-  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
-const UnlockIcon = () => (
-  <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-    <rect x="3" y="11" width="18" height="11" rx="2" />
-    <path d="M7 11V7a5 5 0 0 1 9.9-1" />
-  </svg>
-);
-const CheckIcon = () => (
-  <svg width="28" height="28" fill="none" stroke="#22c55e" strokeWidth="2.5" viewBox="0 0 24 24">
-    <path d="M20 6L9 17l-5-5" />
-  </svg>
-);
-
-// ── Format helpers ───────────────────────────────────────────────────────────
+/* Format "YYYY-MM-DD" + "HH:MM" → "Today, 3:00 PM" / "Tomorrow, 8:30 AM" / "5 May, 11:00 AM" */
 function formatDateTime(date, time) {
   if (!date && !time) return "—";
-  // date = "YYYY-MM-DD", time = "HH:MM"
   const d = new Date(`${date}T${time || "00:00"}`);
   if (isNaN(d.getTime())) return `${date || ""} ${time || ""}`.trim();
 
@@ -67,453 +24,19 @@ function formatDateTime(date, time) {
     d.getMonth() === tomorrow.getMonth() &&
     d.getDate() === tomorrow.getDate();
 
-  const hh = d.getHours();
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const period = hh >= 12 ? "PM" : "AM";
-  const h12 = hh % 12 === 0 ? 12 : hh % 12;
-  const timeLabel = `${h12}:${mm} ${period}`;
-
-  if (sameDay)    return `Today, ${timeLabel}`;
-  if (isTomorrow) return `Tomorrow, ${timeLabel}`;
-
-  const opts = { day: "numeric", month: "short" };
-  return `${d.toLocaleDateString("en-IN", opts)}, ${timeLabel}`;
-}
-
-// ── Styles ───────────────────────────────────────────────────────────────────
-const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
-
-  .cu-root * { box-sizing: border-box; margin: 0; padding: 0; }
-  .cu-root {
-    font-family: 'DM Sans', sans-serif;
-    background: #f0f2f5;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  .cu-page-header {
-    width: 100%;
-    max-width: 900px;
-    padding: 18px 16px 10px;
-    font-size: 13px;
-    color: #555;
-    font-weight: 500;
-  }
-  .cu-main {
-    display: flex;
-    gap: 16px;
-    width: 100%;
-    max-width: 900px;
-    padding: 0 16px 32px;
-    align-items: flex-start;
-  }
-  .cu-left  { flex: 1; display: flex; flex-direction: column; gap: 12px; }
-  .cu-right { width: 260px; flex-shrink: 0; }
-  .cu-card {
-    background: #fff;
-    border-radius: 14px;
-    border: 1px solid #e8eaed;
-    padding: 20px;
-  }
-  .cu-driver-top { display: flex; align-items: flex-start; justify-content: space-between; }
-  .cu-driver-left { display: flex; align-items: center; gap: 12px; }
-  .cu-avatar {
-    width: 44px; height: 44px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #e74c3c, #c0392b);
-    display: flex; align-items: center; justify-content: center;
-    color: #fff; font-size: 18px; font-weight: 700; flex-shrink: 0;
-    overflow: hidden;
-  }
-  .cu-avatar img { width: 100%; height: 100%; object-fit: cover; }
-  .cu-driver-name { font-size: 16px; font-weight: 700; color: #111; margin-bottom: 4px; }
-  .cu-rating {
-    display: inline-flex; align-items: center; gap: 4px;
-    background: #fff8e1; border: 1px solid #ffc107;
-    border-radius: 20px; padding: 2px 9px;
-    font-size: 12px; font-weight: 600; color: #f59e0b;
-  }
-  .cu-more {
-    background: none; border: none; cursor: pointer;
-    color: #888; font-size: 20px; padding: 2px 6px;
-    border-radius: 6px; line-height: 1;
-  }
-  .cu-more:hover { background: #f5f5f5; }
-  .cu-route { margin-top: 16px; display: flex; flex-direction: column; gap: 0; }
-  .cu-route-item { display: flex; gap: 10px; align-items: flex-start; }
-  .cu-dot-col { display: flex; flex-direction: column; align-items: center; width: 14px; padding-top: 4px; }
-  .cu-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .cu-dot-blue  { background: #3b82f6; }
-  .cu-dot-green { background: #22c55e; }
-  .cu-route-line {
-    width: 2px; height: 28px;
-    background: repeating-linear-gradient(to bottom, #ccc 0, #ccc 4px, transparent 4px, transparent 8px);
-    margin: 3px 0;
-  }
-  .cu-city { font-size: 13px; font-weight: 600; color: #111; }
-  .cu-sub  { font-size: 11px; color: #888; margin-top: 1px; }
-  .cu-vehicle-title { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 12px; }
-  .cu-model-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    background: #e8f5e9; color: #2e7d32;
-    font-size: 11px; font-weight: 600;
-    border-radius: 6px; padding: 3px 9px; margin-bottom: 14px;
-    border: 1px solid #c8e6c9;
-  }
-  .cu-model-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; }
-  .cu-vehicle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
-  .cu-field-label { font-size: 11px; color: #888; font-weight: 500; display: block; margin-bottom: 2px; }
-  .cu-field-val { font-size: 13px; font-weight: 600; color: #111; }
-  .cu-plate-blur {
-    display: inline-block;
-    background: #e0e0e0; color: transparent;
-    border-radius: 4px; font-size: 13px;
-    user-select: none; letter-spacing: 2px;
-    filter: blur(4px); font-weight: 600;
-  }
-  .cu-info-title { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 6px; }
-  .cu-info-text  { font-size: 12px; color: #555; line-height: 1.6; }
-  .cu-views {
-    background: #e8f4fd; border-radius: 12px;
-    border: 1px solid #bde0f7; padding: 11px 16px;
-    display: flex; align-items: center; gap: 8px;
-    font-size: 12px; color: #1a73e8; font-weight: 500;
-  }
-  .cu-panel {
-    background: #fff; border-radius: 14px;
-    border: 1px solid #e8eaed; padding: 18px;
-    display: flex; flex-direction: column; gap: 14px;
-  }
-  .cu-meta-row {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 12px; color: #555; font-weight: 500;
-  }
-  .cu-contact-field {
-    border: 1px solid #e0e0e0; border-radius: 8px;
-    padding: 10px 12px;
-    display: flex; align-items: center; justify-content: space-between;
-    font-family: 'DM Sans', sans-serif;
-  }
-  .cu-contact-placeholder { font-size: 12px; color: #aaa; font-weight: 500; letter-spacing: 1px; }
-  .cu-lock-color { color: #bbb; }
-  .cu-warning {
-    display: flex; align-items: center; gap: 6px;
-    background: #fff5f5; border: 1px solid #fecaca;
-    border-radius: 8px; padding: 9px 12px;
-    font-size: 12px; color: #dc2626; font-weight: 600;
-  }
-  .cu-unlock-btn {
-    background: #f59e0b; color: #fff; border: none;
-    border-radius: 10px; padding: 13px; width: 100%;
-    font-size: 14px; font-weight: 700; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    font-family: 'DM Sans', sans-serif;
-    transition: background 0.2s, transform 0.1s;
-    letter-spacing: 0.01em;
-  }
-  .cu-unlock-btn:hover  { background: #d97706; }
-  .cu-unlock-btn:active { transform: scale(0.98); }
-  .cu-unlock-btn:disabled { background: #d4a464; cursor: not-allowed; }
-  .cu-secure { text-align: center; font-size: 10.5px; color: #aaa; }
-
-  .cu-loading, .cu-error-page {
-    width: 100%; max-width: 900px; padding: 80px 16px;
-    text-align: center; color: #555; font-size: 14px;
-  }
-  .cu-error-page { color: #dc2626; }
-
-  .cu-footer { background: #2d3142; color: #ccc; width: 100%; padding: 32px 0 20px; margin-top: 8px; }
-  .cu-footer-inner {
-    max-width: 900px; margin: 0 auto;
-    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
-    gap: 24px; padding: 0 16px;
-  }
-  .cu-footer-brand-name { color: #fff; font-size: 15px; font-weight: 700; margin-bottom: 8px; }
-  .cu-footer-brand-text { font-size: 11px; color: #9a9eb5; line-height: 1.7; }
-  .cu-footer-col-title  { color: #fff; font-size: 12px; font-weight: 700; margin-bottom: 10px; }
-  .cu-footer-link {
-    display: block; font-size: 11px; color: #9a9eb5;
-    text-decoration: none; margin-bottom: 5px;
-    transition: color 0.2s;
-  }
-  .cu-footer-link:hover { color: #fff; }
-  .cu-social-icons { display: flex; gap: 10px; margin-top: 4px; }
-  .cu-social-icon {
-    width: 28px; height: 28px; border-radius: 6px;
-    background: #3d4260;
-    display: flex; align-items: center; justify-content: center;
-    color: #ccc; text-decoration: none; font-size: 11px; font-weight: 700;
-    transition: background 0.2s, color 0.2s;
-  }
-  .cu-social-icon:hover { background: #f59e0b; color: #fff; }
-  .cu-footer-bottom {
-    max-width: 900px; margin: 20px auto 0;
-    padding: 14px 16px 0;
-    border-top: 1px solid #3d4260;
-    font-size: 11px; color: #9a9eb5; text-align: center;
-  }
-
-  .cu-modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.45);
-    z-index: 100;
-    display: flex; align-items: center; justify-content: center;
-    animation: cu-fade-in 0.2s ease;
-  }
-  @keyframes cu-fade-in { from { opacity: 0; } to { opacity: 1; } }
-  .cu-modal {
-    background: #fff; border-radius: 16px;
-    padding: 28px 24px; width: 300px;
-    text-align: center;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-    animation: cu-pop-in 0.25s ease;
-  }
-  @keyframes cu-pop-in { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  .cu-modal-check {
-    width: 56px; height: 56px; border-radius: 50%;
-    background: #ecfdf5; margin: 0 auto 14px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .cu-modal-title { font-size: 17px; font-weight: 700; color: #111; margin-bottom: 6px; }
-  .cu-modal-sub   { font-size: 13px; color: #666; margin-bottom: 18px; }
-  .cu-contact-revealed {
-    background: #f0f9ff; border: 1px solid #bae6fd;
-    border-radius: 10px; padding: 12px;
-    font-size: 18px; font-weight: 700; color: #0ea5e9;
-    letter-spacing: 2px; margin-bottom: 18px;
-  }
-  .cu-modal-close {
-    background: #2d3142; color: #fff; border: none;
-    border-radius: 10px; padding: 12px 28px;
-    font-size: 14px; font-weight: 600; cursor: pointer;
-    font-family: 'DM Sans', sans-serif; width: 100%;
-    transition: background 0.2s;
-  }
-  .cu-modal-close:hover { background: #3d4462; }
-
-  /* ─────────── RESPONSIVE ─────────── */
-  @media (max-width: 1024px) {
-    .cu-main { max-width: 100%; padding: 0 14px 24px; }
-    .cu-page-header { max-width: 100%; padding: 14px 14px 8px; }
-    .cu-right { width: 240px; }
-    .cu-footer-inner { max-width: 100%; padding: 0 14px; }
-  }
-
-  @media (max-width: 760px) {
-    .cu-main { flex-direction: column; gap: 12px; }
-    .cu-left, .cu-right { width: 100%; flex: none; }
-    .cu-vehicle-grid { grid-template-columns: 1fr; gap: 10px; }
-    .cu-footer-inner { grid-template-columns: 1fr 1fr; gap: 18px; }
-    .cu-modal { width: 90%; max-width: 320px; }
-  }
-
-  @media (max-width: 480px) {
-    .cu-page-header { font-size: 12px; padding: 12px 12px 6px; }
-    .cu-card { padding: 16px; }
-    .cu-panel { padding: 14px; }
-    .cu-driver-name { font-size: 15px; }
-    .cu-rating { font-size: 11px; }
-    .cu-vehicle-title { font-size: 14px; }
-    .cu-info-title { font-size: 13px; }
-    .cu-views { font-size: 11px; padding: 9px 12px; }
-    .cu-unlock-btn { padding: 12px; font-size: 13px; }
-    .cu-footer-inner { grid-template-columns: 1fr; gap: 16px; }
-    .cu-contact-revealed { font-size: 16px; letter-spacing: 1px; }
-  }
-`;
-
-function StyleInjector() {
-  if (typeof document !== "undefined" && !document.getElementById("cu-styles")) {
-    const tag = document.createElement("style");
-    tag.id = "cu-styles";
-    tag.textContent = STYLES;
-    document.head.appendChild(tag);
-  }
-  return null;
-}
-
-function DriverCard({ user, ride }) {
-  const initial = (user?.fullName || "T").trim().charAt(0).toUpperCase();
-  return (
-    <div className="cu-card">
-      <div className="cu-driver-top">
-        <div className="cu-driver-left">
-          <div className="cu-avatar">
-            {user?.photo ? <img src={user.photo} alt={user.fullName} /> : initial}
-          </div>
-          <div>
-            <div className="cu-driver-name">{user?.fullName || "TravelMate Rider"}</div>
-            <span className="cu-rating">⭐ 4.8 (43)</span>
-          </div>
-        </div>
-        <button className="cu-more">•••</button>
-      </div>
-
-      <div className="cu-route">
-        <div className="cu-route-item">
-          <div className="cu-dot-col">
-            <div className="cu-dot cu-dot-blue" />
-            <div className="cu-route-line" />
-          </div>
-          <div>
-            <div className="cu-city">{ride?.from || "—"}</div>
-            <div className="cu-sub">Starting point</div>
-          </div>
-        </div>
-        <div className="cu-route-item" style={{ marginTop: 0 }}>
-          <div className="cu-dot-col" style={{ paddingTop: 2 }}>
-            <div className="cu-dot cu-dot-green" />
-          </div>
-          <div>
-            <div className="cu-city">{ride?.to || "—"}</div>
-            <div className="cu-sub">Destination</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function VehicleCard({ ride }) {
-  const v = ride?.vehicle || "Bike";
-  const model = ride?.vehicleModel || (v === "Car" ? "Sedan" : "Standard");
-  const color = ride?.vehicleColor || "—";
-  const plate = ride?.plateNumber || "TN00 XX0000";
-  return (
-    <div className="cu-card">
-      <div className="cu-vehicle-title">Vehicle Details</div>
-      <div className="cu-model-badge">
-        <div className="cu-model-dot" />
-        {model}
-      </div>
-      <div className="cu-vehicle-grid">
-        <div>
-          <span className="cu-field-label">Vehicle</span>
-          <div className="cu-field-val">{model}</div>
-        </div>
-        <div>
-          <span className="cu-field-label">Color</span>
-          <div className="cu-field-val">{color}</div>
-        </div>
-        <div>
-          <span className="cu-field-label">Plate Number</span>
-          <span className="cu-plate-blur">{plate}</span>
-        </div>
-        <div>
-          <span className="cu-field-label">Type</span>
-          <div className="cu-field-val">{v}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AdditionalInfo({ ride }) {
-  const text = ride?.additionalInfo?.trim()
-    || `${ride?.distance || ""} • ${ride?.duration || ""}`.trim()
-    || "No extra notes from the rider.";
-  return (
-    <div className="cu-card">
-      <div className="cu-info-title">Additional Information</div>
-      <p className="cu-info-text">{text}</p>
-    </div>
-  );
-}
-
-function ViewsBanner({ count }) {
-  return (
-    <div className="cu-views">
-      <EyeIcon />
-      {count || 1} {count === 1 ? "person" : "people"} viewed this ride
-    </div>
-  );
-}
-
-function RightPanel({ ride, user, onUnlock, unlocking }) {
-  const seats = typeof ride?.seatsAvailable === "number" ? ride.seatsAvailable : 1;
-  const masked = user?.maskedPhone || "Contact Number";
-  return (
-    <div className="cu-panel">
-      <div className="cu-meta-row">
-        <ClockIcon /> {formatDateTime(ride?.date, ride?.time)}
-      </div>
-      <div className="cu-meta-row">
-        <UsersIcon /> {seats} {seats === 1 ? "seat" : "seats"} available
-      </div>
-
-      <div className="cu-contact-field">
-        <span className="cu-contact-placeholder">{masked}</span>
-        <span className="cu-lock-color"><LockIcon /></span>
-      </div>
-
-      {seats > 0 && seats <= 2 && (
-        <div className="cu-warning">
-          <AlertIcon /> Only {seats} {seats === 1 ? "seat" : "seats"} left!
-        </div>
-      )}
-
-      <button className="cu-unlock-btn" onClick={onUnlock} disabled={unlocking}>
-        <UnlockIcon /> {unlocking ? "Unlocking…" : "Unlock Contact"}
-      </button>
-
-      <div className="cu-secure">Secure payment • Get contact instantly</div>
-    </div>
-  );
-}
-
-function UnlockModal({ phone, driverName, onClose }) {
-  return (
-    <div className="cu-modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="cu-modal">
-        <div className="cu-modal-check"><CheckIcon /></div>
-        <div className="cu-modal-title">Contact Unlocked!</div>
-        <p className="cu-modal-sub">You can now reach out to {driverName || "the rider"} directly.</p>
-        <div className="cu-contact-revealed">{phone}</div>
-        <button className="cu-modal-close" onClick={onClose}>Got it</button>
-      </div>
-    </div>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="cu-footer">
-      <div className="cu-footer-inner">
-        <div>
-          <div className="cu-footer-brand-name">Friend Travel</div>
-          <p className="cu-footer-brand-text">Share rides, save money, and<br />travel together across India.</p>
-        </div>
-        <div>
-          <div className="cu-footer-col-title">Quick Links</div>
-          <a href="/find-ride" className="cu-footer-link">Find Ride</a>
-          <a href="/post-ride" className="cu-footer-link">Post Ride</a>
-          <a href="/find-friend" className="cu-footer-link">My Trips</a>
-        </div>
-        <div>
-          <div className="cu-footer-col-title">Support</div>
-          <a href="#" className="cu-footer-link">Help Center</a>
-          <a href="#" className="cu-footer-link">Safety</a>
-          <a href="#" className="cu-footer-link">Terms</a>
-        </div>
-        <div>
-          <div className="cu-footer-col-title">Connect</div>
-          <div className="cu-social-icons">
-            <a href="#" className="cu-social-icon">f</a>
-            <a href="#" className="cu-social-icon">in</a>
-            <a href="#" className="cu-social-icon">tw</a>
-            <a href="#" className="cu-social-icon">✉</a>
-          </div>
-        </div>
-      </div>
-      <div className="cu-footer-bottom">© 2026 Friend Travel. All rights reserved.</div>
-    </footer>
-  );
+  let h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, "0");
+  const ap = h >= 12 ? "PM" : "AM";
+  h = h % 12 === 0 ? 12 : h % 12;
+  const t = `${h}:${m} ${ap}`;
+  if (sameDay)    return `Today, ${t}`;
+  if (isTomorrow) return `Tomorrow, ${t}`;
+  return `${d.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}, ${t}`;
 }
 
 export default function ConnectUnlock() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const rideId = searchParams.get("rideId");
 
   const [ride, setRide] = useState(null);
@@ -521,10 +44,11 @@ export default function ConnectUnlock() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [unlocked, setUnlocked]   = useState(false);
   const [unlocking, setUnlocking] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [revealedPhone, setRevealedPhone] = useState("");
+  const [contact, setContact]     = useState("");
 
+  // Fetch the ride + driver profile from backend
   useEffect(() => {
     if (!rideId) {
       setError("No ride selected. Open a ride from Find Friends to continue.");
@@ -550,59 +74,340 @@ export default function ConnectUnlock() {
     return () => { cancelled = true; };
   }, [rideId]);
 
+  // Helper — strict "logged in" check. Phone must exist and be a +91 number
+  // produced by the OTP-verify flow. Anything else routes through /login.
+  const isLoggedIn = () => {
+    const p = localStorage.getItem("phone") || "";
+    return /^\+?\d{10,13}$/.test(p);
+  };
+
+  const sendToLogin = () => {
+    localStorage.setItem("pendingUnlockRideId", rideId);
+    navigate("/login");
+  };
+
   const handleUnlock = async () => {
-    if (!rideId) return;
+    if (!rideId || unlocked) return;
+
+    // ── Auth gate (strict) ────────────────────────────────
+    // The user must be logged in with a verified phone before they can
+    // unlock a contact. If not, save the rideId and send them through
+    // /login → /otp → (/profile-setup if new) → back here.
+    if (!isLoggedIn()) {
+      sendToLogin();
+      return;
+    }
+
     try {
       setUnlocking(true);
-      const { data } = await axios.post(`${API_BASE}/api/rides/${rideId}/unlock`);
-      setRevealedPhone(data?.data?.phone || "");
-      setShowModal(true);
+      const { data } = await axios.post(
+        `${API_BASE}/api/rides/${rideId}/unlock`,
+        { phone: localStorage.getItem("phone") }
+      );
+      const unlockedPhone = data?.data?.phone || "";
+
+      // Backend returned 200 but no phone? Treat as auth failure too —
+      // wipe the stale phone and route the user back through /login.
+      if (!unlockedPhone) {
+        localStorage.removeItem("phone");
+        sendToLogin();
+        return;
+      }
+
+      setContact(unlockedPhone);
+      setUnlocked(true);
     } catch (err) {
-      alert(err.response?.data?.error || "Could not unlock contact");
+      const status  = err?.response?.status;
+      const message = err?.response?.data?.error || err?.response?.data?.message || "";
+
+      // Treat any auth-ish failure (401/403/404) OR "no contact info" as
+      // "user is not really logged in" → bounce to /login so the OTP flow
+      // can re-establish the session and re-issue the unlock.
+      const looksLikeAuthFail =
+        status === 401 ||
+        status === 403 ||
+        status === 404 ||
+        /no contact info|not authorized|not logged|missing phone/i.test(message);
+
+      if (looksLikeAuthFail) {
+        localStorage.removeItem("phone");
+        sendToLogin();
+        return;
+      }
+
+      alert(message || "Could not unlock contact");
     } finally {
       setUnlocking(false);
     }
   };
 
+  // ── derived values ──
+  const driverName  = user?.fullName?.trim() || "TravelMate Rider";
+  const driverPhoto = user?.driverPhoto || user?.photo || "";
+  const initial     = driverName.charAt(0).toUpperCase();
+  const fromCity    = ride?.from || "—";
+  const toCity      = ride?.to   || "—";
+  const fromSub     = user?.city ? `${user.city}` : "";
+  const toSub       = "";
+  const vehicleType  = ride?.vehicle      || "Bike";
+  const vehicleModel = ride?.vehicleModel || (vehicleType === "Car" ? "Car" : "Bike");
+  const vehicleColor = ride?.vehicleColor || "—";
+  const seats        = typeof ride?.seatsAvailable === "number" ? ride.seatsAvailable : 1;
+  const additional   = ride?.additionalInfo?.trim() || "No additional notes from the rider.";
+  const dtLabel      = formatDateTime(ride?.date, ride?.time);
+  const maskedPhone  = user?.maskedPhone || "Contact Number";
+
   return (
-    <>
-      <StyleInjector />
-      <div className="cu-root">
-        <div className="cu-page-header">Connect &amp; unlock</div>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column",
+      fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif", background: "#e8eaef" }}>
 
-        {loading && <div className="cu-loading">Loading ride details…</div>}
-        {!loading && error && <div className="cu-error-page">⚠️ {error}</div>}
+      <Header />
 
-        {!loading && !error && ride && (
-          <div className="cu-main">
-            <div className="cu-left">
-              <DriverCard user={user} ride={ride} />
-              <VehicleCard ride={ride} />
-              <AdditionalInfo ride={ride} />
-              <ViewsBanner count={ride.viewCount} />
+      {/* Status banners */}
+      {loading && (
+        <div style={{ padding: "60px 16px", textAlign: "center", color: "#475569", fontSize: 14 }}>
+          ⏳ Loading ride details…
+        </div>
+      )}
+      {!loading && error && (
+        <div style={{ margin: "40px auto", maxWidth: 520, padding: 24, background: "#fff5f5", border: "1px solid #fecaca", color: "#dc2626", borderRadius: 12, textAlign: "center" }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      {!loading && !error && ride && (
+        <main style={{
+          flex: 1, display: "flex", justifyContent: "center", alignItems: "flex-start",
+          padding: "40px 16px", gap: "24px", flexWrap: "wrap"
+        }}>
+          {/* ── LEFT COLUMN ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%", maxWidth: "500px" }}>
+
+            {/* ── Card 1: Driver Header ── */}
+            <div style={{ background: "#fff", borderRadius: "18px", padding: "22px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "22px" }}>
+                {/* Avatar — photo if uploaded, else initial */}
+                <div style={{
+                  width: "52px", height: "52px", borderRadius: "50%",
+                  background: driverPhoto ? "#f3f4f6" : "#7c3aed",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0, overflow: "hidden"
+                }}>
+                  {driverPhoto
+                    ? <img src={driverPhoto} alt={driverName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : <span style={{ color: "#fff", fontWeight: 800, fontSize: "20px", letterSpacing: "-0.5px" }}>{initial}</span>}
+                </div>
+
+                <span style={{ fontWeight: 800, fontSize: "20px", color: "#111", flex: 1, letterSpacing: "-0.3px",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {driverName}
+                </span>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "5px",
+                  background: "#fff8e1", border: "1.5px solid #f59f00",
+                  borderRadius: "20px", padding: "5px 13px" }}>
+                  <span style={{ color: "#f59f00", fontSize: "13px" }}>★</span>
+                  <span style={{ color: "#111", fontWeight: 700, fontSize: "13px" }}>4.8(43)</span>
+                </div>
+
+                <button style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: "#999", fontSize: "18px", letterSpacing: "2px" }}>
+                  •••
+                </button>
+              </div>
+
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "13px", color: "#888", marginBottom: "14px", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                  Route
+                </div>
+
+                <div style={{ display: "flex", gap: "16px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "3px" }}>
+                    <div style={{ width: "14px", height: "14px", borderRadius: "50%", background: "#3b82f6", border: "2px solid #3b82f6", flexShrink: 0 }} />
+                    <div style={{ width: "2px", flex: 1, margin: "4px 0",
+                      background: "repeating-linear-gradient(to bottom, #ccc 0px, #ccc 5px, transparent 5px, transparent 10px)",
+                      minHeight: "38px" }} />
+                    <div style={{ width: "14px", height: "14px", borderRadius: "50%", background: "#22c55e", border: "2px solid #22c55e", flexShrink: 0 }} />
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "20px", flex: 1 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: "15px", color: "#111" }}>{fromCity}</div>
+                      <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>{fromSub || `Starting point in ${fromCity}`}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: "15px", color: "#111" }}>{toCity}</div>
+                      <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>{toSub || `Drop-off in ${toCity}`}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="cu-right">
-              <RightPanel
-                ride={ride}
-                user={user}
-                onUnlock={handleUnlock}
-                unlocking={unlocking}
-              />
+            {/* ── Card 2: Vehicle Details ── */}
+            <div style={{ background: "#fff", borderRadius: "18px", padding: "22px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+              <div style={{ fontWeight: 800, fontSize: "18px", color: "#111", marginBottom: "16px", letterSpacing: "-0.2px" }}>
+                Vehicle Details
+              </div>
+
+              <div style={{ marginBottom: "18px" }}>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: "6px",
+                  border: "1.5px solid #e5e7eb", borderRadius: "8px",
+                  padding: "5px 12px", fontSize: "12px", fontWeight: 600, color: "#555",
+                  background: "#fafafa"
+                }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/>
+                    <rect x="7" y="14" width="10" height="6" rx="1"/>
+                    <circle cx="8" cy="20" r="1"/><circle cx="16" cy="20" r="1"/>
+                  </svg>
+                  {vehicleModel || vehicleType}
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 0", borderTop: "1px solid #f3f4f6", paddingTop: "16px" }}>
+                <div>
+                  <div style={{ fontSize: "12px", color: "#aaa", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.4px" }}>Vehicle</div>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#111" }}>{vehicleModel || vehicleType}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "12px", color: "#aaa", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.4px" }}>Color</div>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#111" }}>{vehicleColor}</div>
+                </div>
+
+                <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: "14px" }}>
+                  <div style={{ fontSize: "12px", color: "#aaa", fontWeight: 600, marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.4px" }}>Plate Number</div>
+                  {ride.plateNumber ? (
+                    <div style={{
+                      fontSize: "14px", fontWeight: 700, color: "#111",
+                      filter: unlocked ? "none" : "blur(4px)",
+                      userSelect: unlocked ? "text" : "none",
+                      transition: "filter 0.3s ease",
+                    }}>
+                      {ride.plateNumber}
+                    </div>
+                  ) : (
+                    <div style={{
+                      width: "110px", height: "14px", borderRadius: "4px",
+                      background: "linear-gradient(90deg, #d1d5db 0%, #e5e7eb 50%, #d1d5db 100%)",
+                      filter: "blur(1.5px)"
+                    }} />
+                  )}
+                </div>
+                <div style={{ textAlign: "right", borderTop: "1px solid #f3f4f6", paddingTop: "14px" }}>
+                  <div style={{ fontSize: "12px", color: "#aaa", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.4px" }}>Type</div>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#111" }}>{vehicleType}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Card 3: Additional Information ── */}
+            <div style={{ background: "#fff", borderRadius: "18px", padding: "22px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+              <div style={{ fontWeight: 800, fontSize: "16px", color: "#111", marginBottom: "10px", letterSpacing: "-0.2px" }}>
+                Additional Information
+              </div>
+              <div style={{ fontSize: "14px", color: "#666", lineHeight: "1.6" }}>
+                {additional}
+              </div>
             </div>
           </div>
-        )}
 
-        <Footer />
+          {/* ── RIGHT COLUMN: Booking/Contact card ── */}
+          <div style={{ width: "100%", maxWidth: "280px" }}>
+            <div style={{
+              background: "#fff", borderRadius: "18px",
+              padding: "22px 20px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+              display: "flex", flexDirection: "column", gap: "14px"
+            }}>
 
-        {showModal && (
-          <UnlockModal
-            phone={revealedPhone}
-            driverName={user?.fullName}
-            onClose={() => setShowModal(false)}
-          />
-        )}
-      </div>
-    </>
+              <div style={{ display: "flex", alignItems: "center", gap: "9px", color: "#333", fontSize: "14px", fontWeight: 600 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                {dtLabel}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "9px", color: "#333", fontSize: "14px", fontWeight: 600 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                {seats} {seats === 1 ? "seat" : "seats"} available
+              </div>
+
+              <div style={{ height: "1px", background: "#f0f0f0" }} />
+
+              {/* Contact Number field */}
+              <div>
+                <div style={{
+                  border: "1.5px solid #e5e7eb", borderRadius: "10px",
+                  padding: "12px 14px", display: "flex",
+                  alignItems: "center", justifyContent: "space-between",
+                  background: "#fafafa"
+                }}>
+                  <span style={{
+                    fontSize: "14px",
+                    color: unlocked ? "#111" : "#bbb",
+                    fontWeight: unlocked ? 700 : 400,
+                    letterSpacing: unlocked ? "1px" : "0",
+                    filter: unlocked ? "none" : "blur(4px)",
+                    userSelect: unlocked ? "text" : "none",
+                    transition: "all 0.3s ease"
+                  }}>
+                    {unlocked ? contact : (maskedPhone || "Contact Number")}
+                  </span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={unlocked ? "#22c55e" : "#ccc"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                </div>
+              </div>
+
+              {seats > 0 && seats <= 2 && !unlocked && (
+                <div style={{
+                  border: "1.5px solid #fecaca", borderRadius: "10px",
+                  padding: "11px 14px", display: "flex",
+                  alignItems: "center", gap: "8px", background: "#fff5f5"
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <span style={{ color: "#ef4444", fontWeight: 700, fontSize: "13px" }}>
+                    Only {seats} {seats === 1 ? "seat" : "seats"} left!
+                  </span>
+                </div>
+              )}
+
+              <button
+                onClick={handleUnlock}
+                disabled={unlocked || unlocking}
+                style={{
+                  background: unlocked ? "#22c55e" : "#e8b800",
+                  color: "#111", border: "none", borderRadius: "12px",
+                  padding: "14px 0", width: "100%",
+                  fontWeight: 800, fontSize: "15px",
+                  cursor: unlocked || unlocking ? "default" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: "8px", transition: "background 0.3s ease",
+                  letterSpacing: "-0.1px"
+                }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  {unlocked
+                    ? <polyline points="20 6 9 17 4 12"/>
+                    : <><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></>}
+                </svg>
+                {unlocked ? "Contact Unlocked!" : (unlocking ? "Unlocking…" : "Unlock Contact")}
+              </button>
+
+              <div style={{ textAlign: "center", fontSize: "12px", color: "#aaa", lineHeight: "1.5" }}>
+                Secure payment • Get contact instantly
+              </div>
+            </div>
+          </div>
+        </main>
+      )}
+
+      <Footer />
+    </div>
   );
 }

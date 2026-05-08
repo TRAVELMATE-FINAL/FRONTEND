@@ -1,825 +1,692 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import axios from "axios";
 import RideMap from "../components/RideMap/RideMap";
-import {
-  Search,
-  Bell,
-  User,
-  MapPin,
-  Calendar,
-  Clock,
-  BadgeCheck,
-  Flame,
-  Eye,
-  ArrowRight,
-  Car,
-  Bike,
-  Sun,
-  Moon,
-  PawPrint,
-  Cigarette,
-  UserRound,
-} from "lucide-react";
 
 const API_BASE = "http://localhost:5000";
 
-export default function FindFriend() {
+/* ── Inject spinner + shimmer keyframes once per page mount ── */
+const SpinnerStyles = () => (
+  <style>{`
+    @keyframes ff-spin { to { transform: rotate(360deg); } }
+    @keyframes ff-shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position: 400px 0; }
+    }
+    .ff-spinner-ring {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      border: 4px solid #e6e8ec;
+      border-top-color: #7c3aed;
+      animation: ff-spin 0.9s linear infinite;
+    }
+    .ff-skel {
+      background: linear-gradient(90deg, #1f2937 0%, #2a3447 50%, #1f2937 100%);
+      background-size: 800px 100%;
+      animation: ff-shimmer 1.4s linear infinite;
+      border-radius: 8px;
+    }
+  `}</style>
+);
+
+/* ── Professional loading state — spinner + shimmer skeleton cards ── */
+const LoadingRides = () => (
+  <>
+    <SpinnerStyles />
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      padding: "26px 0 18px",
+    }}>
+      <div className="ff-spinner-ring" />
+      <div style={{ marginTop: 14, fontSize: 14, fontWeight: 600, color: "#1a1a2e" }}>
+        Finding the best rides for you…
+      </div>
+      <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
+        Hold tight, this only takes a moment.
+      </div>
+    </div>
+
+    {/* 3 shimmering skeleton cards so the layout doesn't jump when the data arrives */}
+    {[0, 1, 2].map((i) => (
+      <div key={i} style={{
+        background: "#111827", borderRadius: "20px", padding: "26px",
+        display: "flex", gap: "22px",
+        border: "1px solid rgba(255,255,255,0.07)",
+        opacity: 1 - i * 0.18,
+      }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div className="ff-skel" style={{ width: 60, height: 60, borderRadius: "50%" }} />
+            <div style={{ flex: 1 }}>
+              <div className="ff-skel" style={{ height: 16, width: "55%", marginBottom: 8 }} />
+              <div className="ff-skel" style={{ height: 12, width: "35%" }} />
+            </div>
+          </div>
+          <div className="ff-skel" style={{ height: 22, width: "75%" }} />
+          <div className="ff-skel" style={{ height: 14, width: "45%" }} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <div className="ff-skel" style={{ height: 22, width: 60, borderRadius: 20 }} />
+            <div className="ff-skel" style={{ height: 22, width: 70, borderRadius: 20 }} />
+            <div className="ff-skel" style={{ height: 22, width: 80, borderRadius: 20 }} />
+          </div>
+        </div>
+        <div className="ff-skel" style={{ width: 210, height: 180, flexShrink: 0, borderRadius: 14 }} />
+      </div>
+    ))}
+  </>
+);
+
+/* ── Tag chip ── */
+const Tag = ({ label }) => (
+  <span style={{
+    padding: "4px 13px", borderRadius: "20px",
+    border: "1px solid rgba(255,255,255,0.22)",
+    color: "#c9d1e0", fontSize: "12px", fontWeight: 500
+  }}>{label}</span>
+);
+
+/* ── Live ride card — bigger card, real driver name + photo, larger map ── */
+const RideCard = ({ ride, onConnect }) => {
+  const driver  = ride.driverName?.trim() || "TravelMate Rider";
+  const photo   = ride.driverPhoto || "";
+  const initial = driver.charAt(0).toUpperCase();
+  const tags = [
+    ride.gender || "Any",
+    ride.vehicle || "Bike",
+    ...(ride.distance ? [`📍 ${ride.distance}`] : []),
+  ];
+  const seats = typeof ride.seatsAvailable === "number" ? ride.seatsAvailable : 1;
+  const isFresh = ride.createdAt &&
+    Date.now() - new Date(ride.createdAt).getTime() < 10 * 60 * 1000;
+
+  return (
+    <div style={{
+      background: "#111827", borderRadius: "20px", padding: "26px",
+      display: "flex", flexDirection: "column", gap: "18px",
+      border: "1px solid rgba(255,255,255,0.07)",
+      boxShadow: "0 4px 22px rgba(15,15,46,0.10)"
+    }}>
+      <div style={{ display: "flex", gap: "22px", alignItems: "flex-start" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "14px", minWidth: 0 }}>
+          {/* Driver — real name + uploaded photo if any */}
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            <div style={{
+              width: "60px", height: "60px", borderRadius: "50%", flexShrink: 0,
+              border: "2px solid rgba(255,255,255,0.18)", overflow: "hidden",
+              background: photo ? "#1f2937" : "linear-gradient(135deg,#6366f1,#a78bfa)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontWeight: 700, fontSize: "22px"
+            }}>
+              {photo
+                ? <img src={photo} alt={driver} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : initial}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                <span style={{ color: "#f1f3f5", fontWeight: 700, fontSize: "18px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{driver}</span>
+                <span style={{ background: "#2f9e44", borderRadius: "50%", width: "18px", height: "18px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="10" height="10" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </span>
+              </div>
+              <div style={{ color: "#9ca3af", fontSize: "13px", marginTop: "3px" }}>
+                <span style={{ color: "#f59f00" }}>★ 4.8</span> &bull; {ride.duration || "—"}
+                {isFresh && <span style={{ color: "#4ade80", fontWeight: 600, marginLeft: 8 }}>🟢 Just posted</span>}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ color: "#f1f3f5", fontWeight: 700, fontSize: "20px" }}>
+            {ride.from} → {ride.to}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "7px", color: "#cbd5e1", fontSize: "14px" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+            </svg>
+            {ride.date || ""} &bull; {ride.time || ""}
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {tags.map((t, i) => <Tag key={i} label={t} />)}
+          </div>
+        </div>
+
+        {/* Bigger Leaflet map — real driving polyline */}
+        <div style={{ width: "210px", height: "180px", flexShrink: 0, borderRadius: "14px", overflow: "hidden" }}>
+          <RideMap ride={ride} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "10px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#f1f3f5", fontSize: "14px", fontWeight: 600 }}>
+            <span>🔥</span> {seats} {seats === 1 ? "seat" : "seats"} left
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#6b7280", fontSize: "12px", marginTop: "4px" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" />
+            </svg>
+            {ride.viewCount || 0} people viewed
+          </div>
+        </div>
+        <button
+          onClick={() => onConnect(ride._id)}
+          style={{
+            background: "#e8b800", color: "#111", border: "none",
+            borderRadius: "26px", padding: "13px 28px",
+            fontWeight: 700, fontSize: "15px", cursor: "pointer",
+            boxShadow: "0 4px 14px rgba(232, 184, 0, 0.30)"
+          }}>Connect →</button>
+      </div>
+    </div>
+  );
+};
+
+/* ── Filter panel — controlled by parent so filters actually affect the list ── */
+const FilterPanel = ({ filters, setFilters, onApply, onReset }) => {
+  const { vehicleType = "", femaleOnly = false, departTime, amenity, minSeats } = filters;
+  const set = (patch) => setFilters((f) => ({ ...f, ...patch }));
+
+  // Are any filters currently active? (so we can grey-out / hide the Clear chip)
+  const anyActive =
+    vehicleType !== "" ||
+    femaleOnly ||
+    (departTime && departTime !== "") ||
+    (amenity && amenity !== "") ||
+    (minSeats && minSeats > 0);
+
+  return (
+    <div style={{
+      background: "#fff", borderRadius: "16px", padding: "20px",
+      width: "215px", flexShrink: 0,
+      boxShadow: "0 4px 20px rgba(0,0,0,0.08)"
+    }}>
+      {/* Header — Filters title + Clear All chip */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: "16px", gap: 8,
+      }}>
+        <div style={{ fontWeight: 700, fontSize: "15px", color: "#111", display: "flex", alignItems: "center", gap: "7px" }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="11" y1="18" x2="13" y2="18" />
+          </svg>
+          Filters
+        </div>
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={!anyActive}
+          style={{
+            background: anyActive ? "#fff5f5" : "#f5f5f5",
+            border: "1px solid " + (anyActive ? "#fecaca" : "#e5e5e5"),
+            color: anyActive ? "#dc2626" : "#aaa",
+            fontSize: "11px", fontWeight: 600,
+            padding: "4px 10px", borderRadius: "12px",
+            cursor: anyActive ? "pointer" : "not-allowed",
+            display: "flex", alignItems: "center", gap: "4px",
+            fontFamily: "inherit",
+          }}
+          title={anyActive ? "Clear all filters" : "No filters applied"}
+        >
+          <span style={{ fontSize: 13, lineHeight: 1 }}>×</span>
+          Clear
+        </button>
+      </div>
+
+      {/* Ride Type — Car or Bike (single-select), independent Female Rider toggle.
+          Car + Female / Bike + Female combinations are valid. */}
+      <div style={{ marginBottom: "16px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 600, color: "#666", marginBottom: "8px" }}>Ride Type</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          {[
+            { key: "car",  label: "Car",  icon: "🚗" },
+            { key: "bike", label: "Bike", icon: "🏍️" },
+          ].map(({ key, label, icon }) => {
+            const active = vehicleType === key;
+            const accent = "#1a1a2e";
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => set({ vehicleType: active ? "" : key })}
+                style={{
+                  display: "flex", alignItems: "center", gap: "7px",
+                  padding: "7px 12px", borderRadius: "20px", width: "100%",
+                  border: active ? `1.5px solid ${accent}` : "1.5px solid transparent",
+                  background: active ? accent : "#f0f0f0",
+                  color: active ? "#fff" : "#555",
+                  fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left"
+                }}>
+                <span>{icon}</span>
+                <span>{label}</span>
+                {active && <span style={{ marginLeft: "auto" }}>✓</span>}
+              </button>
+            );
+          })}
+
+          {/* Female Rider — independent toggle (combinable with Car/Bike) */}
+          <button
+            type="button"
+            onClick={() => set({ femaleOnly: !femaleOnly })}
+            style={{
+              display: "flex", alignItems: "center", gap: "7px",
+              padding: "7px 12px", borderRadius: "20px", width: "100%",
+              border: femaleOnly ? "1.5px solid #ec4899" : "1.5px solid transparent",
+              background: femaleOnly ? "#ec4899" : "#f0f0f0",
+              color: femaleOnly ? "#fff" : "#555",
+              fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left",
+              marginTop: 4,
+            }}
+          >
+            <span>👩</span>
+            <span>Female Rider</span>
+            {femaleOnly && <span style={{ marginLeft: "auto" }}>✓</span>}
+          </button>
+        </div>
+
+        {/* Combination hint */}
+        {(vehicleType || femaleOnly) && (
+          <div style={{ fontSize: 11, color: "#888", marginTop: 8, lineHeight: 1.4 }}>
+            Showing: {[
+              vehicleType === "car"  ? "🚗 Car"   : null,
+              vehicleType === "bike" ? "🏍️ Bike" : null,
+              femaleOnly             ? "👩 Female" : null,
+            ].filter(Boolean).join(" + ")}
+          </div>
+        )}
+      </div>
+
+      {/* Departure time — actual time picker */}
+      <div style={{ marginBottom: "16px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 600, color: "#666", marginBottom: "8px" }}>Departure time</div>
+        <div style={{
+          display: "flex", alignItems: "center", gap: "8px",
+          border: "1.5px solid #e5e5e5", borderRadius: "10px",
+          padding: "8px 12px", background: "#fff"
+        }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+          </svg>
+          <input
+            type="time"
+            value={departTime}
+            onChange={(e) => set({ departTime: e.target.value })}
+            style={{
+              border: "none", outline: "none", background: "transparent",
+              fontSize: "13px", color: "#1a1a2e", fontFamily: "inherit",
+              flex: 1, minWidth: 0
+            }}
+          />
+          {departTime && (
+            <button type="button" onClick={() => set({ departTime: "" })} title="Clear"
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#888", fontSize: 16, padding: 0 }}>
+              ×
+            </button>
+          )}
+        </div>
+        <div style={{ fontSize: 10, color: "#aaa", marginTop: 4 }}>Shows rides at or after this time</div>
+      </div>
+
+      {/* Amenities — pick any one (radio behaviour, click again to clear) */}
+      <div style={{ marginBottom: "16px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 600, color: "#666", marginBottom: "8px" }}>Amenities</div>
+        {[
+          { key: "smoking", label: "Smoking Allowed" },
+          { key: "pets",    label: "Pets Allowed" },
+        ].map(({ key, label }) => {
+          const active = amenity === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => set({ amenity: active ? "" : key })}
+              style={{
+                display: "flex", alignItems: "center", gap: "8px",
+                width: "100%", padding: "6px 4px", marginBottom: "4px",
+                background: "transparent", border: "none", cursor: "pointer",
+                fontSize: "12px", color: "#333", textAlign: "left",
+                fontFamily: "inherit"
+              }}>
+              <div style={{
+                width: "16px", height: "16px", borderRadius: "50%",
+                border: `2px solid ${active ? "#2f9e44" : "#cfcfcf"}`,
+                background: active ? "#2f9e44" : "#fff",
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                transition: "all 0.15s ease"
+              }}>
+                {active && (
+                  <svg width="9" height="9" viewBox="0 0 9 9">
+                    <polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="white" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </div>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Minimum Seats — number box (Figma-style) */}
+      <div style={{ marginBottom: "18px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 600, color: "#666", marginBottom: "10px" }}>Minimum Seats</div>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          border: "1.5px solid #e5e5e5", borderRadius: "10px",
+          padding: "8px 12px", background: "#fff"
+        }}>
+          <input
+            type="number"
+            min={0}
+            max={8}
+            value={minSeats}
+            onChange={(e) => set({ minSeats: Math.max(0, Math.min(8, Number(e.target.value) || 0)) })}
+            style={{
+              border: "none", outline: "none", background: "transparent",
+              fontSize: "16px", fontWeight: 700, color: "#1a1a2e",
+              width: "40px", textAlign: "left",
+              fontFamily: "inherit"
+            }}
+          />
+          <div style={{ display: "flex", gap: "6px" }}>
+            <button type="button" onClick={() => set({ minSeats: Math.max(0, minSeats - 1) })} style={{
+              width: "26px", height: "26px", borderRadius: "8px",
+              border: "1.5px solid #e5e5e5", background: "#fff",
+              cursor: "pointer", fontSize: "14px", color: "#555",
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}>−</button>
+            <button type="button" onClick={() => set({ minSeats: Math.min(8, minSeats + 1) })} style={{
+              width: "26px", height: "26px", borderRadius: "8px",
+              border: "none", background: "#1a1a2e",
+              cursor: "pointer", fontSize: "14px", color: "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}>+</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Round dark search button (Figma style) */}
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <button type="button" onClick={onApply} title="Apply filters" style={{
+          background: "#1a1a2e", color: "#fff", border: "none",
+          borderRadius: "50%", width: "42px", height: "42px",
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 4px 14px rgba(26,26,46,0.25)"
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/* ── Main ── */
+export default function TravelMate() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
   const queryFrom = searchParams.get("from") || "";
   const queryTo   = searchParams.get("to")   || "";
+  const queryDate = searchParams.get("date") || "";
 
-  const [activeNav, setActiveNav] = useState("find");
-  const [vehicle, setVehicle] = useState("bike");
-  const [timeSlot, setTimeSlot] = useState("afternoon");
-  const [femaleRider, setFemaleRider] = useState(true);
-  const [pets, setPets] = useState(false);
-  const [smoking, setSmoking] = useState(true);
+  // Default the search-bar date to TODAY when the URL doesn't carry one,
+  // so the FindFriends top bar always shows a valid date out of the box.
+  const todayISO = () => new Date().toISOString().split("T")[0];
 
-  // Search bar inputs (live editing inside this page)
-  const [fromInput, setFromInput] = useState(queryFrom);
-  const [toInput,   setToInput]   = useState(queryTo);
+  const [from, setFrom] = useState(queryFrom);
+  const [to,   setTo]   = useState(queryTo);
+  const [date, setDate] = useState(queryDate || todayISO());
 
-  // Rides + UI
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [notFound, setNotFound] = useState(false); // "Ride not available"
+  const [notFound, setNotFound] = useState(false);
 
-  // Fetch — uses /api/rides/search when from+to in URL, else /api/rides
+  // Sidebar filters (applied client-side to the rides list)
+  // vehicleType + femaleOnly are independent — they combine with AND.
+  const [filters, setFilters] = useState({
+    vehicleType: "",     // "" | "car" | "bike"
+    femaleOnly: false,   // true = require Female rider
+    departTime: "",      // "" or "HH:MM" (rides ≥ this time)
+    amenity: "",         // "" | "smoking" | "pets"
+    minSeats: 0,
+  });
+  const resetFilters = () =>
+    setFilters({ vehicleType: "", femaleOnly: false, departTime: "", amenity: "", minSeats: 0 });
+
+  // The round Search button just scrolls to the top of the cards list
+  const applyFilters = () => {
+    const cards = document.getElementById("ff-cards");
+    if (cards) cards.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // Apply filters
+  const matchesAmenity = (info, amenity) => {
+    const t = (info || "").toLowerCase();
+    if (!amenity) return true;
+    if (amenity === "smoking") return t.includes("smoking") && !t.includes("no smoking");
+    if (amenity === "pets")    return t.includes("pet");
+    return true;
+  };
+  const visibleRides = rides.filter((r) => {
+    const v = (r.vehicle || "").toLowerCase();
+    const g = (r.gender || "").toLowerCase();
+
+    // Vehicle filter — single-select Car or Bike (independent of femaleOnly)
+    if (filters.vehicleType === "car"  && v !== "car")  return false;
+    if (filters.vehicleType === "bike" && v !== "bike") return false;
+
+    // Female-only — independent toggle, combines with Car/Bike via AND
+    if (filters.femaleOnly && g !== "female") return false;
+
+    if (filters.departTime && (r.time || "") < filters.departTime) return false;
+    if (!matchesAmenity(r.additionalInfo, filters.amenity)) return false;
+    if (filters.minSeats > 0 && (r.seatsAvailable || 0) < filters.minSeats) return false;
+    return true;
+  });
+
+  // Fetch — search if from+to in URL, else all rides
   const fetchRides = async () => {
     try {
-      setLoading(true);
-      setError("");
-      setNotFound(false);
-
+      setLoading(true); setError(""); setNotFound(false);
       let url = `${API_BASE}/api/rides`;
       if (queryFrom && queryTo) {
         const qp = new URLSearchParams({ from: queryFrom, to: queryTo });
         url = `${API_BASE}/api/rides/search?${qp.toString()}`;
       }
-
       const { data } = await axios.get(url);
       setRides(data.data || []);
-
-      // Backend returns { count: 0, message: "Ride not available", data: [] }
       if (queryFrom && queryTo && (!data.data || data.data.length === 0)) {
         setNotFound(true);
       }
-    } catch (err) {
+    } catch {
       setError("Could not load rides. Make sure the backend is running.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Re-fetch whenever the URL search params change + auto-refresh every 15s
+  // Re-fetch on URL change + auto-refresh every 15s
   useEffect(() => {
-    setFromInput(queryFrom);
-    setToInput(queryTo);
+    setFrom(queryFrom); setTo(queryTo); setDate(queryDate);
     fetchRides();
-    const interval = setInterval(fetchRides, 15000);
-    return () => clearInterval(interval);
+    const id = setInterval(fetchRides, 15000);
+    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryFrom, queryTo]);
+  }, [queryFrom, queryTo, queryDate]);
 
-  // Submit search bar at top → updates URL → triggers re-fetch
+  // Submit search bar → write URL params
   const handleSearch = (e) => {
     e?.preventDefault?.();
-    const f = fromInput.trim();
-    const t = toInput.trim();
+    const f = from.trim(), t = to.trim();
     if (!f || !t) {
       // empty → clear filter, show all
       setSearchParams({});
       return;
     }
-    setSearchParams({ from: f, to: t });
+    if (f.toLowerCase() === t.toLowerCase()) {
+      alert("'From' and 'To' cannot be the same");
+      return;
+    }
+    const params = { from: f, to: t };
+    if (date) params.date = date;
+    setSearchParams(params);
   };
 
   const clearFilter = () => {
-    setFromInput("");
-    setToInput("");
+    setFrom(""); setTo(""); setDate("");
     setSearchParams({});
   };
 
   return (
-    <div className="tm-page">
-      <style>{styles}</style>
+    <div style={{ minHeight: "100vh", background: "#dde1e9", fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif" }}>
 
-      {/* ============== LEFT SIDEBAR ============== */}
-      <aside className="tm-sidebar">
-        <div className="tm-logo">TravelMate</div>
-
-        <nav className="tm-nav">
-          <button
-            className={`tm-nav__item ${activeNav === "find" ? "tm-nav__item--active" : ""}`}
-            onClick={() => setActiveNav("find")}
-          >
-            <Search size={18} strokeWidth={2.4} />
-            <span>Find Friend</span>
-          </button>
-
-          <button
-            className={`tm-nav__item ${activeNav === "notif" ? "tm-nav__item--active" : ""}`}
-            onClick={() => setActiveNav("notif")}
-          >
-            <Bell size={18} strokeWidth={2} />
-            <span>Notification</span>
-          </button>
-
-          <button
-            className={`tm-nav__item ${activeNav === "profile" ? "tm-nav__item--active" : ""}`}
-            onClick={() => setActiveNav("profile")}
-          >
-            <User size={18} strokeWidth={2} />
-            <span>Profile</span>
-          </button>
-        </nav>
-
-        <div className="tm-trust">
-          <h4 className="tm-trust__title">Travel with trust</h4>
+      {/* ── Navbar ── */}
+      <div style={{ background: "#fff", padding: "0 48px", height: "64px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+        <div onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+          <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.8" />
+              <polygon points="12,4 14.5,11 12,10 9.5,11" fill="white" />
+              <polygon points="12,20 9.5,13 12,14 14.5,13" fill="rgba(255,255,255,0.5)" />
+              <circle cx="12" cy="12" r="1.5" fill="white" />
+            </svg>
+          </div>
+          <span style={{ fontWeight: 800, fontSize: "18px", color: "#111", letterSpacing: "-0.4px" }}>Travel Mate</span>
         </div>
-      </aside>
+        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          <button style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", display: "flex" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+          </button>
+          <button style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", display: "flex" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+          <button onClick={() => navigate("/login")} style={{ background: "#e8b800", color: "#111", border: "none", borderRadius: "22px", padding: "9px 24px", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>Login</button>
+        </div>
+      </div>
 
-      {/* ============== CENTER CONTENT ============== */}
-      <main className="tm-main">
-        {/* Search row */}
-        <form className="tm-search" onSubmit={handleSearch}>
-          <div className="tm-search__field">
-            <MapPin size={16} className="tm-search__icon" />
+      {/* ── Search Bar ── */}
+      <form onSubmit={handleSearch} style={{ padding: "28px 48px 0", display: "flex", justifyContent: "center" }}>
+        <div style={{
+          background: "#c8cdd8",
+          borderRadius: "16px",
+          padding: "12px 14px",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          width: "100%",
+          maxWidth: "740px"
+        }}>
+          <div style={{ background: "#fff", borderRadius: "10px", padding: "11px 14px", display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+            <input value={from} onChange={e => setFrom(e.target.value)} placeholder="From"
+              style={{ border: "none", outline: "none", fontSize: "14px", color: "#333", width: "100%", background: "transparent" }} />
+          </div>
+
+          <div style={{ background: "#fff", borderRadius: "10px", padding: "11px 14px", display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+            <input value={to} onChange={e => setTo(e.target.value)} placeholder="To"
+              style={{ border: "none", outline: "none", fontSize: "14px", color: "#333", width: "100%", background: "transparent" }} />
+          </div>
+
+          <div style={{ background: "#fff", borderRadius: "10px", padding: "11px 14px", display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
             <input
-              placeholder="From"
-              value={fromInput}
-              onChange={(e) => setFromInput(e.target.value)}
+              type="date"
+              value={date}
+              min={new Date().toISOString().split("T")[0]}
+              onChange={e => setDate(e.target.value)}
+              placeholder="Date"
+              style={{ border: "none", outline: "none", fontSize: "14px", color: "#333", width: "100%", background: "transparent" }} />
+          </div>
+
+          <button type="submit" style={{
+            background: "#e8b800", color: "#111", border: "none",
+            borderRadius: "10px", padding: "11px 22px",
+            fontWeight: 700, fontSize: "14px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0
+          }}>Find Ride</button>
+        </div>
+      </form>
+
+      {/* Active filter chip */}
+      {(queryFrom || queryTo) && (
+        <div style={{ padding: "12px 48px 0", display: "flex", justifyContent: "center" }}>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: "#fff", borderRadius: 14, padding: "10px 16px",
+            border: "1px solid #e5e7eb",
+            fontSize: 13, color: "#1a1a2e", fontWeight: 500,
+            maxWidth: 875, width: "100%",
+          }}>
+            <div>
+              Showing rides from <b>{queryFrom}</b> to <b>{queryTo}</b>
+              {queryDate && <> on <b>{queryDate}</b></>}
+            </div>
+            <button onClick={clearFilter} style={{
+              background: "transparent", border: "none", color: "#7c3aed",
+              fontWeight: 600, cursor: "pointer", fontSize: 13,
+            }}>Clear filter</button>
+          </div>
+        </div>
+      )}
+
+      {/* Body — filter panel + cards list */}
+      <div style={{
+        padding: "20px 48px 60px",
+        display: "flex", gap: "20px",
+        justifyContent: "center",
+        alignItems: "flex-start"
+      }}>
+        <FilterPanel filters={filters} setFilters={setFilters} onApply={applyFilters} onReset={resetFilters} />
+        <div id="ff-cards" style={{ display: "flex", flexDirection: "column", gap: "20px", flex: 1, maxWidth: "640px" }}>
+          {loading && <LoadingRides />}
+
+          {!loading && error && (
+            <div style={{ background: "#fff5f5", border: "1px solid #fecaca", color: "#dc2626", borderRadius: 12, padding: 16, textAlign: "center" }}>
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && notFound && (
+            <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 12, padding: 24, textAlign: "center", lineHeight: 1.7 }}>
+              No rides found for this route.
+            </div>
+          )}
+
+          {!loading && !error && !notFound && rides.length === 0 && (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "#475569", fontSize: 14 }}>
+              No rides yet — be the first to post one!
+            </div>
+          )}
+
+          {!loading && !error && rides.length > 0 && visibleRides.length === 0 && (
+            <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 12, padding: 24, textAlign: "center", lineHeight: 1.7 }}>
+              No rides match the current filters.{" "}
+              <button onClick={resetFilters} style={{ background: "transparent", border: "none", color: "#7c3aed", fontWeight: 600, cursor: "pointer" }}>Reset filters</button>
+            </div>
+          )}
+
+          {!loading && !error && visibleRides.map((ride) => (
+            <RideCard
+              key={ride._id}
+              ride={ride}
+              onConnect={(id) => navigate(`/connect-unlock?rideId=${id}`)}
             />
-          </div>
-          <div className="tm-search__field">
-            <MapPin size={16} className="tm-search__icon" />
-            <input
-              placeholder="To"
-              value={toInput}
-              onChange={(e) => setToInput(e.target.value)}
-            />
-          </div>
-          <div className="tm-search__field">
-            <Calendar size={16} className="tm-search__icon" />
-            <input placeholder="Date (optional)" />
-          </div>
-          <button type="submit" className="tm-search__btn">Find Ride</button>
-        </form>
-
-        {/* Active filter chip + clear */}
-        {(queryFrom || queryTo) && (
-          <div className="tm-filterbar">
-            <span className="tm-filterbar__label">
-              Showing rides for:&nbsp;
-              <strong>{queryFrom}</strong> → <strong>{queryTo}</strong>
-            </span>
-            <button type="button" className="tm-filterbar__clear" onClick={clearFilter}>
-              Clear filter
-            </button>
-          </div>
-        )}
-
-        {/* Loading state */}
-        {loading && (
-          <div className="tm-status">⏳ Loading rides...</div>
-        )}
-
-        {/* Error state */}
-        {error && !loading && (
-          <div className="tm-status tm-status--error">⚠️ {error}</div>
-        )}
-
-        {/* "Ride not available" — search returned zero matches */}
-        {!loading && !error && notFound && (
-          <div className="tm-status tm-status--notfound">
-            🚫 Ride not available for <strong>{queryFrom}</strong> → <strong>{queryTo}</strong>.
-            <br />
-            <a href="/post-ride" style={{ color: "#FFD93D", fontWeight: 600 }}>
-              Be the first to post this ride →
-            </a>
-          </div>
-        )}
-
-        {/* Empty state — no rides at all (no filter active) */}
-        {!loading && !error && !notFound && rides.length === 0 && (
-          <div className="tm-status">
-            No rides posted yet.{" "}
-            <a href="/post-ride" style={{ color: "#FFD93D" }}>
-              Post the first ride →
-            </a>
-          </div>
-        )}
-
-        {/* Ride cards — same format, now using live data */}
-        <div className="tm-rides">
-          {rides.map((ride) => (
-            <article key={ride._id} className="tm-card"> {/* ✅ _id from MongoDB */}
-              <div className="tm-card__left">
-                <header className="tm-card__head">
-                  <div className="tm-card__avatar">
-                    {/* ✅ dynamic avatar initial from 'from' city */}
-                    <div className="tm-card__avatar-initial">
-                      {ride.from?.charAt(0).toUpperCase()}
-                    </div>
-                  </div>
-                  <div className="tm-card__user">
-                    <div className="tm-card__name-row">
-                      {/* ✅ show "from city Rider" as name since we have no user profile yet */}
-                      <span className="tm-card__name">{ride.from} Rider</span>
-                      <BadgeCheck
-                        size={16}
-                        className="tm-card__verified"
-                        fill="#FFD93D"
-                        color="#0F0F2E"
-                      />
-                    </div>
-                    {/* ✅ show gender from ride data */}
-                    <div className="tm-card__meta">
-                      {ride.gender} Rider
-                    </div>
-                  </div>
-                </header>
-
-                {/* ✅ live from → to */}
-                <div className="tm-card__route">
-                  {ride.from} <span className="tm-card__arrow">→</span> {ride.to}
-                </div>
-
-                {/* ✅ live date + time */}
-                <div className="tm-card__time">
-                  <Clock size={16} strokeWidth={2.2} />
-                  <span>{ride.date} • {ride.time}</span>
-                </div>
-
-                {/* ✅ distance + duration as tags */}
-                <div className="tm-card__tags">
-                  <span className="tm-card__tag">📍 {ride.distance}</span>
-                  <span className="tm-card__tag">⏱ {ride.duration}</span>
-                  <span className="tm-card__tag">{ride.gender}</span>
-                </div>
-
-                <div className="tm-card__footer">
-                  <div className="tm-card__footer-left">
-                    <div className="tm-card__seats">
-                      <Flame size={14} color="#FF8A3D" fill="#FF8A3D" />
-                      <span>Available</span>
-                    </div>
-                    {/* ✅ show "NEW" if posted within last 10 mins */}
-                    {Date.now() - new Date(ride.createdAt).getTime() < 10 * 60 * 1000 && (
-                      <div className="tm-card__viewers">
-                        <span style={{ color: "#4ade80", fontWeight: 600 }}>🟢 Just posted</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="tm-card__right">
-                <div className="tm-card__map">
-                  <RideMap ride={ride} />
-                </div>
-                <button
-                  className="tm-card__connect"
-                  onClick={() => navigate(`/connect-unlock?rideId=${ride._id}`)}
-                >
-                  Connect <ArrowRight size={16} strokeWidth={2.4} />
-                </button>
-              </div>
-            </article>
           ))}
         </div>
-      </main>
-
-      {/* ============== RIGHT FILTERS PANEL ============== */}
-      <aside className="tm-filters">
-        {/* Vehicle */}
-        <div className="tm-filter-row">
-          <button
-            className={`tm-chip ${vehicle === "car" ? "tm-chip--dark" : ""}`}
-            onClick={() => setVehicle("car")}
-          >
-            <Car size={15} strokeWidth={2} />
-            <span>Car</span>
-          </button>
-          <button
-            className={`tm-chip ${vehicle === "bike" ? "tm-chip--dark" : ""}`}
-            onClick={() => setVehicle("bike")}
-          >
-            <Bike size={15} strokeWidth={2} />
-            <span>Bike</span>
-          </button>
-        </div>
-
-        {/* Time slots */}
-        <div className="tm-filter-row">
-          <button
-            className={`tm-chip ${timeSlot === "morning" ? "tm-chip--dark" : ""}`}
-            onClick={() => setTimeSlot("morning")}
-          >
-            <Sun size={14} strokeWidth={2} />
-            <span>Morning</span>
-          </button>
-          <button
-            className={`tm-chip ${timeSlot === "afternoon" ? "tm-chip--dark" : ""}`}
-            onClick={() => setTimeSlot("afternoon")}
-          >
-            <Sun size={14} strokeWidth={2} />
-            <span>Afternoon</span>
-          </button>
-        </div>
-
-        <div className="tm-filter-row">
-          <button
-            className={`tm-chip ${timeSlot === "evening" ? "tm-chip--dark" : ""}`}
-            onClick={() => setTimeSlot("evening")}
-          >
-            <Sun size={14} strokeWidth={2} />
-            <span>Evening</span>
-          </button>
-          <button
-            className={`tm-chip ${timeSlot === "night" ? "tm-chip--dark" : ""}`}
-            onClick={() => setTimeSlot("night")}
-          >
-            <Moon size={13} strokeWidth={2} />
-            <span>Night</span>
-          </button>
-        </div>
-
-        {/* Female Rider */}
-        <div className="tm-filter-row">
-          <button
-            className={`tm-chip tm-chip--full ${femaleRider ? "tm-chip--dark" : ""}`}
-            onClick={() => setFemaleRider(!femaleRider)}
-          >
-            <UserRound size={14} strokeWidth={2} />
-            <span>Female Rider</span>
-          </button>
-        </div>
-
-        {/* Pets / Smoking */}
-        <div className="tm-filter-row">
-          <button
-            className={`tm-chip ${pets ? "tm-chip--dark" : ""}`}
-            onClick={() => setPets(!pets)}
-          >
-            <PawPrint size={14} strokeWidth={2} />
-            <span>Pets</span>
-          </button>
-          <button
-            className={`tm-chip tm-chip--wide ${smoking ? "tm-chip--dark" : ""}`}
-            onClick={() => setSmoking(!smoking)}
-          >
-            <Cigarette size={14} strokeWidth={2} />
-            <span>Smoking Allowed</span>
-          </button>
-        </div>
-
-        <div className="tm-filters__divider" />
-
-        {/* Reset / Apply */}
-        <div className="tm-filters__actions">
-          <button className="tm-filters__reset">Reset</button>
-          <button className="tm-filters__apply">Apply Filters (4)</button>
-        </div>
-      </aside>
+      </div>
     </div>
   );
 }
-
-const styles = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  .tm-page {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    min-height: 100vh;
-    background: linear-gradient(180deg, #E8E8EC 0%, #EFEFF2 100%);
-    display: grid;
-    grid-template-columns: 260px 1fr 300px;
-    gap: 24px;
-    padding: 28px 32px;
-    color: #1a1a1a;
-  }
-
-  /* ============ SIDEBAR ============ */
-  .tm-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 32px;
-    padding-top: 8px;
-  }
-
-  .tm-logo {
-    font-size: 30px;
-    font-weight: 800;
-    color: #C724B1;
-    letter-spacing: -0.5px;
-    font-family: 'Inter', sans-serif;
-  }
-
-  .tm-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .tm-nav__item {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 16px 20px;
-    background: transparent;
-    border: none;
-    border-radius: 14px;
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: 500;
-    color: #1a1a1a;
-    text-align: left;
-    transition: background 0.18s ease;
-  }
-  .tm-nav__item:hover { background: rgba(255, 217, 61, 0.18); }
-  .tm-nav__item--active {
-    background: #FFD93D;
-    font-weight: 600;
-    box-shadow: 0 1px 0 rgba(0,0,0,0.04);
-  }
-
-  .tm-trust {
-    margin-top: auto;
-    background: #DEDDE3;
-    border-radius: 16px;
-    padding: 18px 20px;
-    margin-bottom: 8px;
-  }
-  .tm-trust__title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #1a1a1a;
-  }
-
-  /* ============ MAIN ============ */
-  .tm-main {
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-    min-width: 0;
-  }
-
-  /* search bar */
-  .tm-search {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr auto;
-    gap: 10px;
-    background: #FFFFFF;
-    padding: 10px;
-    border-radius: 18px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-  }
-
-  .tm-search__field {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #F4F4F6;
-    padding: 12px 14px;
-    border-radius: 12px;
-  }
-  .tm-search__icon { color: #6B6B72; flex-shrink: 0; }
-  .tm-search__field input {
-    border: none;
-    outline: none;
-    background: transparent;
-    font-size: 14px;
-    color: #1a1a1a;
-    width: 100%;
-    font-family: inherit;
-  }
-  .tm-search__field input::placeholder { color: #8a8a92; }
-
-  .tm-search__btn {
-    background: #FFD93D;
-    border: none;
-    border-radius: 12px;
-    padding: 0 26px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #1a1a1a;
-    cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-  }
-  .tm-search__btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(255, 217, 61, 0.35);
-  }
-
-  /* ============ STATUS MESSAGES ============ */
-  .tm-status {
-    text-align: center;
-    color: #6B6B72;
-    padding: 40px 0;
-    font-size: 15px;
-  }
-  .tm-status--error {
-    background: #fff0f0;
-    border: 1px solid #fecaca;
-    border-radius: 12px;
-    color: #dc2626;
-    padding: 16px;
-  }
-  .tm-status--notfound {
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    color: #9a3412;
-    border-radius: 12px;
-    padding: 24px;
-    text-align: center;
-    line-height: 1.7;
-  }
-
-  /* Active-filter chip bar */
-  .tm-filterbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    background: #FFFFFF;
-    padding: 12px 16px;
-    border-radius: 14px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-    border: 1px solid #ECECEF;
-  }
-  .tm-filterbar__label {
-    font-size: 13px;
-    color: #475569;
-  }
-  .tm-filterbar__clear {
-    background: transparent;
-    border: 1px solid #e2e8f0;
-    border-radius: 999px;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #475569;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  .tm-filterbar__clear:hover {
-    border-color: #C724B1;
-    color: #C724B1;
-  }
-
-  /* ============ RIDE CARDS ============ */
-  .tm-rides {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-
-  .tm-card {
-    background: #0F0F2E;
-    border-radius: 22px;
-    padding: 22px;
-    display: grid;
-    grid-template-columns: 1fr 220px;
-    gap: 20px;
-    color: #fff;
-    box-shadow: 0 4px 24px rgba(15,15,46,0.08);
-  }
-
-  .tm-card__left {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    min-width: 0;
-  }
-
-  .tm-card__head {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-  }
-  .tm-card__avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    overflow: hidden;
-    flex-shrink: 0;
-    background: linear-gradient(135deg, #6366f1, #a78bfa);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* ✅ avatar initial letter */
-  .tm-card__avatar-initial {
-    color: #fff;
-    font-size: 20px;
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  .tm-card__user { display: flex; flex-direction: column; gap: 2px; }
-  .tm-card__name-row { display: flex; align-items: center; gap: 6px; }
-  .tm-card__name {
-    font-size: 17px;
-    font-weight: 600;
-    color: #fff;
-  }
-  .tm-card__meta {
-    font-size: 13px;
-    color: rgba(255,255,255,0.55);
-  }
-
-  .tm-card__route {
-    font-size: 18px;
-    font-weight: 500;
-    color: #fff;
-  }
-  .tm-card__arrow { color: rgba(255,255,255,0.7); margin: 0 4px; }
-
-  .tm-card__time {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #FFD93D;
-    font-size: 14px;
-    font-weight: 600;
-  }
-
-  .tm-card__tags {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .tm-card__tag {
-    background: rgba(255,255,255,0.07);
-    padding: 7px 14px;
-    border-radius: 20px;
-    font-size: 12px;
-    color: rgba(255,255,255,0.85);
-    font-weight: 500;
-  }
-
-  .tm-card__footer {
-    margin-top: 4px;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-  }
-  .tm-card__footer-left { display: flex; flex-direction: column; gap: 6px; }
-
-  .tm-card__seats {
-    background: rgba(255, 138, 61, 0.12);
-    color: #FF8A3D;
-    padding: 6px 12px;
-    border-radius: 16px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    width: fit-content;
-  }
-  .tm-card__viewers {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: rgba(255,255,255,0.45);
-    font-size: 11px;
-    margin-left: 4px;
-  }
-
-  /* card right side */
-  .tm-card__right {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .tm-card__map {
-    flex: 1;
-    background: #1a1a3e;
-    border-radius: 14px;
-    overflow: hidden;
-    min-height: 130px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .tm-card__map-svg { width: 100%; height: 100%; }
-
-  .tm-card__connect {
-    background: #FFD93D;
-    border: none;
-    border-radius: 14px;
-    padding: 14px 20px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #1a1a1a;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-  }
-  .tm-card__connect:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(255,217,61,0.35);
-  }
-
-  /* ============ FILTERS PANEL ============ */
-  .tm-filters {
-    background: #FFFFFF;
-    border-radius: 22px;
-    padding: 22px 20px;
-    height: fit-content;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-  }
-
-  .tm-filter-row { display: flex; gap: 8px; }
-
-  .tm-chip {
-    flex: 1;
-    background: #E5E5EA;
-    color: #1a1a1a;
-    border: none;
-    border-radius: 22px;
-    padding: 9px 14px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    font-family: inherit;
-    transition: all 0.18s ease;
-    white-space: nowrap;
-  }
-  .tm-chip:hover { background: #DCDCE0; }
-  .tm-chip--dark { background: #0F0F2E; color: #fff; }
-  .tm-chip--dark:hover { background: #1a1a3e; }
-  .tm-chip--full { flex: 1; }
-  .tm-chip--wide { flex: 1.6; }
-
-  .tm-filters__divider {
-    height: 1px;
-    background: #ECECEF;
-    margin: 6px 0 4px;
-  }
-
-  .tm-filters__actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-  .tm-filters__reset {
-    background: transparent;
-    border: none;
-    font-size: 14px;
-    color: #8a8a92;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .tm-filters__reset:hover { color: #1a1a1a; }
-
-  .tm-filters__apply {
-    background: #FFD93D;
-    border: none;
-    border-radius: 12px;
-    padding: 11px 18px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #1a1a1a;
-    cursor: pointer;
-    font-family: inherit;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-  }
-  .tm-filters__apply:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(255,217,61,0.35);
-  }
-
-  /* ============ RESPONSIVE ============ */
-  @media (max-width: 1100px) {
-    .tm-page { grid-template-columns: 220px 1fr; padding: 20px; }
-    .tm-filters { grid-column: 1 / -1; }
-  }
-
-  @media (max-width: 760px) {
-    .tm-page { grid-template-columns: 1fr; padding: 16px; gap: 16px; }
-    .tm-search { grid-template-columns: 1fr 1fr; }
-    .tm-search__btn { grid-column: 1 / -1; padding: 12px; }
-    .tm-card { grid-template-columns: 1fr; }
-    .tm-card__right { flex-direction: row; }
-    .tm-card__map { min-height: 100px; }
-  }
-`;

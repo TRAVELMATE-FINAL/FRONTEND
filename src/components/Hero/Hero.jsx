@@ -1,15 +1,23 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // ✅ added
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import LocationSearch from '../LocationSearch/LocationSearch';
 import './Hero.css';
 
-function Hero() {
-  const [mode, setMode] = useState('find');         // find | post
+function Hero({ mode: modeProp, onModeChange }) {
+  // Controlled mode if parent provides one, else manage internally
+  const [internalMode, setInternalMode] = useState('find');
+  const mode = modeProp ?? internalMode;
+  const setMode = (m) => {
+    if (onModeChange) onModeChange(m);
+    else setInternalMode(m);
+  };
+
   const [vehicle, setVehicle] = useState('car');    // car | bike
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [date, setDate] = useState('');
 
-  const navigate = useNavigate(); // ✅ added
+  const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -24,12 +32,14 @@ function Hero() {
       return;
     }
 
-    // Build query string and navigate to FindFriends
+    // Build query string and navigate to FindFriends.
+    // If the user didn't pick a date, default to today (YYYY-MM-DD).
+    const todayISO = new Date().toISOString().split('T')[0];
     const params = new URLSearchParams({
       from: from.trim(),
       to: to.trim(),
+      date: date || todayISO,
     });
-    if (date) params.set('date', date);
     navigate(`/find-friend?${params.toString()}`);
   };
 
@@ -55,7 +65,7 @@ function Hero() {
             role="tab"
             aria-selected={mode === 'post'}
             className={`hero__toggle-btn ${mode === 'post' ? 'hero__toggle-btn--active' : ''}`}
-            onClick={() => navigate('/post-ride')} // ✅ changed: navigate instead of setMode
+            onClick={() => setMode('post')}
           >
             Post
           </button>
@@ -94,35 +104,33 @@ function Hero() {
           </div>
 
           <div className="search-card__fields">
-            <label className="field">
+            <label className="field field--locsearch">
               <span className="field__icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
               </span>
-              <input
-                type="text"
+              <LocationSearch
                 placeholder="From"
                 value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                aria-label="Departure city"
+                onChange={setFrom}
+                onSelect={(item) => setFrom(item.display_name)}
               />
             </label>
 
-            <label className="field">
+            <label className="field field--locsearch">
               <span className="field__icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
               </span>
-              <input
-                type="text"
+              <LocationSearch
                 placeholder="To"
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
-                aria-label="Destination city"
+                onChange={setTo}
+                onSelect={(item) => setTo(item.display_name)}
               />
             </label>
 
@@ -136,6 +144,7 @@ function Hero() {
               <input
                 type="date"
                 value={date}
+                min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setDate(e.target.value)}
                 aria-label="Travel date"
               />

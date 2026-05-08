@@ -74,11 +74,40 @@ export default function OtpVerify() {
     setError("");
     setLoading(true);
     try {
-      await verifyOtp(mobileNumber, otp);
-      setSuccess("✅ Verified successfully! Redirecting...");
-      setTimeout(() => navigate("/profile-setup"), 1500);
+      const data = await verifyOtp(mobileNumber, otp);
+
+      // ── Decide where to send the user next ─────────────────
+      // Backend returns the user document. New users have no fullName.
+      // Existing users with a saved profile have fullName + city.
+      const u = (data && data.user) || {};
+      const hasProfile = !!(u.fullName && u.city);
+      const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
+
+      // Routing rules:
+      //   1. Came from "Unlock Contact" (pendingUnlockRideId set) →
+      //        - existing user with profile → /findrideplan (pay first, then unlock)
+      //        - new user / no profile      → /profile-setup → /findrideplan
+      //   2. Normal login (no pending unlock) →
+      //        - new user / no profile → /profile-setup → /find-ride
+      //        - existing user         → /find-ride dashboard directly
+      let nextPath;
+      if (pendingUnlockRideId && hasProfile) {
+        // EXISTING user mid-unlock → go to the plan page to pay
+        nextPath = "/findrideplan";
+        setSuccess("✅ Verified! Choose your plan to continue…");
+      } else if (!hasProfile) {
+        // NEW user (with or without pending unlock) → finish profile first
+        nextPath = "/profile-setup";
+        setSuccess("✅ Verified! Let's set up your profile…");
+      } else {
+        // EXISTING user, no pending unlock → straight to the dashboard
+        nextPath = "/find-ride";
+        setSuccess("✅ Verified! Redirecting to your dashboard…");
+      }
+
+      setTimeout(() => navigate(nextPath, { replace: true }), 1200);
     } catch (err) {
-      setError(err.message);
+      setError(err?.response?.data?.message || err.message || "Verification failed");
       setDigits(Array(OTP_LENGTH).fill(""));
       inputRefs.current[0]?.focus();
     } finally {

@@ -205,3 +205,44 @@
   }
   .hero__toggle-btn { padding: 0.6rem 1.4rem; min-width: 80px; }
 }
+
+/* ---------- LocationSearch fits inside .field --------- */
+.field--locsearch {
+  flex: 1;
+  position: relative;
+}
+.field--locsearch .locsearch {
+  flex: 1;
+  position: static;
+}
+.field--locsearch .locsearch__input {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  height: auto !important;
+  color: #0f172a !important;       /* dark text — readable on white card */
+  box-shadow: none !important;
+}
+.field--locsearch .locsearch__input::placeholder {
+  color: #94a3b8 !important;       /* slate-400 — visible but muted */
+  opacity: 1;
+}
+.field--locsearch .locsearch__input:focus { box-shadow: none !important; }
+.field--locsearch .locsearch__dropdown,
+.field--locsearch .locsearch__empty {
+  color: #0f172a;
+  text-align: left;
+  min-width: 240px;
+  z-index: 9999;
+}
+.field--locsearch .locsearch__option {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The .hero is overflow:hidden, which would clip the dropdown.
+   Promote .search-card and its fields so the dropdown is allowed
+   to escape the search card and stack above everything. */
+.search-card { position: relative; z-index: 5; overflow: visible; }
+.search-card__fields { position: relative; overflow: visible; }

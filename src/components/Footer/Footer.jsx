@@ -69,7 +69,7 @@ function Footer() {
         </div>
 
         <div className="footer__bottom">
-          <p>© 2024 Friend Travel. All rights reserved.</p>
+          <p>© 2026 Friend Travel. All rights reserved.</p>
         </div>
       </div>
     </footer>

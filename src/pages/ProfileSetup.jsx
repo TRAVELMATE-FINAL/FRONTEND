@@ -132,7 +132,16 @@ await saveProfile({
   photo: photoUrl, // ✅ URL, not file
 });
 
-    navigate("/find-ride", { replace: true });  
+    // ── Branch on whether this profile-setup was triggered by Unlock-Contact ──
+    //   • If pendingUnlockRideId is set → user came from Connect&Unlock and
+    //     needs to pay → send to /findrideplan (rideId stays in localStorage).
+    //   • Otherwise (normal sign-up) → land on the FindRide dashboard.
+    const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
+    if (pendingUnlockRideId) {
+      navigate("/findrideplan", { replace: true });
+    } else {
+      navigate("/find-ride", { replace: true });
+    }
 
   } catch (err) {
     setErrors({
@@ -296,8 +305,8 @@ await saveProfile({
             </div>
 
             <div style={s.fieldGroup}>
-              <label style={s.label}>City</label>
-              <div style={s.inputWrap}>
+              <label style={s.label}>City <span style={s.required}>*</span></label>
+              <div style={{ ...s.inputWrap, ...(errors.city ? s.inputError : {}) }}>
                 <svg style={s.inputIcon} width="15" height="15" viewBox="0 0 24 24"
                   fill="none" stroke="#b0b8c9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
@@ -311,6 +320,7 @@ await saveProfile({
                   style={s.input}
                 />
               </div>
+              {errors.city && <p style={s.fieldError}>{errors.city}</p>}
             </div>
           </div>
 
@@ -340,8 +350,21 @@ await saveProfile({
             🔒 Your information is private and secure
           </div>
 
+          {/* ── API error banner ── */}
+          {errors.api && (
+            <div style={{
+              background: "#fef2f2", border: "1px solid #fecaca",
+              color: "#dc2626", borderRadius: 10,
+              padding: "10px 14px", fontSize: 13, marginBottom: 12,
+              textAlign: "center"
+            }}>
+              ⚠️ {errors.api}
+            </div>
+          )}
+
           {/* ── submit ── */}
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={loading}
             style={{ ...s.submitBtn, opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer" }}
@@ -587,32 +610,21 @@ const s = {
     background: "#f9fafb",
     border: "1px solid #e5e7eb",
     borderRadius: 8,
-    padding: "9px 14px",
-    marginBottom: 16,
+    padding: "10px 12px",
+    margin: "8px 0 12px",
   },
 
-  // submit
+  // submit button
   submitBtn: {
-    display: "block",
     width: "100%",
-    padding: "14px",
-    background: "#2563eb",
+    height: 52,
+    background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
     color: "#fff",
     border: "none",
-    borderRadius: 10,
-    fontSize: 15,
-    fontWeight: 600,
-    transition: "background 0.15s",
-    letterSpacing: "0.1px",
-  },
-
-  // bottom hint
-  bottomHint: {
-    marginTop: 20,
-    fontSize: 13,
-    color: "#6b7280",
-    position: "relative",
-    zIndex: 1,
-    textAlign: "center",
+    borderRadius: 12,
+    fontSize: 16,
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: "0 6px 18px rgba(79, 70, 229, 0.30)",
   },
 };
