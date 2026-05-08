@@ -4,7 +4,7 @@ import axios from "axios";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
 
 /* Format "YYYY-MM-DD" + "HH:MM" → "Today, 3:00 PM" / "Tomorrow, 8:30 AM" / "5 May, 11:00 AM" */
 function formatDateTime(date, time) {
@@ -158,7 +158,7 @@ export default function ConnectUnlock() {
   const maskedPhone  = user?.maskedPhone || "Contact Number";
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column",
+    <div className="cu-page-root" style={{ minHeight: "100vh", display: "flex", flexDirection: "column",
       fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif", background: "#e8eaef" }}>
 
       <Header />

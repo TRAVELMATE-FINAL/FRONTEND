@@ -119,7 +119,7 @@ export default function RideLive() {
       fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
       padding: "32px 16px",
     }}>
-      <div style={{
+      <div className="ride-live-card" style={{
         width: "100%", maxWidth: 420, background: "#fff",
         borderRadius: 20, boxShadow: "0 8px 32px rgba(0,0,0,0.10)",
         padding: "40px 28px 32px", textAlign: "center",

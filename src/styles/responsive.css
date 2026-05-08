@@ -96,3 +96,88 @@ html, body, #root {
   max-width: 100%;
   overflow-x: hidden;
 }
+
+/* =============================================================
+   Findrideplan + SecurePayment + RideLive + ChooseYourPlan
+   responsive overrides (mobile + tablet)
+   ============================================================= */
+
+/* ── TABLET ≤ 1024px ── */
+@media (max-width: 1024px) {
+  .plan-row,
+  .plan-page .plan-row {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 16px !important;
+  }
+  .plan-page .plan-row > div { min-width: 220px !important; }
+  .ff-page,
+  .ff-body {
+    padding: 16px 20px !important;
+  }
+}
+
+/* ── MOBILE ≤ 640px ── */
+@media (max-width: 640px) {
+  /* Plan cards stack vertically */
+  .plan-row,
+  .plan-page .plan-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+    margin-bottom: 24px !important;
+  }
+  .plan-page .plan-row > div {
+    max-width: 100% !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  /* SecurePayment card full-width on phones */
+  .secure-payment-card { max-width: 100% !important; border-radius: 14px !important; }
+
+  /* Findfriend top search bar wraps */
+  .ff-search-bar,
+  .ff-body { padding: 12px 14px !important; }
+
+  /* Body — filter sidebar stacks above the cards */
+  .ff-body-flex {
+    flex-direction: column !important;
+    padding: 12px 14px 30px !important;
+  }
+  .ff-body-flex > div:first-child {
+    width: 100% !important;
+  }
+
+  /* RideLive card */
+  .ride-live-card { width: 92% !important; padding: 28px 20px !important; }
+
+  /* Hero search card */
+  .hero .search-card,
+  .search-card__fields {
+    flex-direction: column !important;
+  }
+  .hero .field, .search-card__fields .field {
+    width: 100% !important;
+    margin-bottom: 8px !important;
+  }
+  .hero h1, .hero__title { font-size: 28px !important; }
+
+  /* Connect & Unlock — stack columns */
+  .cu-page-root,
+  .cu-page-root main {
+    flex-direction: column !important;
+    padding: 18px 14px !important;
+  }
+
+  /* PostPage form full width */
+  .post-page-card { width: 96% !important; }
+}
+
+/* ── SMALL PHONES ≤ 380px ── */
+@media (max-width: 380px) {
+  .plan-page h1 { font-size: 26px !important; }
+  .secure-payment-card { padding: 18px 14px !important; }
+  .ride-live-card { padding: 22px 14px !important; }
+}

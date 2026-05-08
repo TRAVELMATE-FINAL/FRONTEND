@@ -111,7 +111,7 @@ export default function ChooseYourPlan() {
 
   return (
     <>
-      <div style={s.page}>
+      <div className="plan-page" style={s.page}>
         <div style={s.inner}>
           <div style={s.heading}>
             <h1 style={s.h1}>Choose your plan</h1>

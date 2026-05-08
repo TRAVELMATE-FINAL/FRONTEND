@@ -185,19 +185,21 @@ export default function SecurePayment() {
               new Date(v.subscription.endDate).toLocaleDateString() + ".");
             localStorage.removeItem("chosenPlan");
 
-            // After payment success → land on RideLive showing the ride that
-            // was just published (or any pending-unlock ride if there was one).
+            // After payment success → ALWAYS land on RideLive.
+            // Pick the most-relevant rideId from localStorage:
+            //   1) pendingUnlockRideId (user came via Unlock Contact)
+            //   2) lastPostedRideId    (user just published a new ride)
+            //   3) no id → RideLive shows a generic "no ride" message
             setTimeout(() => {
               const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
-              const lastPostedRideId = localStorage.getItem("lastPostedRideId");
-              if (pendingUnlockRideId) {
-                localStorage.removeItem("pendingUnlockRideId");
-                navigate("/connect-unlock?rideId=" + pendingUnlockRideId);
-              } else if (lastPostedRideId) {
-                navigate("/ride-live?rideId=" + lastPostedRideId);
-              } else {
-                navigate("/ride-live");
-              }
+              const lastPostedRideId    = localStorage.getItem("lastPostedRideId");
+              const rideId = pendingUnlockRideId || lastPostedRideId || "";
+
+              // The breadcrumb has done its job — clean up so future
+              // navigations don't loop back through the unlock chain.
+              if (pendingUnlockRideId) localStorage.removeItem("pendingUnlockRideId");
+
+              navigate(rideId ? ("/ride-live?rideId=" + rideId) : "/ride-live");
             }, 1500);
           } catch (e) {
             setErrMsg(
@@ -237,6 +239,7 @@ export default function SecurePayment() {
       }}
     >
       <div
+        className="secure-payment-card"
         style={{
           width: "100%",
           maxWidth: 440,

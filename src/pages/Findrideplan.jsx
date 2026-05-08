@@ -136,7 +136,7 @@ export default function Findrideplan() {
 
   return (
     <>
-      <div style={{
+      <div className="plan-page" style={{
         fontFamily: "'Poppins','Segoe UI',sans-serif",
         background: "#f5f5f7", minHeight: "100vh",
         display: "flex", flexDirection: "column",

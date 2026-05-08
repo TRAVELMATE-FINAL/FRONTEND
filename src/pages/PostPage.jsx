@@ -12,7 +12,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
 
-const API = "http://localhost:5000";
+const API = import.meta.env.VITE_APP_URL || "http://localhost:5000";
 
 // Auto-fit map to the route bounds (re-fits whenever coords change)
 function FitRoute({ coords }) {
@@ -79,7 +79,7 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
 
   return (
     <div style={{ fontFamily:"'Poppins',sans-serif", background:"#f0f0f0", minHeight:"100vh", display:"flex", justifyContent:"center", padding:"24px 16px" }}>
-      <div style={{ width:480, maxWidth:"100%", background:"#fff", borderRadius:16, overflow:"visible", boxShadow:"0 8px 32px rgba(0,0,0,0.12)", height:"fit-content" }}>
+      <div className="post-page-card" style={{ width:480, maxWidth:"100%", background:"#fff", borderRadius:16, overflow:"visible", boxShadow:"0 8px 32px rgba(0,0,0,0.12)", height:"fit-content" }}>
 
         {/* Header */}
         <div style={{ padding:"24px 24px 8px" }}>
@@ -390,32 +390,61 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack, liv
             </div>
           </div>
 
-          {/* Color */}
+          {/* Color — required */}
           <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e", marginBottom:6 }}>Color</div>
-            <input style={fieldStyle} placeholder="Enter Colour" value={form.vehicleColor}
-              onChange={(e) => setForm((f) => ({ ...f, vehicleColor: e.target.value }))}/>
+            <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e", marginBottom:6 }}>
+              Color <span style={{ color: "#e53e3e" }}>*</span>
+            </div>
+            <input
+              style={fieldStyle}
+              placeholder="Enter Colour (e.g. White, Black)"
+              value={form.vehicleColor}
+              onChange={(e) => setForm((f) => ({ ...f, vehicleColor: e.target.value }))}
+              required
+            />
           </div>
 
-          {/* Vehicle Name */}
+          {/* Vehicle Name — required */}
           <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e", marginBottom:6 }}>Vehicle Name</div>
-            <input style={fieldStyle} placeholder="e.g. Swift, Activa" value={form.vehicleName}
-              onChange={(e) => setForm((f) => ({ ...f, vehicleName: e.target.value }))}/>
+            <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e", marginBottom:6 }}>
+              Vehicle Name <span style={{ color: "#e53e3e" }}>*</span>
+            </div>
+            <input
+              style={fieldStyle}
+              placeholder="e.g. Swift, Activa, Pulsar"
+              value={form.vehicleName}
+              onChange={(e) => setForm((f) => ({ ...f, vehicleName: e.target.value }))}
+              required
+            />
           </div>
 
-          {/* Number Plate */}
+          {/* Number Plate — required + Indian-format validation */}
           <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e", marginBottom:6 }}>Number Plate</div>
-            <input style={fieldStyle} placeholder="TN09 AB1234" value={form.plateNumber}
-              onChange={(e) => setForm((f) => ({ ...f, plateNumber: e.target.value.toUpperCase() }))}/>
+            <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e", marginBottom:6 }}>
+              Number Plate <span style={{ color: "#e53e3e" }}>*</span>
+            </div>
+            <input
+              style={fieldStyle}
+              placeholder="TN09AB1234 or 22BH1234AB"
+              value={form.plateNumber}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, plateNumber: e.target.value.toUpperCase().replace(/\s+/g, "") }))
+              }
+              maxLength={11}
+              required
+            />
+            <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>
+              Indian formats: standard (TN09AB1234) or BH series (22BH1234AB)
+            </div>
           </div>
 
-          {/* Available Seats */}
+          {/* Available Seats — required, 1-8 */}
           <div style={{ marginBottom:16 }}>
             <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
               <span style={{ fontSize:13 }}>🪑</span>
-              <span style={{ fontSize:13, fontWeight:600, color:"#1a1a2e" }}>Available Seats</span>
+              <span style={{ fontSize:13, fontWeight:600, color:"#1a1a2e" }}>
+                Available Seats <span style={{ color: "#e53e3e" }}>*</span>
+              </span>
             </div>
             <div style={{ display:"flex", alignItems:"center", borderBottom:"1.5px solid #e8e8e8", paddingBottom:8 }}>
               <input
@@ -552,11 +581,65 @@ export default function TravelMatePost() {
     setStep(2);
   };
 
-  // Final publish
+  // Indian number-plate validators (works on the form's plateNumber field).
+  // Standard: TN09AB1234 (state 2 letters + RTO 2 digits + series 1-3 letters + 1-4 digits)
+  // BH (Bharat) series: 22BH1234AB
+  const PLATE_RX_STANDARD = /^[A-Z]{2}\d{2}[A-Z]{1,3}\d{1,4}$/;
+  const PLATE_RX_BH       = /^\d{2}BH\d{4}[A-Z]{1,2}$/;
+  const validatePlate = (raw) => {
+    const v = String(raw || "").replace(/\s+/g, "").toUpperCase();
+    if (!v) return { ok: false, msg: "Number plate is required" };
+    if (PLATE_RX_STANDARD.test(v)) return { ok: true };
+    if (PLATE_RX_BH.test(v))       return { ok: true };
+    return {
+      ok: false,
+      msg: "Invalid Indian plate. Use formats like TN09AB1234 or 22BH1234AB",
+    };
+  };
+
+  // Final publish — all vehicle fields are mandatory
   const publish = async () => {
     setError("");
-    if (!form.vehicleType) { setError("Pick a vehicle type"); return; }
-    if (!form.seats || form.seats < 1) { setError("Seats must be at least 1"); return; }
+
+    // ── Vehicle type (Car / Bike) ──
+    if (!form.vehicleType) {
+      setError("Please pick a vehicle type (Car or Bike)");
+      return;
+    }
+
+    // ── Vehicle name (e.g. Swift, Activa) ──
+    if (!form.vehicleName || !form.vehicleName.trim()) {
+      setError("Vehicle name is required (e.g. Swift, Activa)");
+      return;
+    }
+    if (form.vehicleName.trim().length < 2) {
+      setError("Vehicle name must be at least 2 characters");
+      return;
+    }
+
+    // ── Vehicle colour ──
+    if (!form.vehicleColor || !form.vehicleColor.trim()) {
+      setError("Vehicle colour is required");
+      return;
+    }
+    if (form.vehicleColor.trim().length < 3) {
+      setError("Vehicle colour must be at least 3 characters");
+      return;
+    }
+
+    // ── Number plate (Indian standard or BH series) ──
+    const plate = validatePlate(form.plateNumber);
+    if (!plate.ok) { setError(plate.msg); return; }
+
+    // ── Seats ──
+    if (!form.seats || form.seats < 1) {
+      setError("Seats must be at least 1");
+      return;
+    }
+    if (form.seats > 8) {
+      setError("Seats can't be more than 8");
+      return;
+    }
 
     try {
       setPublishing(true);
@@ -582,7 +665,6 @@ export default function TravelMatePost() {
         additionalInfo: form.notes,
       };
       const resp = await axios.post(`${API}/api/rides`, payload);
-      // Save the just-posted ride id so RideLive can show its details
       const newId =
         resp?.data?.ride?._id ||
         resp?.data?.data?._id ||
@@ -605,17 +687,16 @@ export default function TravelMatePost() {
           form={form} setForm={setForm}
           route={route} distance={distance} duration={duration}
           routeLoading={routeLoading} error={error}
-          onNext={goToVehicle}
           liveLabel={liveLabel}
+          onNext={() => { setError(""); if (!form.from || !form.to) { setError("Pick from and to"); return; } setStep(2); }}
         />
       ) : (
         <PostRidePage
           form={form} setForm={setForm}
-          onPublish={publish}
-          publishing={publishing}
-          error={error}
-          onBack={() => setStep(1)}
+          publishing={publishing} error={error}
           liveLabel={liveLabel}
+          onPublish={publish}
+          onBack={() => { setError(""); setStep(1); }}
         />
       )}
     </>

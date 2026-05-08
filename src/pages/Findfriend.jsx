@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import RideMap from "../components/RideMap/RideMap";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
 
 /* ── Inject spinner + shimmer keyframes once per page mount ── */
 const SpinnerStyles = () => (
@@ -540,7 +540,7 @@ export default function TravelMate() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#dde1e9", fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif" }}>
+    <div className="ff-page" style={{ minHeight: "100vh", background: "#dde1e9", fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif" }}>
 
       {/* ── Navbar ── */}
       <div style={{ background: "#fff", padding: "0 48px", height: "64px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>

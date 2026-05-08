@@ -16,7 +16,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import "./RideMap.css";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
 
 // Auto-fit map to route bounds
 function FitBounds({ bounds }) {
