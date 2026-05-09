@@ -280,4 +280,10 @@ const styles = {
     background: "none",
     border: "none",
     color: "#F5A623",
-  
+    fontSize: 13,
+    fontWeight: 500,
+    padding: 0,
+    cursor: "pointer",
+    textDecoration: "underline",
+  },
+};
