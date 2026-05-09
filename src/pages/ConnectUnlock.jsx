@@ -3,14 +3,19 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
+import Spinner from "../components/Spinner/Spinner.jsx";
+import { formatTime12h } from "../utils/time.js";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
 
-/* Format "YYYY-MM-DD" + "HH:MM" → "Today, 3:00 PM" / "Tomorrow, 8:30 AM" / "5 May, 11:00 AM" */
+/* "YYYY-MM-DD" + "HH:MM" → "Today, 3:00 PM" / "Tomorrow, 8:30 AM" / "5 May, 11:00 AM"
+   Uses the shared 12-hour formatter so AM/PM rendering matches every other page. */
 function formatDateTime(date, time) {
   if (!date && !time) return "—";
   const d = new Date(`${date}T${time || "00:00"}`);
-  if (isNaN(d.getTime())) return `${date || ""} ${time || ""}`.trim();
+  if (isNaN(d.getTime())) {
+    return `${date || ""} ${formatTime12h(time)}`.trim();
+  }
 
   const now = new Date();
   const sameDay =
@@ -24,11 +29,7 @@ function formatDateTime(date, time) {
     d.getMonth() === tomorrow.getMonth() &&
     d.getDate() === tomorrow.getDate();
 
-  let h = d.getHours();
-  const m = String(d.getMinutes()).padStart(2, "0");
-  const ap = h >= 12 ? "PM" : "AM";
-  h = h % 12 === 0 ? 12 : h % 12;
-  const t = `${h}:${m} ${ap}`;
+  const t = formatTime12h(time || `${d.getHours()}:${d.getMinutes()}`);
   if (sameDay)    return `Today, ${t}`;
   if (isTomorrow) return `Tomorrow, ${t}`;
   return `${d.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}, ${t}`;
@@ -165,9 +166,7 @@ export default function ConnectUnlock() {
 
       {/* Status banners */}
       {loading && (
-        <div style={{ padding: "60px 16px", textAlign: "center", color: "#475569", fontSize: 14 }}>
-          ⏳ Loading ride details…
-        </div>
+        <Spinner label="Loading ride details..." sublabel="Fetching driver info & route" />
       )}
       {!loading && error && (
         <div style={{ margin: "40px auto", maxWidth: 520, padding: 24, background: "#fff5f5", border: "1px solid #fecaca", color: "#dc2626", borderRadius: 12, textAlign: "center" }}>

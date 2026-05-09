@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
+import Spinner from "../components/Spinner/Spinner.jsx";
+import { formatTime12h } from "../utils/time.js";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
 
@@ -24,16 +26,9 @@ function formatDate(date) {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
-function formatTime(time) {
-  if (!time) return "—";
-  const [hStr, mStr] = String(time).split(":");
-  let h = parseInt(hStr, 10);
-  const m = (mStr || "00").padStart(2, "0");
-  if (isNaN(h)) return time;
-  const ap = h >= 12 ? "PM" : "AM";
-  h = h % 12 === 0 ? 12 : h % 12;
-  return h + ":" + m + " " + ap;
-}
+// Re-export the shared 12-hour formatter under the local name so the rest
+// of the file keeps reading naturally.
+const formatTime = formatTime12h;
 
 export default function RideLive() {
   const navigate = useNavigate();
@@ -126,9 +121,7 @@ export default function RideLive() {
       }}>
         {/* Loading */}
         {loading && (
-          <div style={{ padding: 30, fontSize: 14, color: "#777" }}>
-            ⏳ Loading your ride...
-          </div>
+          <Spinner label="Loading your ride…" sublabel="Just a moment" />
         )}
 
         {/* Error */}

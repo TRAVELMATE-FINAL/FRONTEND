@@ -10,6 +10,7 @@ import {
   useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { formatTime12h } from "../utils/time.js";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
 
 const API = import.meta.env.VITE_APP_URL || "http://localhost:5000";
@@ -59,6 +60,94 @@ const inputBase = {
   fontFamily: "'Poppins', sans-serif",
   fontSize: 13, color: "#333", width: "100%", background: "transparent",
 };
+
+/* ─────────────────────────────────────────
+   Custom 12-hour time picker (Hour / Min / AM-PM)
+
+   Native <input type="time"> shows 12h or 24h depending on the user's
+   OS locale — there's no HTML attribute to force AM/PM. To guarantee
+   AM/PM rendering everywhere, we use 3 dropdowns and serialize back to
+   the canonical "HH:MM" 24-hour string the rest of the app expects.
+───────────────────────────────────────── */
+function Time12Picker({ value, onChange, min }) {
+  // Parse the incoming "HH:MM" 24h value into 12h pieces
+  const parsed = (() => {
+    const [hStr = "", mStr = "00"] = String(value || "").split(":");
+    const h24 = parseInt(hStr, 10);
+    const m   = parseInt(mStr, 10);
+    if (Number.isNaN(h24)) return { h12: "", min: "", ap: "AM" };
+    const ap  = h24 >= 12 ? "PM" : "AM";
+    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+    return { h12: String(h12), min: String(Number.isNaN(m) ? 0 : m).padStart(2, "0"), ap };
+  })();
+
+  const minH24 = (() => {
+    if (!min) return -1;
+    const [h = "", m = ""] = String(min).split(":");
+    return parseInt(h, 10) * 60 + parseInt(m, 10);
+  })();
+
+  const emit = (h12, mm, ap) => {
+    if (!h12 || mm === "") {
+      onChange("");
+      return;
+    }
+    let h = parseInt(h12, 10);
+    if (ap === "PM" && h !== 12) h += 12;
+    if (ap === "AM" && h === 12) h = 0;
+    const out = `${pad2(h)}:${pad2(parseInt(mm, 10))}`;
+    onChange(out);
+  };
+
+  const setH  = (e) => emit(e.target.value, parsed.min || "00", parsed.ap);
+  const setM  = (e) => emit(parsed.h12 || "12", e.target.value, parsed.ap);
+  const setAP = (e) => emit(parsed.h12 || "12", parsed.min || "00", e.target.value);
+
+  // Disable hour options that would always be in the past for "today"
+  const hourDisabled = (h12) => {
+    if (minH24 < 0) return false;
+    let h24am = h12 % 12;            // hour for AM
+    let h24pm = (h12 % 12) + 12;     // hour for PM
+    // if BOTH AM and PM versions of this hour are < min then hide it
+    return (h24am * 60) < minH24 - 59 && (h24pm * 60) < minH24 - 59;
+  };
+
+  const selectStyle = {
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    fontFamily: "'Poppins', sans-serif",
+    fontSize: 13,
+    color: "#333",
+    cursor: "pointer",
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    paddingRight: 4,
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: "#333" }}>
+      <select aria-label="Hour" value={parsed.h12} onChange={setH} style={selectStyle}>
+        <option value="" disabled>HH</option>
+        {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+          <option key={h} value={h} disabled={hourDisabled(h)}>{pad2(h)}</option>
+        ))}
+      </select>
+      <span style={{ fontWeight: 600 }}>:</span>
+      <select aria-label="Minutes" value={parsed.min} onChange={setM} style={selectStyle}>
+        <option value="" disabled>MM</option>
+        {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => (
+          <option key={m} value={pad2(m)}>{pad2(m)}</option>
+        ))}
+      </select>
+      <select aria-label="AM or PM" value={parsed.ap} onChange={setAP} style={{ ...selectStyle, fontWeight: 600 }}>
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  );
+}
 
 /* ─────────────────────────────────────────
    PAGE 1 — Post (route + datetime + gender)
@@ -136,12 +225,10 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
               <span style={{ fontSize:14 }}>🕐</span>
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:11, color:"#888", marginBottom:2 }}>Time</div>
-                <input
-                  type="time"
+                <Time12Picker
                   value={form.time}
                   min={minTimeAttr}
-                  onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
-                  style={{ ...inputBase, fontSize:13 }}
+                  onChange={(v) => setForm((f) => ({ ...f, time: v }))}
                 />
               </div>
             </div>
@@ -606,38 +693,46 @@ export default function TravelMatePost() {
       setError("Please pick a vehicle type (Car or Bike)");
       return;
     }
-
-    // ── Vehicle name (e.g. Swift, Activa) ──
-    if (!form.vehicleName || !form.vehicleName.trim()) {
-      setError("Vehicle name is required (e.g. Swift, Activa)");
+    // ── Vehicle name / model ──
+    if (!form.vehicleName || form.vehicleName.trim().length < 2) {
+      setError("Please enter the vehicle model / name");
       return;
     }
-    if (form.vehicleName.trim().length < 2) {
-      setError("Vehicle name must be at least 2 characters");
-      return;
-    }
-
     // ── Vehicle colour ──
-    if (!form.vehicleColor || !form.vehicleColor.trim()) {
-      setError("Vehicle colour is required");
+    if (!form.vehicleColor || form.vehicleColor.trim().length < 3) {
+      setError("Please enter the vehicle colour");
       return;
     }
-    if (form.vehicleColor.trim().length < 3) {
-      setError("Vehicle colour must be at least 3 characters");
-      return;
+    // ── Number plate ──
+    {
+      const p = validatePlate(form.plateNumber);
+      if (!p.ok) {
+        setError(p.msg || "Enter a valid number plate (e.g. TN09AB1234)");
+        return;
+      }
     }
-
-    // ── Number plate (Indian standard or BH series) ──
-    const plate = validatePlate(form.plateNumber);
-    if (!plate.ok) { setError(plate.msg); return; }
-
     // ── Seats ──
-    if (!form.seats || form.seats < 1) {
-      setError("Seats must be at least 1");
+    if (!form.seats || form.seats < 1 || form.seats > 8) {
+      setError("Seats must be between 1 and 8");
       return;
     }
-    if (form.seats > 8) {
-      setError("Seats can't be more than 8");
+
+    // Re-validate time vs. NOW — the user may have spent minutes on
+    // page 2 and the chosen time could now be in the past.
+    if (form.date && form.time) {
+      if (form.date < todayISO()) {
+        setError("Date is in the past. Go back and pick a future date.");
+        return;
+      }
+      if (form.date === todayISO() && form.time < nowHHMM()) {
+        setError("Time is in the past. Go back and pick a future time.");
+        return;
+      }
+    }
+
+    // Distance / duration must be set (auto-calculated by the route fetcher)
+    if (!distance || !duration) {
+      setError("Route info is missing. Go back and let the map load.");
       return;
     }
 
@@ -649,7 +744,7 @@ export default function TravelMatePost() {
         to: form.to.trim(),
         date: form.date,
         time: form.time,
-        gender: form.gender,
+        gender: form.gender || "Any",
         distance,
         duration,
         fromLat: form.fromCoords?.lat ?? null,
@@ -658,22 +753,41 @@ export default function TravelMatePost() {
         toLon:   form.toCoords?.lon   ?? null,
         userPhone,
         vehicle: form.vehicleType,
-        vehicleModel: form.vehicleName,
-        vehicleColor: form.vehicleColor,
-        plateNumber: form.plateNumber,
-        seatsAvailable: form.seats,
-        additionalInfo: form.notes,
+        vehicleModel: form.vehicleName.trim(),
+        vehicleColor: form.vehicleColor.trim(),
+        plateNumber: (form.plateNumber || "").toUpperCase().replace(/[\s-]/g, ""),
+        seatsAvailable: Number(form.seats) || 1,
+        additionalInfo: form.notes || "",
       };
-      const resp = await axios.post(`${API}/api/rides`, payload);
-      const newId =
-        resp?.data?.ride?._id ||
-        resp?.data?.data?._id ||
-        resp?.data?._id ||
-        "";
-      if (newId) localStorage.setItem("lastPostedRideId", newId);
+
+      console.log("📤 Publish payload:", payload);
+      const res = await axios.post(`${API}/api/rides`, payload);
+      console.log("✅ Publish response:", res.data);
+
+      // Save the just-posted ride id so /ride-live can fetch it back
+      const newId = res.data?.data?._id || res.data?.data?.id || "";
+      if (newId) {
+        try { localStorage.setItem("lastPostedRideId", newId); } catch (e) {}
+      }
       navigate("/plan");
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || "Could not publish ride");
+      console.error("❌ Publish error:", err);
+
+      const apiMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        (Array.isArray(err.response?.data?.errors) && err.response.data.errors.join(", ")) ||
+        "";
+      const status  = err.response?.status;
+      const network = err.code === "ERR_NETWORK" || err.message === "Network Error";
+
+      if (network) {
+        setError(`Backend not reachable at ${API}. Check VITE_APP_URL or that the server is running.`);
+      } else if (apiMsg) {
+        setError(`${apiMsg}${status ? ` (HTTP ${status})` : ""}`);
+      } else {
+        setError(err.message || "Could not publish ride");
+      }
     } finally {
       setPublishing(false);
     }
@@ -687,16 +801,17 @@ export default function TravelMatePost() {
           form={form} setForm={setForm}
           route={route} distance={distance} duration={duration}
           routeLoading={routeLoading} error={error}
+          onNext={goToVehicle}
           liveLabel={liveLabel}
-          onNext={() => { setError(""); if (!form.from || !form.to) { setError("Pick from and to"); return; } setStep(2); }}
         />
       ) : (
         <PostRidePage
           form={form} setForm={setForm}
-          publishing={publishing} error={error}
-          liveLabel={liveLabel}
           onPublish={publish}
-          onBack={() => { setError(""); setStep(1); }}
+          publishing={publishing}
+          error={error}
+          onBack={() => setStep(1)}
+          liveLabel={liveLabel}
         />
       )}
     </>
@@ -712,6 +827,5 @@ function haversine(lat1, lon1, lat2, lon2) {
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

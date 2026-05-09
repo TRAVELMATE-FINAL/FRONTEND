@@ -6,6 +6,7 @@ export default function UnlockContact() {
 
   return (
     <div
+      className="unlock-contact-page"
       style={{
         minHeight: "100vh",
         background: "#eef0f4",
@@ -17,6 +18,7 @@ export default function UnlockContact() {
       }}
     >
       <div
+        className="unlock-contact-card"
         style={{
           width: "100%",
           maxWidth: 420,

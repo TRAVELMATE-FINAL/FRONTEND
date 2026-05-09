@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import RideMap from "../components/RideMap/RideMap";
+import LocationSearch from "../components/LocationSearch/LocationSearch";
+import Spinner from "../components/Spinner/Spinner.jsx";
+import { formatTime12h } from "../utils/time.js";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
 
@@ -29,50 +32,36 @@ const SpinnerStyles = () => (
   `}</style>
 );
 
-/* ── Professional loading state — spinner + shimmer skeleton cards ── */
+/* ── Lightweight loading state — shared Spinner + 1 thin skeleton card ── */
 const LoadingRides = () => (
   <>
     <SpinnerStyles />
-    <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center",
-      padding: "26px 0 18px",
-    }}>
-      <div className="ff-spinner-ring" />
-      <div style={{ marginTop: 14, fontSize: 14, fontWeight: 600, color: "#1a1a2e" }}>
-        Finding the best rides for you…
-      </div>
-      <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
-        Hold tight, this only takes a moment.
-      </div>
-    </div>
+    <Spinner
+      label="Finding the best rides for you…"
+      sublabel="Hold tight, this only takes a moment."
+    />
 
-    {/* 3 shimmering skeleton cards so the layout doesn't jump when the data arrives */}
-    {[0, 1, 2].map((i) => (
-      <div key={i} style={{
-        background: "#111827", borderRadius: "20px", padding: "26px",
-        display: "flex", gap: "22px",
-        border: "1px solid rgba(255,255,255,0.07)",
-        opacity: 1 - i * 0.18,
-      }}>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div className="ff-skel" style={{ width: 60, height: 60, borderRadius: "50%" }} />
-            <div style={{ flex: 1 }}>
-              <div className="ff-skel" style={{ height: 16, width: "55%", marginBottom: 8 }} />
-              <div className="ff-skel" style={{ height: 12, width: "35%" }} />
-            </div>
-          </div>
-          <div className="ff-skel" style={{ height: 22, width: "75%" }} />
-          <div className="ff-skel" style={{ height: 14, width: "45%" }} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <div className="ff-skel" style={{ height: 22, width: 60, borderRadius: 20 }} />
-            <div className="ff-skel" style={{ height: 22, width: 70, borderRadius: 20 }} />
-            <div className="ff-skel" style={{ height: 22, width: 80, borderRadius: 20 }} />
+    {/* Single light skeleton card so the layout doesn't jump when data arrives.
+        Three heavy skeletons + map placeholders were too much paint work and made
+        the page feel sluggish on slow networks. */}
+    <div style={{
+      background: "#111827", borderRadius: "20px", padding: "20px",
+      display: "flex", gap: "18px",
+      border: "1px solid rgba(255,255,255,0.07)",
+      opacity: 0.7,
+    }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="ff-skel" style={{ width: 48, height: 48, borderRadius: "50%" }} />
+          <div style={{ flex: 1 }}>
+            <div className="ff-skel" style={{ height: 14, width: "55%", marginBottom: 6 }} />
+            <div className="ff-skel" style={{ height: 10, width: "35%" }} />
           </div>
         </div>
-        <div className="ff-skel" style={{ width: 210, height: 180, flexShrink: 0, borderRadius: 14 }} />
+        <div className="ff-skel" style={{ height: 18, width: "75%" }} />
+        <div className="ff-skel" style={{ height: 12, width: "45%" }} />
       </div>
-    ))}
+    </div>
   </>
 );
 
@@ -100,13 +89,13 @@ const RideCard = ({ ride, onConnect }) => {
     Date.now() - new Date(ride.createdAt).getTime() < 10 * 60 * 1000;
 
   return (
-    <div style={{
+    <div className="ff-ride-card" style={{
       background: "#111827", borderRadius: "20px", padding: "26px",
       display: "flex", flexDirection: "column", gap: "18px",
       border: "1px solid rgba(255,255,255,0.07)",
       boxShadow: "0 4px 22px rgba(15,15,46,0.10)"
     }}>
-      <div style={{ display: "flex", gap: "22px", alignItems: "flex-start" }}>
+      <div className="ff-ride-row" style={{ display: "flex", gap: "22px", alignItems: "flex-start" }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "14px", minWidth: 0 }}>
           {/* Driver — real name + uploaded photo if any */}
           <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
@@ -143,7 +132,7 @@ const RideCard = ({ ride, onConnect }) => {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
-            {ride.date || ""} &bull; {ride.time || ""}
+            {ride.date || ""} &bull; {formatTime12h(ride.time)}
           </div>
 
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -152,7 +141,7 @@ const RideCard = ({ ride, onConnect }) => {
         </div>
 
         {/* Bigger Leaflet map — real driving polyline */}
-        <div style={{ width: "210px", height: "180px", flexShrink: 0, borderRadius: "14px", overflow: "hidden" }}>
+        <div className="ff-ride-map" style={{ width: "210px", height: "180px", flexShrink: 0, borderRadius: "14px", overflow: "hidden" }}>
           <RideMap ride={ride} />
         </div>
       </div>
@@ -298,7 +287,9 @@ const FilterPanel = ({ filters, setFilters, onApply, onReset }) => {
 
       {/* Departure time — actual time picker */}
       <div style={{ marginBottom: "16px" }}>
-        <div style={{ fontSize: "12px", fontWeight: 600, color: "#666", marginBottom: "8px" }}>Departure time</div>
+        <div style={{ fontSize: "12px", fontWeight: 600, color: "#666", marginBottom: "8px" }}>
+          Departure time {departTime && <span style={{ color: "#7c3aed", fontWeight: 700 }}>· after {formatTime12h(departTime)}</span>}
+        </div>
         <div style={{
           display: "flex", alignItems: "center", gap: "8px",
           border: "1.5px solid #e5e5e5", borderRadius: "10px",
@@ -483,36 +474,81 @@ export default function TravelMate() {
     if (filters.departTime && (r.time || "") < filters.departTime) return false;
     if (!matchesAmenity(r.additionalInfo, filters.amenity)) return false;
     if (filters.minSeats > 0 && (r.seatsAvailable || 0) < filters.minSeats) return false;
+
+    // Date filter — show only rides on the chosen day. Picks up the date
+    // from the search bar (URL ?date=) so users can browse rides for a
+    // specific date the same way they'd filter by anything else.
+    if (date && r.date && r.date !== date) return false;
+
     return true;
   });
 
-  // Fetch — search if from+to in URL, else all rides
-  const fetchRides = async () => {
-    try {
-      setLoading(true); setError(""); setNotFound(false);
-      let url = `${API_BASE}/api/rides`;
-      if (queryFrom && queryTo) {
-        const qp = new URLSearchParams({ from: queryFrom, to: queryTo });
-        url = `${API_BASE}/api/rides/search?${qp.toString()}`;
-      }
-      const { data } = await axios.get(url);
-      setRides(data.data || []);
-      if (queryFrom && queryTo && (!data.data || data.data.length === 0)) {
-        setNotFound(true);
-      }
-    } catch {
-      setError("Could not load rides. Make sure the backend is running.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Re-fetch on URL change + auto-refresh every 15s
+  // Fetch rides once. Hard 8-second axios timeout + 10-second safety timer
+  // that force-clears the spinner even if the network never settles, so the
+  // UI never gets stuck in the loading state.
   useEffect(() => {
-    setFrom(queryFrom); setTo(queryTo); setDate(queryDate);
-    fetchRides();
-    const id = setInterval(fetchRides, 15000);
-    return () => clearInterval(id);
+    setFrom(queryFrom);
+    setTo(queryTo);
+    setDate(queryDate || todayISO());
+
+    let cancelled = false;
+    const ctrl = new AbortController();
+
+    setLoading(true);
+    setError("");
+    setNotFound(false);
+
+    // Belt-and-braces: if axios + the timeout option both fail, force-clear
+    // the loading flag after 10 seconds.
+    const safetyTimer = setTimeout(() => {
+      if (cancelled) return;
+      setLoading(false);
+      setError((cur) =>
+        cur || "Backend is taking too long to respond. Please try again."
+      );
+    }, 10000);
+
+    let url = `${API_BASE}/api/rides`;
+    if (queryFrom && queryTo) {
+      const qp = new URLSearchParams({ from: queryFrom, to: queryTo });
+      // Pass the date too so the backend narrows results before they
+      // hit the wire — far less data + no client-side filter mismatch.
+      if (queryDate) qp.set("date", queryDate);
+      url = `${API_BASE}/api/rides/search?${qp.toString()}`;
+    }
+
+    axios
+      .get(url, { timeout: 8000, signal: ctrl.signal })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setRides(data?.data || []);
+        if (queryFrom && queryTo && (!data?.data || data.data.length === 0)) {
+          setNotFound(true);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (axios.isCancel(err)) return;
+        const isTimeout =
+          err?.code === "ECONNABORTED" || err?.message?.includes("timeout");
+        setError(
+          isTimeout
+            ? "Server is taking a moment to wake up. Please refresh in 10s."
+            : err?.response?.data?.message ||
+                "Could not load rides. Backend may be offline."
+        );
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+        clearTimeout(safetyTimer);
+      });
+
+    return () => {
+      cancelled = true;
+      ctrl.abort();
+      clearTimeout(safetyTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryFrom, queryTo, queryDate]);
 
@@ -572,7 +608,21 @@ export default function TravelMate() {
       </div>
 
       {/* ── Search Bar ── */}
-      <form onSubmit={handleSearch} style={{ padding: "28px 48px 0", display: "flex", justifyContent: "center" }}>
+      {/* Override LocationSearch's chunky default styling so From/To match Date + Find Ride */}
+      <style>{`
+        .ff-search-bar .locsearch__input {
+          border: none !important;
+          padding: 0 !important;
+          background: transparent !important;
+          font-size: 14px !important;
+          color: #333 !important;
+          height: auto !important;
+        }
+        .ff-search-bar .locsearch__input:focus {
+          box-shadow: none !important;
+        }
+      `}</style>
+      <form className="ff-search-bar" onSubmit={handleSearch} style={{ padding: "28px 48px 0", display: "flex", justifyContent: "center" }}>
         <div style={{
           background: "#c8cdd8",
           borderRadius: "16px",
@@ -583,23 +633,37 @@ export default function TravelMate() {
           width: "100%",
           maxWidth: "740px"
         }}>
-          <div style={{ background: "#fff", borderRadius: "10px", padding: "11px 14px", display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+          {/* From — Tamil Nadu district autocomplete */}
+          <div style={{ background: "#fff", borderRadius: "10px", padding: "0 14px", height: 42, display: "flex", alignItems: "center", gap: "8px", flex: "1 1 0", minWidth: 0, position: "relative", boxSizing: "border-box" }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
             </svg>
-            <input value={from} onChange={e => setFrom(e.target.value)} placeholder="From"
-              style={{ border: "none", outline: "none", fontSize: "14px", color: "#333", width: "100%", background: "transparent" }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LocationSearch
+                placeholder="From"
+                value={from}
+                onChange={(v) => setFrom(v)}
+                onSelect={(item) => setFrom(item.display_name)}
+              />
+            </div>
           </div>
 
-          <div style={{ background: "#fff", borderRadius: "10px", padding: "11px 14px", display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+          {/* To — Tamil Nadu district autocomplete */}
+          <div style={{ background: "#fff", borderRadius: "10px", padding: "0 14px", height: 42, display: "flex", alignItems: "center", gap: "8px", flex: "1 1 0", minWidth: 0, position: "relative", boxSizing: "border-box" }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
             </svg>
-            <input value={to} onChange={e => setTo(e.target.value)} placeholder="To"
-              style={{ border: "none", outline: "none", fontSize: "14px", color: "#333", width: "100%", background: "transparent" }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <LocationSearch
+                placeholder="To"
+                value={to}
+                onChange={(v) => setTo(v)}
+                onSelect={(item) => setTo(item.display_name)}
+              />
+            </div>
           </div>
 
-          <div style={{ background: "#fff", borderRadius: "10px", padding: "11px 14px", display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+          <div style={{ background: "#fff", borderRadius: "10px", padding: "0 14px", height: 42, display: "flex", alignItems: "center", gap: "8px", flex: "1 1 0", minWidth: 0, boxSizing: "border-box" }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
             </svg>
@@ -607,16 +671,33 @@ export default function TravelMate() {
               type="date"
               value={date}
               min={new Date().toISOString().split("T")[0]}
-              onChange={e => setDate(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDate(v);
+                // Mirror to the URL so date filter persists across reloads
+                const next = new URLSearchParams(searchParams);
+                if (v) next.set("date", v); else next.delete("date");
+                setSearchParams(next, { replace: true });
+              }}
               placeholder="Date"
               style={{ border: "none", outline: "none", fontSize: "14px", color: "#333", width: "100%", background: "transparent" }} />
           </div>
 
           <button type="submit" style={{
             background: "#e8b800", color: "#111", border: "none",
-            borderRadius: "10px", padding: "11px 22px",
-            fontWeight: 700, fontSize: "14px", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0
-          }}>Find Ride</button>
+            borderRadius: "10px", padding: "0 14px", height: 42,
+            fontWeight: 700, fontSize: "14px", cursor: "pointer",
+            whiteSpace: "nowrap",
+            flex: "1 1 0", minWidth: 0,
+            boxSizing: "border-box",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" />
+            </svg>
+            Find Ride
+          </button>
         </div>
       </form>
 
@@ -643,14 +724,14 @@ export default function TravelMate() {
       )}
 
       {/* Body — filter panel + cards list */}
-      <div style={{
+      <div className="ff-body-flex" style={{
         padding: "20px 48px 60px",
         display: "flex", gap: "20px",
         justifyContent: "center",
         alignItems: "flex-start"
       }}>
         <FilterPanel filters={filters} setFilters={setFilters} onApply={applyFilters} onReset={resetFilters} />
-        <div id="ff-cards" style={{ display: "flex", flexDirection: "column", gap: "20px", flex: 1, maxWidth: "640px" }}>
+        <div id="ff-cards" className="ff-cards-col" style={{ display: "flex", flexDirection: "column", gap: "20px", flex: 1, maxWidth: "640px" }}>
           {loading && <LoadingRides />}
 
           {!loading && error && (

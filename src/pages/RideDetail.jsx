@@ -1,6 +1,7 @@
 export default function RideDetail() {
   return (
     <div
+      className="ride-detail-page"
       style={{
         fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
         background: "#f0f2f8",
@@ -9,6 +10,7 @@ export default function RideDetail() {
     >
       {/* ── Navbar ── */}
       <nav
+        className="ride-detail-nav"
         style={{
           background: "#1a1a2e",
           padding: "0 32px",
@@ -113,6 +115,7 @@ export default function RideDetail() {
 
       {/* ── Page body ── */}
       <div
+        className="ride-detail-grid"
         style={{
           maxWidth: 1080,
           margin: "0 auto",

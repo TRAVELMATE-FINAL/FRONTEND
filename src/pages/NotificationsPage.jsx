@@ -48,8 +48,8 @@ export default function NotificationsPage() {
   const [items, setItems] = useState(notifications);
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
+    <div className="notif-page" style={styles.page}>
+      <div className="notif-container" style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
           <h2 style={styles.headerTitle}>Stay updated with your activity</h2>

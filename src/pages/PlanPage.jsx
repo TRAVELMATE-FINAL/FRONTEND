@@ -133,7 +133,7 @@ export default function PlanPage() {
 
   return (
     <>
-    <div style={s.page}>
+    <div className="plan-page" style={s.page}>
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <div style={s.inner}>
 
@@ -142,7 +142,7 @@ export default function PlanPage() {
           <p style={s.sub}>Elevate your social experience with premium networking tools and exclusive insights tailored for modern creators.</p>
         </div>
 
-        <div style={s.plansRow}>
+        <div className="plan-row" style={s.plansRow}>
           {/* Daily */}
           <div style={s.card}>
             <div style={s.planName}>Daily Plan</div>

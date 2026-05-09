@@ -181,3 +181,153 @@ html, body, #root {
   .secure-payment-card { padding: 18px 14px !important; }
   .ride-live-card { padding: 22px 14px !important; }
 }
+
+/* =============================================================
+   ROUND 2 — extra page-level responsive overrides
+   • Findfriend search bar + ride card
+   • PlanPage / Chooseyourplan / Findrideplan plan rows
+   • RideDetail two-column → stack
+   • NotificationsPage spacing tweaks
+   • UnlockContact card sizing
+   • Generic image fluidity
+   ============================================================= */
+
+/* Make every image inside the app shrink with its container — no
+   horizontal scroll caused by a stray oversized image. */
+img { max-width: 100%; height: auto; }
+
+/* ── TABLET ≤ 1024px ── */
+@media (max-width: 1024px) {
+  /* RideDetail — collapse the right rail under the main column */
+  .ride-detail-grid {
+    grid-template-columns: 1fr !important;
+    padding: 24px 18px !important;
+  }
+  .ride-detail-nav {
+    padding: 0 18px !important;
+  }
+
+  /* Findfriend body — extra side breathing room */
+  .ff-body-flex {
+    padding: 18px 24px 40px !important;
+  }
+}
+
+/* ── MOBILE ≤ 640px ── */
+@media (max-width: 640px) {
+
+  /* ─── Findfriend ─────────────────────────────────────────── */
+
+  /* Search bar — wrap From / To / Date / Find Ride into 2x2 grid
+     so each tap target stays comfortably wide. */
+  .ff-search-bar {
+    padding: 18px 14px 0 !important;
+  }
+  .ff-search-bar > div {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding: 10px !important;
+    border-radius: 14px !important;
+  }
+  .ff-search-bar > div > div,
+  .ff-search-bar > div > button {
+    flex: 1 1 calc(50% - 4px) !important;
+    min-width: 0 !important;
+  }
+
+  /* Body — stack filter panel above the cards */
+  .ff-body-flex {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 14px 12px 40px !important;
+  }
+  .ff-body-flex > div:first-child { width: 100% !important; }
+  .ff-cards-col { max-width: 100% !important; }
+
+  /* Ride card — stack the map BELOW the trip details so the layout
+     never gets squeezed out at narrow widths. */
+  .ff-ride-card { padding: 18px !important; }
+  .ff-ride-row {
+    flex-direction: column !important;
+    gap: 14px !important;
+  }
+  .ff-ride-map {
+    width: 100% !important;
+    height: 180px !important;
+  }
+
+  /* ─── Plan pages (PlanPage / Chooseyourplan / Findrideplan) ── */
+  .plan-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+  }
+  .plan-row > div {
+    max-width: 100% !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+  .plan-page h1 { font-size: 28px !important; }
+
+  /* ─── RideDetail ─────────────────────────────────────────── */
+  .ride-detail-page nav { padding: 0 14px !important; }
+  .ride-detail-page nav span { font-size: 16px !important; }
+  .ride-detail-page nav > div:last-child { gap: 12px !important; }
+  .ride-detail-grid {
+    padding: 18px 14px !important;
+    gap: 16px !important;
+  }
+
+  /* ─── NotificationsPage ──────────────────────────────────── */
+  .notif-container { padding: 0 12px !important; }
+
+  /* ─── UnlockContact ──────────────────────────────────────── */
+  .unlock-contact-page { padding: 18px 12px !important; }
+  .unlock-contact-card { max-width: 100% !important; }
+
+  /* ─── PostPage form fields stack, no horizontal squish ───── */
+  .post-page-card {
+    width: 100% !important;
+    padding: 20px 14px !important;
+  }
+  .post-page-card input,
+  .post-page-card select,
+  .post-page-card textarea {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ─── ConnectUnlock — single column ──────────────────────── */
+  .cu-page-root {
+    padding: 14px 12px !important;
+  }
+
+  /* ─── Hero search card on FindRide dashboard ─────────────── */
+  .hero, .hero__inner {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  /* Generic — keep buttons and inputs from busting their containers */
+  button, input, select, textarea {
+    max-width: 100%;
+  }
+}
+
+/* ── SMALL PHONES ≤ 380px ── */
+@media (max-width: 380px) {
+  /* Plan page heading even smaller */
+  .plan-page h1 { font-size: 24px !important; }
+
+  /* Findfriend search bar — full-width single column */
+  .ff-search-bar > div > div,
+  .ff-search-bar > div > button {
+    flex: 1 1 100% !important;
+  }
+
+  /* Ride card map shorter */
+  .ff-ride-map { height: 160px !important; }
+
+  /* Notifications — tighter padding */
+  .notif-container { padding: 0 10px !important; }
+}

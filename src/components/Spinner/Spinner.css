@@ -1,0 +1,10 @@
+/* components/Spinner/Spinner.css */
+@keyframes tm-spinner-spin { to { transform: rotate(360deg); } }
+
+.tm-spinner__ring {
+  border-style: solid;
+  border-color: #e6e8ec;
+  border-radius: 50%;
+  animation: tm-spinner-spin 0.85s linear infinite;
+  flex-shrink: 0;
+}

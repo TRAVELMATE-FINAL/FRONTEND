@@ -132,7 +132,7 @@ export default function ChooseYourPlan() {
             </div>
           )}
 
-          <div style={s.plansRow}>
+          <div className="plan-row" style={s.plansRow}>
             {/* Daily */}
             <div style={s.card}>
               <div style={s.planName}>Daily Plan</div>
