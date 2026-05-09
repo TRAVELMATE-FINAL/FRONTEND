@@ -264,9 +264,37 @@ img { max-width: 100%; height: auto; }
   /* ─── NotificationsPage ──────────────────────────────────── */
   .notif-container { padding: 0 12px !important; }
 
-  /* ─── UnlockContact ──────────────────────────────────────── */
-  .unlock-contact-page { padding: 18px 12px !important; }
-  .unlock-contact-card { max-width: 100% !important; }
+  /* ─── UnlockContact — full-width card with tightened padding ── */
+  .unlock-contact-page { padding: 0 !important; }
+  /* The middle flex wrapper that centres the card */
+  .unlock-contact-page > div:nth-child(2) {
+    padding: 16px 12px !important;
+  }
+  .unlock-contact-card {
+    max-width: 100% !important;
+    border-radius: 14px !important;
+  }
+  /* Dark gradient header — tighten padding so lock icon + heading
+     sit comfortably on phones */
+  .unlock-contact-card > div:first-child {
+    padding: 22px 18px 20px !important;
+  }
+  .unlock-contact-card > div:first-child h2 {
+    font-size: 19px !important;
+  }
+  /* Body — give the coupon row + method tiles + Pay button as much
+     horizontal room as possible */
+  .unlock-contact-card > div:last-child {
+    padding: 18px 16px 22px !important;
+  }
+  .unlock-contact-card input[type="text"] {
+    font-size: 13px !important;
+    box-sizing: border-box !important;
+  }
+  /* Pay button stays full-width and tap-friendly */
+  .unlock-contact-card button[type="button"] {
+    font-family: inherit !important;
+  }
 
   /* ─── PostPage form fields — keep them inside the card ──── */
   .post-page-card {
@@ -309,6 +337,24 @@ img { max-width: 100%; height: auto; }
 
   /* Notifications — tighter padding */
   .notif-container { padding: 0 10px !important; }
+
+  /* UnlockContact — even tighter for very small phones (iPhone SE etc.) */
+  .unlock-contact-page > div:nth-child(2) {
+    padding: 10px 8px !important;
+  }
+  .unlock-contact-card > div:first-child {
+    padding: 18px 14px 16px !important;
+  }
+  .unlock-contact-card > div:first-child h2 {
+    font-size: 17px !important;
+  }
+  .unlock-contact-card > div:last-child {
+    padding: 14px 12px 18px !important;
+  }
+  .unlock-contact-card button {
+    padding: 9px 14px !important;
+    font-size: 13px !important;
+  }
 }
 
 /* =============================================================
@@ -410,9 +456,37 @@ img { max-width: 100%; height: auto; }
   /* ─── NotificationsPage ──────────────────────────────────── */
   .notif-container { padding: 0 12px !important; }
 
-  /* ─── UnlockContact ──────────────────────────────────────── */
-  .unlock-contact-page { padding: 18px 12px !important; }
-  .unlock-contact-card { max-width: 100% !important; }
+  /* ─── UnlockContact — full-width card with tightened padding ── */
+  .unlock-contact-page { padding: 0 !important; }
+  /* The middle flex wrapper that centres the card */
+  .unlock-contact-page > div:nth-child(2) {
+    padding: 16px 12px !important;
+  }
+  .unlock-contact-card {
+    max-width: 100% !important;
+    border-radius: 14px !important;
+  }
+  /* Dark gradient header — tighten padding so lock icon + heading
+     sit comfortably on phones */
+  .unlock-contact-card > div:first-child {
+    padding: 22px 18px 20px !important;
+  }
+  .unlock-contact-card > div:first-child h2 {
+    font-size: 19px !important;
+  }
+  /* Body — give the coupon row + method tiles + Pay button as much
+     horizontal room as possible */
+  .unlock-contact-card > div:last-child {
+    padding: 18px 16px 22px !important;
+  }
+  .unlock-contact-card input[type="text"] {
+    font-size: 13px !important;
+    box-sizing: border-box !important;
+  }
+  /* Pay button stays full-width and tap-friendly */
+  .unlock-contact-card button[type="button"] {
+    font-family: inherit !important;
+  }
 
   /* ─── PostPage form fields stack, no horizontal squish ───── */
   .post-page-card {
@@ -459,4 +533,22 @@ img { max-width: 100%; height: auto; }
 
   /* Notifications — tighter padding */
   .notif-container { padding: 0 10px !important; }
+
+  /* UnlockContact — even tighter for very small phones (iPhone SE etc.) */
+  .unlock-contact-page > div:nth-child(2) {
+    padding: 10px 8px !important;
+  }
+  .unlock-contact-card > div:first-child {
+    padding: 18px 14px 16px !important;
+  }
+  .unlock-contact-card > div:first-child h2 {
+    font-size: 17px !important;
+  }
+  .unlock-contact-card > div:last-child {
+    padding: 14px 12px 18px !important;
+  }
+  .unlock-contact-card button {
+    padding: 9px 14px !important;
+    font-size: 13px !important;
+  }
 }
