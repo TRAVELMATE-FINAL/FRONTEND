@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import Spinner from "../components/Spinner/Spinner.jsx";
+import Header from "../components/Header/Header.jsx";
+import Footer from "../components/Footer/Footer.jsx";
 import { formatTime12h } from "../utils/time.js";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
@@ -76,8 +78,9 @@ export default function RideLive() {
   const driverName = user?.fullName?.trim() || "Your ride";
 
   const handleViewRide = () => {
-    if (rideId) navigate("/connect-unlock?rideId=" + rideId);
-    else navigate("/find-friend");
+    // View Ride takes the rider to their own profile & posted-rides
+    // page so they can see / manage everything they've published.
+    navigate("/profile-settings");
   };
 
   const handleShare = async () => {
@@ -110,10 +113,15 @@ export default function RideLive() {
   return (
     <div style={{
       minHeight: "100vh", background: "#eef0f4",
-      display: "flex", alignItems: "center", justifyContent: "center",
+      display: "flex", flexDirection: "column",
       fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
-      padding: "32px 16px",
     }}>
+      <Header />
+      <div style={{
+        flex: 1,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "32px 16px",
+      }}>
       <div className="ride-live-card" style={{
         width: "100%", maxWidth: 420, background: "#fff",
         borderRadius: 20, boxShadow: "0 8px 32px rgba(0,0,0,0.10)",
@@ -283,6 +291,8 @@ export default function RideLive() {
           </>
         )}
       </div>
+      </div>
+      <Footer />
     </div>
   );
 }

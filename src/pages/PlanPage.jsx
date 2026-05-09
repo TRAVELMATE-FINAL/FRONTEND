@@ -1,5 +1,6 @@
 import { useState, useLayoutEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 
 const Check = ({ color = "#22c55e", bg = "#e8f5e9" }) => (
@@ -133,6 +134,7 @@ export default function PlanPage() {
 
   return (
     <>
+    <Header />
     <div className="plan-page" style={s.page}>
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <div style={s.inner}>

@@ -11,6 +11,8 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { formatTime12h } from "../utils/time.js";
+import Header from "../components/Header/Header.jsx";
+import Footer from "../components/Footer/Footer.jsx";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
 
 const API = import.meta.env.VITE_APP_URL || "http://localhost:5000";
@@ -587,7 +589,7 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack, liv
 /* ─────────────────────────────────────────
    Root — manages state + auto-route + publish
 ───────────────────────────────────────── */
-export default function TravelMatePost() {
+export default function TravelMatePost({ embedded = false } = {}) {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
 
@@ -760,34 +762,24 @@ export default function TravelMatePost() {
         additionalInfo: form.notes || "",
       };
 
-      console.log("📤 Publish payload:", payload);
-      const res = await axios.post(`${API}/api/rides`, payload);
-      console.log("✅ Publish response:", res.data);
-
-      // Save the just-posted ride id so /ride-live can fetch it back
-      const newId = res.data?.data?._id || res.data?.data?.id || "";
-      if (newId) {
-        try { localStorage.setItem("lastPostedRideId", newId); } catch (e) {}
+      // Stash the payload — the actual POST /api/rides happens AFTER
+      // the user completes payment in SecurePayment. This way no ride
+      // is published unless the plan payment succeeds.
+      try {
+        localStorage.setItem("pendingRidePayload", JSON.stringify(payload));
+      } catch (e) {
+        console.warn("Could not stash pendingRidePayload:", e);
       }
+
+      // Clear any previous "lastPostedRideId" — it will be set freshly
+      // once payment succeeds and the ride is actually persisted.
+      try { localStorage.removeItem("lastPostedRideId"); } catch (e) {}
+
+      console.log("📦 Ride payload stashed — will publish after payment");
       navigate("/plan");
     } catch (err) {
-      console.error("❌ Publish error:", err);
-
-      const apiMsg =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        (Array.isArray(err.response?.data?.errors) && err.response.data.errors.join(", ")) ||
-        "";
-      const status  = err.response?.status;
-      const network = err.code === "ERR_NETWORK" || err.message === "Network Error";
-
-      if (network) {
-        setError(`Backend not reachable at ${API}. Check VITE_APP_URL or that the server is running.`);
-      } else if (apiMsg) {
-        setError(`${apiMsg}${status ? ` (HTTP ${status})` : ""}`);
-      } else {
-        setError(err.message || "Could not publish ride");
-      }
+      console.error("❌ Publish prep error:", err);
+      setError(err.message || "Could not prepare ride for publishing.");
     } finally {
       setPublishing(false);
     }
@@ -796,6 +788,10 @@ export default function TravelMatePost() {
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+      {/* Show the shared Header only when this page is rendered standalone
+          via the /post-ride route. When embedded inside FindRide the parent
+          already renders its own Header, so we suppress this one. */}
+      {!embedded && <Header />}
       {step === 1 ? (
         <PostPage
           form={form} setForm={setForm}
@@ -814,6 +810,11 @@ export default function TravelMatePost() {
           liveLabel={liveLabel}
         />
       )}
+
+      {/* Show Footer only when this page is rendered standalone via the
+          /post-ride route. When embedded inside FindRide (mode=post)
+          the parent already renders its own Footer. */}
+      {!embedded && <Footer />}
     </>
   );
 }

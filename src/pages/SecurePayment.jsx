@@ -1,8 +1,42 @@
 import { useState, useEffect, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   getPlans, applyCoupon, createPlanOrder, verifyPlanPayment,
 } from "../services/api";
+import Header from "../components/Header/Header.jsx";
+import Footer from "../components/Footer/Footer.jsx";
+
+const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
+
+// Pull the stashed ride payload (if any), POST it to /api/rides, and
+// return the new ride id. Called immediately after payment is verified
+// so the ride only enters MongoDB once the user has actually paid.
+async function publishPendingRide() {
+  let raw;
+  try { raw = localStorage.getItem("pendingRidePayload"); } catch { raw = null; }
+  if (!raw) return "";
+
+  let payload;
+  try { payload = JSON.parse(raw); } catch { return ""; }
+  if (!payload || !payload.from || !payload.to) return "";
+
+  try {
+    const res = await axios.post(`${API_BASE}/api/rides`, payload);
+    const newId = res.data?.data?._id || res.data?.data?.id || "";
+    if (newId) {
+      try {
+        localStorage.setItem("lastPostedRideId", newId);
+        localStorage.removeItem("pendingRidePayload");
+      } catch {}
+    }
+    console.log("✅ Ride published after payment:", newId);
+    return newId;
+  } catch (err) {
+    console.error("❌ Failed to publish ride after payment:", err);
+    return "";
+  }
+}
 
 // ── Razorpay checkout script loader ──
 let rzpScriptPromise = null;
@@ -181,25 +215,38 @@ export default function SecurePayment() {
               plan: planKey,
               couponCode: appliedCoupon?.code || "",
             });
-            setSuccessMsg("✅ Payment verified! Subscription active until " +
-              new Date(v.subscription.endDate).toLocaleDateString() + ".");
+
+            // ⏬ NEW — publish the stashed ride payload now that payment
+            // has cleared. This is what makes the ride actually appear
+            // in the database and on the Find Friend feed.
+            setSuccessMsg("✅ Payment verified — publishing your ride…");
+            const publishedId = await publishPendingRide();
+
+            setSuccessMsg(
+              publishedId
+                ? "✅ Payment verified & ride published! Subscription active until " +
+                    new Date(v.subscription.endDate).toLocaleDateString() + "."
+                : "✅ Payment verified! Subscription active until " +
+                    new Date(v.subscription.endDate).toLocaleDateString() + "."
+            );
             localStorage.removeItem("chosenPlan");
 
-            // After payment success → ALWAYS land on RideLive.
-            // Pick the most-relevant rideId from localStorage:
+            // After payment success → land on the populated Ride
+            // Detail page (driver profile + vehicle + route + contact).
+            // Prefer the freshly-published rideId, fall back to:
             //   1) pendingUnlockRideId (user came via Unlock Contact)
-            //   2) lastPostedRideId    (user just published a new ride)
-            //   3) no id → RideLive shows a generic "no ride" message
+            //   2) lastPostedRideId    (a previous post in this session)
+            //   3) no id → /ride-live's generic success card
             setTimeout(() => {
               const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
               const lastPostedRideId    = localStorage.getItem("lastPostedRideId");
-              const rideId = pendingUnlockRideId || lastPostedRideId || "";
+              const rideId = publishedId || pendingUnlockRideId || lastPostedRideId || "";
 
               // The breadcrumb has done its job — clean up so future
               // navigations don't loop back through the unlock chain.
               if (pendingUnlockRideId) localStorage.removeItem("pendingUnlockRideId");
 
-              navigate(rideId ? ("/ride-live?rideId=" + rideId) : "/ride-live");
+              navigate(rideId ? ("/ride-detail?rideId=" + rideId) : "/ride-live");
             }, 1500);
           } catch (e) {
             setErrMsg(
@@ -232,12 +279,18 @@ export default function SecurePayment() {
         minHeight: "100vh",
         background: "#eef0f4",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        flexDirection: "column",
         fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
-        padding: "32px 16px",
       }}
     >
+      <Header />
+      <div style={{
+        flex: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "32px 16px",
+      }}>
       <div
         className="secure-payment-card"
         style={{
@@ -471,6 +524,9 @@ export default function SecurePayment() {
           </div>
         </div>
       </div>
+      </div>
+
+      <Footer />
     </div>
   );
 }

@@ -84,10 +84,21 @@
 @media (max-width: 760px) {
   .tm-navbar { padding: 0 20px; height: 60px; }
   .tm-navbar__name { font-size: 16px; }
+  .tm-navbar__actions { gap: 10px; }
 }
 
 @media (max-width: 480px) {
-  .tm-navbar { padding: 0 14px; }
+  .tm-navbar { padding: 0 14px; height: 56px; }
+  .tm-navbar__logo { width: 32px; height: 32px; border-radius: 9px; }
+  .tm-navbar__name { font-size: 15px; letter-spacing: -0.3px; }
   .tm-navbar__icon-btn { padding: 4px; }
-  .tm-navbar__login { padding: 8px 16px; font-size: 13px; }
+  .tm-navbar__login { padding: 8px 14px; font-size: 13px; border-radius: 18px; }
+}
+
+@media (max-width: 360px) {
+  .tm-navbar { padding: 0 10px; }
+  .tm-navbar__actions { gap: 6px; }
+  /* Hide the bell + settings on very small phones — login is the priority */
+  .tm-navbar__icon-btn { display: none; }
+  .tm-navbar__name { font-size: 14px; }
 }

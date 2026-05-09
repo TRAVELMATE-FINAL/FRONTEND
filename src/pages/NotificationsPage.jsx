@@ -1,4 +1,6 @@
 import { useState } from "react";
+import Header from "../components/Header/Header.jsx";
+import Footer from "../components/Footer/Footer.jsx";
 
 const notifications = {
   TODAY: [
@@ -49,6 +51,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="notif-page" style={styles.page}>
+      <Header />
       <div className="notif-container" style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
@@ -155,6 +158,7 @@ export default function NotificationsPage() {
           </div>
         ))}
       </div>
+      <Footer />
     </div>
   );
 }
@@ -276,10 +280,4 @@ const styles = {
     background: "none",
     border: "none",
     color: "#F5A623",
-    fontSize: 13,
-    fontWeight: 500,
-    padding: 0,
-    cursor: "pointer",
-    textDecoration: "underline",
-  },
-};
+  

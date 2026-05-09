@@ -35,7 +35,7 @@ export default function FindRide() {
 
         {mode === 'post' ? (
           <section id="inline-post-section">
-            <PostPage />
+            <PostPage embedded />
           </section>
         ) : (
           <>

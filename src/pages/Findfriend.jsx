@@ -4,6 +4,8 @@ import axios from "axios";
 import RideMap from "../components/RideMap/RideMap";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
 import Spinner from "../components/Spinner/Spinner.jsx";
+import Header from "../components/Header/Header.jsx";
+import Footer from "../components/Footer/Footer.jsx";
 import { formatTime12h } from "../utils/time.js";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
@@ -483,13 +485,32 @@ export default function TravelMate() {
     return true;
   });
 
-  // Fetch rides once. Hard 8-second axios timeout + 10-second safety timer
-  // that force-clears the spinner even if the network never settles, so the
-  // UI never gets stuck in the loading state.
+  // Mirror URL params back into local state whenever they change so
+  // the search-bar inputs reflect the active query (e.g. when the user
+  // navigates here from another page with ?from=…&to=…&date=…).
   useEffect(() => {
     setFrom(queryFrom);
     setTo(queryTo);
     setDate(queryDate || todayISO());
+  }, [queryFrom, queryTo, queryDate]);
+
+  // Fetch rides ONLY when the user has actually clicked Find Ride —
+  // detected by the presence of AT LEAST one filter (from / to / date)
+  // in the URL. From-only, To-only, Date-only and any combination all
+  // work. With nothing in the URL we render a "fill the form and tap
+  // Find Ride" empty state instead of hammering the API.
+  // 8-second axios timeout + 10-second safety timer so the spinner
+  // can never get stuck if the backend hangs.
+  useEffect(() => {
+    const hasAnyFilter = !!(queryFrom || queryTo || queryDate);
+    if (!hasAnyFilter) {
+      // No search yet — clear any previous results and bail out
+      setRides([]);
+      setLoading(false);
+      setError("");
+      setNotFound(false);
+      return;
+    }
 
     let cancelled = false;
     const ctrl = new AbortController();
@@ -498,8 +519,6 @@ export default function TravelMate() {
     setError("");
     setNotFound(false);
 
-    // Belt-and-braces: if axios + the timeout option both fail, force-clear
-    // the loading flag after 10 seconds.
     const safetyTimer = setTimeout(() => {
       if (cancelled) return;
       setLoading(false);
@@ -508,21 +527,18 @@ export default function TravelMate() {
       );
     }, 10000);
 
-    let url = `${API_BASE}/api/rides`;
-    if (queryFrom && queryTo) {
-      const qp = new URLSearchParams({ from: queryFrom, to: queryTo });
-      // Pass the date too so the backend narrows results before they
-      // hit the wire — far less data + no client-side filter mismatch.
-      if (queryDate) qp.set("date", queryDate);
-      url = `${API_BASE}/api/rides/search?${qp.toString()}`;
-    }
+    const qp = new URLSearchParams();
+    if (queryFrom) qp.set("from", queryFrom);
+    if (queryTo)   qp.set("to",   queryTo);
+    if (queryDate) qp.set("date", queryDate);
+    const url = `${API_BASE}/api/rides/search?${qp.toString()}`;
 
     axios
       .get(url, { timeout: 8000, signal: ctrl.signal })
       .then(({ data }) => {
         if (cancelled) return;
         setRides(data?.data || []);
-        if (queryFrom && queryTo && (!data?.data || data.data.length === 0)) {
+        if (!data?.data || data.data.length === 0) {
           setNotFound(true);
         }
       })
@@ -531,12 +547,26 @@ export default function TravelMate() {
         if (axios.isCancel(err)) return;
         const isTimeout =
           err?.code === "ECONNABORTED" || err?.message?.includes("timeout");
-        setError(
-          isTimeout
-            ? "Server is taking a moment to wake up. Please refresh in 10s."
-            : err?.response?.data?.message ||
-                "Could not load rides. Backend may be offline."
-        );
+        const isNetworkDown =
+          err?.code === "ERR_NETWORK" || err?.message === "Network Error";
+        const status = err?.response?.status;
+        const apiMsg = err?.response?.data?.message || err?.response?.data?.error;
+
+        let msg;
+        if (isTimeout) {
+          msg = `Server at ${API_BASE} is taking too long. If it's hosted on Render free-tier it may be cold-starting — try again in 15s.`;
+        } else if (isNetworkDown) {
+          msg = `Could not reach the backend at ${API_BASE}. Make sure the server is running (cd server && node server.js) and that VITE_APP_URL in client/.env points to it.`;
+        } else if (status >= 500) {
+          msg = `Server error (HTTP ${status}): ${apiMsg || "check the backend terminal for details"}.`;
+        } else if (apiMsg) {
+          msg = `${apiMsg}${status ? ` (HTTP ${status})` : ""}`;
+        } else {
+          msg = `Could not load rides${status ? ` (HTTP ${status})` : ""}. URL: ${url}`;
+        }
+        setError(msg);
+        // Also log full error to console so you can inspect it in DevTools
+        console.error("[Findfriend] search failed:", { url, err });
       })
       .finally(() => {
         if (cancelled) return;
@@ -552,21 +582,28 @@ export default function TravelMate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryFrom, queryTo, queryDate]);
 
-  // Submit search bar → write URL params
+  // Submit search bar → at LEAST one filter (From or To or Date) is
+  // enough. Date-only, From+Date, To+Date, full trio, etc. all work.
+  // Whatever the user filled gets written to the URL which kicks off
+  // the fetch above.
   const handleSearch = (e) => {
     e?.preventDefault?.();
-    const f = from.trim(), t = to.trim();
-    if (!f || !t) {
-      // empty → clear filter, show all
-      setSearchParams({});
+    const f = from.trim(), t = to.trim(), d = (date || "").trim();
+
+    if (!f && !t && !d) {
+      setError("Please fill at least one of From, To or Date before searching.");
       return;
     }
-    if (f.toLowerCase() === t.toLowerCase()) {
-      alert("'From' and 'To' cannot be the same");
+    if (f && t && f.toLowerCase() === t.toLowerCase()) {
+      setError("'From' and 'To' cannot be the same.");
       return;
     }
-    const params = { from: f, to: t };
-    if (date) params.date = date;
+
+    setError("");
+    const params = {};
+    if (f) params.from = f;
+    if (t) params.to   = t;
+    if (d) params.date = d;
     setSearchParams(params);
   };
 
@@ -578,34 +615,8 @@ export default function TravelMate() {
   return (
     <div className="ff-page" style={{ minHeight: "100vh", background: "#dde1e9", fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif" }}>
 
-      {/* ── Navbar ── */}
-      <div style={{ background: "#fff", padding: "0 48px", height: "64px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-        <div onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
-          <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.8" />
-              <polygon points="12,4 14.5,11 12,10 9.5,11" fill="white" />
-              <polygon points="12,20 9.5,13 12,14 14.5,13" fill="rgba(255,255,255,0.5)" />
-              <circle cx="12" cy="12" r="1.5" fill="white" />
-            </svg>
-          </div>
-          <span style={{ fontWeight: 800, fontSize: "18px", color: "#111", letterSpacing: "-0.4px" }}>Travel Mate</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <button style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", display: "flex" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-          </button>
-          <button style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", display: "flex" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-          </button>
-          <button onClick={() => navigate("/login")} style={{ background: "#e8b800", color: "#111", border: "none", borderRadius: "22px", padding: "9px 24px", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>Login</button>
-        </div>
-      </div>
+      {/* Shared Header — same navbar across the whole app */}
+      <Header />
 
       {/* ── Search Bar ── */}
       {/* Override LocationSearch's chunky default styling so From/To match Date + Find Ride */}
@@ -701,8 +712,9 @@ export default function TravelMate() {
         </div>
       </form>
 
-      {/* Active filter chip */}
-      {(queryFrom || queryTo) && (
+      {/* Active filter chip — shows whatever combination is active
+          (From-only, To-only, Date-only, or any mix) */}
+      {(queryFrom || queryTo || queryDate) && (
         <div style={{ padding: "12px 48px 0", display: "flex", justifyContent: "center" }}>
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -712,7 +724,9 @@ export default function TravelMate() {
             maxWidth: 875, width: "100%",
           }}>
             <div>
-              Showing rides from <b>{queryFrom}</b> to <b>{queryTo}</b>
+              Showing rides
+              {queryFrom && <> from <b>{queryFrom}</b></>}
+              {queryTo   && <> to <b>{queryTo}</b></>}
               {queryDate && <> on <b>{queryDate}</b></>}
             </div>
             <button onClick={clearFilter} style={{
@@ -742,13 +756,26 @@ export default function TravelMate() {
 
           {!loading && !error && notFound && (
             <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 12, padding: 24, textAlign: "center", lineHeight: 1.7 }}>
-              No rides found for this route.
+              No rides found{queryFrom && <> from <b>{queryFrom}</b></>}{queryTo && <> to <b>{queryTo}</b></>}{queryDate && <> on <b>{queryDate}</b></>}.
             </div>
           )}
 
-          {!loading && !error && !notFound && rides.length === 0 && (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "#475569", fontSize: 14 }}>
-              No rides yet — be the first to post one!
+          {/* No search yet → prompt the user to fill the form.
+              "No search" = none of the URL filters are set yet. */}
+          {!loading && !error && !notFound && rides.length === 0 && !queryFrom && !queryTo && !queryDate && (
+            <div style={{
+              background: "#fff", border: "1px dashed #cbd5e1",
+              borderRadius: 14, padding: "44px 24px", textAlign: "center",
+              color: "#475569",
+            }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>🚗</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a2e", marginBottom: 6 }}>
+                Find your next ride
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+                Enter <b>From</b>, <b>To</b> or just a <b>Date</b> in the search bar above,
+                then tap <b>Find Ride</b> to see matching rides.
+              </div>
             </div>
           )}
 
@@ -768,6 +795,8 @@ export default function TravelMate() {
           ))}
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }

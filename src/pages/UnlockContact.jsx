@@ -1,8 +1,162 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import Header from "../components/Header/Header.jsx";
+import Footer from "../components/Footer/Footer.jsx";
+import {
+  applyCoupon as applyCouponApi,
+  createPlanOrder,
+  verifyPlanPayment,
+} from "../services/api";
+
+const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
+const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY || "";
+
+// Razorpay checkout script loader (idempotent — safe to call many times)
+let rzpScriptPromise = null;
+const loadRazorpay = () => {
+  if (rzpScriptPromise) return rzpScriptPromise;
+  rzpScriptPromise = new Promise((resolve, reject) => {
+    if (typeof window === "undefined") return reject(new Error("No window"));
+    if (window.Razorpay) return resolve(true);
+    const s = document.createElement("script");
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.async = true;
+    s.onload = () => resolve(true);
+    s.onerror = () => reject(new Error("Failed to load Razorpay"));
+    document.head.appendChild(s);
+  });
+  return rzpScriptPromise;
+};
+
+// Publish whatever ride payload PostPage stashed in localStorage. Called
+// the moment payment is verified so the ride appears in MongoDB only
+// after the user actually pays.
+async function publishPendingRide() {
+  let raw;
+  try { raw = localStorage.getItem("pendingRidePayload"); } catch { raw = null; }
+  if (!raw) return "";
+  let payload;
+  try { payload = JSON.parse(raw); } catch { return ""; }
+  if (!payload || !payload.from || !payload.to) return "";
+  try {
+    const res = await axios.post(`${API_BASE}/api/rides`, payload);
+    const newId = res.data?.data?._id || res.data?.data?.id || "";
+    if (newId) {
+      try {
+        localStorage.setItem("lastPostedRideId", newId);
+        localStorage.removeItem("pendingRidePayload");
+      } catch {}
+    }
+    return newId;
+  } catch (err) {
+    console.error("Publish-after-payment failed:", err);
+    return "";
+  }
+}
 
 export default function UnlockContact() {
+  const navigate = useNavigate();
   const [coupon, setCoupon] = useState("");
   const [selectedMethod, setSelectedMethod] = useState(null);
+  const [paying, setPaying] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+
+  const planKey = (() => {
+    try { return localStorage.getItem("chosenPlan") || "daily"; } catch { return "daily"; }
+  })();
+
+  // ── Pay Now → Razorpay → publish ride → /ride-detail ──────────
+  const handlePay = async () => {
+    setErrMsg("");
+    setSuccessMsg("");
+
+    const phone = localStorage.getItem("phone") || "";
+    if (!phone) {
+      navigate("/login");
+      return;
+    }
+
+    try {
+      setPaying(true);
+      await loadRazorpay();
+
+      // Build the order on the backend (amount + Razorpay order id)
+      const order = await createPlanOrder({
+        plan: planKey,
+        couponCode: appliedCoupon?.code || "",
+      });
+
+      const rzp = new window.Razorpay({
+        key: RAZORPAY_KEY,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.orderId,
+        name: "TravelMate",
+        description: `${planKey.charAt(0).toUpperCase() + planKey.slice(1)} Plan — Unlock Contact`,
+        prefill: { contact: phone.replace(/^\+91/, "") },
+        theme: { color: "#0d1b2a" },
+        handler: async (response) => {
+          try {
+            const v = await verifyPlanPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              plan: planKey,
+              couponCode: appliedCoupon?.code || "",
+            });
+
+            setSuccessMsg("✅ Payment verified — opening your ride…");
+            const publishedId = await publishPendingRide();
+
+            // Land on the populated Ride Detail page
+            setTimeout(() => {
+              const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
+              const lastPostedRideId    = localStorage.getItem("lastPostedRideId");
+              const rideId = publishedId || pendingUnlockRideId || lastPostedRideId || "";
+              if (pendingUnlockRideId) localStorage.removeItem("pendingUnlockRideId");
+              try { localStorage.removeItem("chosenPlan"); } catch {}
+              navigate(rideId ? `/ride-detail?rideId=${rideId}` : "/ride-detail");
+            }, 1200);
+          } catch (e) {
+            setErrMsg(
+              "Verification failed: " +
+                (e?.response?.data?.message || e.message)
+            );
+          } finally {
+            setPaying(false);
+          }
+        },
+        modal: { ondismiss: () => setPaying(false) },
+      });
+      rzp.open();
+    } catch (err) {
+      console.error("Razorpay init failed:", err);
+      setErrMsg(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Could not start checkout. Try again."
+      );
+      setPaying(false);
+    }
+  };
+
+  // ── Apply coupon → backend validates code + computes discount ─
+  const handleApplyCoupon = async () => {
+    setErrMsg("");
+    if (!coupon.trim()) return;
+    try {
+      const code = coupon.trim().toUpperCase();
+      const res = await applyCouponApi({ code, plan: planKey });
+      setAppliedCoupon({ code, ...res });
+      setSuccessMsg(`Coupon applied — ${res.discountLabel || "discount applied"}.`);
+    } catch (e) {
+      setAppliedCoupon(null);
+      setErrMsg(e?.response?.data?.message || "Invalid coupon code.");
+    }
+  };
 
   return (
     <div
@@ -11,12 +165,18 @@ export default function UnlockContact() {
         minHeight: "100vh",
         background: "#eef0f4",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        flexDirection: "column",
         fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
-        padding: "32px 16px",
       }}
     >
+      <Header />
+      <div style={{
+        flex: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "32px 16px",
+      }}>
       <div
         className="unlock-contact-card"
         style={{
@@ -124,6 +284,8 @@ export default function UnlockContact() {
                 }}
               />
               <button
+                type="button"
+                onClick={handleApplyCoupon}
                 style={{
                   background: "#0d1b2a",
                   color: "#fff",
@@ -398,31 +560,56 @@ export default function UnlockContact() {
             </div>
           </div>
 
-          {/* Pay Button */}
+          {/* Inline status messages above Pay so the user can see why the
+              Razorpay popup was blocked or why verification failed. */}
+          {errMsg && (
+            <div style={{
+              background: "#fef2f2", border: "1px solid #fecaca",
+              color: "#dc2626", borderRadius: 10, padding: "10px 14px",
+              fontSize: 13, marginBottom: 12, fontWeight: 500,
+            }}>
+              {errMsg}
+            </div>
+          )}
+          {successMsg && (
+            <div style={{
+              background: "#ecfdf5", border: "1px solid #a7f3d0",
+              color: "#065f46", borderRadius: 10, padding: "10px 14px",
+              fontSize: 13, marginBottom: 12, fontWeight: 500,
+            }}>
+              {successMsg}
+            </div>
+          )}
+
+          {/* Pay Button — wired to Razorpay → /ride-detail */}
           <button
+            type="button"
+            onClick={handlePay}
+            disabled={paying}
             style={{
               width: "100%",
-              background: "#f5c518",
+              background: paying ? "#e6c958" : "#f5c518",
               color: "#111",
               border: "none",
               borderRadius: 12,
               padding: "16px",
               fontWeight: 700,
               fontSize: 16,
-              cursor: "pointer",
+              cursor: paying ? "not-allowed" : "pointer",
               marginBottom: 14,
               letterSpacing: "0.1px",
               fontFamily: "inherit",
               transition: "background 0.15s",
+              opacity: paying ? 0.85 : 1,
             }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "#e6b800")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "#f5c518")
-            }
+            onMouseEnter={(e) => {
+              if (!paying) e.currentTarget.style.background = "#e6b800";
+            }}
+            onMouseLeave={(e) => {
+              if (!paying) e.currentTarget.style.background = "#f5c518";
+            }}
           >
-            Pay ₹50 &amp; Unlock Contact
+            {paying ? "Processing..." : "Pay ₹50 & Unlock Contact"}
           </button>
 
           {/* Security badges */}
@@ -484,6 +671,7 @@ export default function UnlockContact() {
                   stroke="#aaa"
                   strokeWidth="1.7"
                   strokeLinecap="round"
+                  fill="none"
                 />
               </svg>
               Encrypted
@@ -491,6 +679,8 @@ export default function UnlockContact() {
           </div>
         </div>
       </div>
+      </div>
+      <Footer />
     </div>
   );
 }

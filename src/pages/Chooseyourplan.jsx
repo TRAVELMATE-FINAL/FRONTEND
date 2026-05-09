@@ -1,5 +1,6 @@
 import { useLayoutEffect, useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 
 const Check = ({ color = "#22c55e", bg = "#e8f5e9" }) => (
@@ -111,6 +112,7 @@ export default function ChooseYourPlan() {
 
   return (
     <>
+      <Header />
       <div className="plan-page" style={s.page}>
         <div style={s.inner}>
           <div style={s.heading}>
