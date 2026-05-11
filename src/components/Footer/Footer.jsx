@@ -18,7 +18,7 @@ function Footer() {
             <ul className="footer__list">
               <li><Link to="/find-friend">Find Ride</Link></li>
               <li><Link to="/post-ride">Post Ride</Link></li>
-              <li><Link to="/profile-settings">My Trips</Link></li>
+              <li><Link to="/profile-settings">Settings</Link></li>
             </ul>
           </div>
 

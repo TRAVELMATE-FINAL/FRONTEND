@@ -152,81 +152,205 @@ function Time12Picker({ value, onChange, min }) {
 }
 
 /* ─────────────────────────────────────────
-   PAGE 1 — Post (route + datetime + gender)
+   PAGE 1 — Post (Figma redesign — vertical stack)
 ───────────────────────────────────────── */
-function PostPage({ form, setForm, route, distance, duration, routeLoading, error, onNext, liveLabel }) {
+function PostPage({ form, setForm, route, distance, duration, routeLoading, error, onNext }) {
   const [stopInput, setStopInput] = useState("");
 
-  const addStop = () => {
-    if (stopInput.trim()) {
-      setForm((f) => ({ ...f, stops: [...f.stops, stopInput.trim()] }));
-      setStopInput("");
-    }
+  const addStop = (val) => {
+    const v = (val ?? stopInput).trim();
+    if (!v) return;
+    setForm((f) => ({ ...f, stops: [...f.stops, v] }));
+    setStopInput("");
   };
   const removeStop = (i) =>
     setForm((f) => ({ ...f, stops: f.stops.filter((_, idx) => idx !== i) }));
 
   const minTimeAttr = form.date === todayISO() ? nowHHMM() : "00:00";
 
-  return (
-    <div style={{ fontFamily:"'Poppins',sans-serif", background:"#f0f0f0", minHeight:"100vh", display:"flex", justifyContent:"center", padding:"24px 16px" }}>
-      <div className="post-page-card" style={{ width:480, maxWidth:"100%", background:"#fff", borderRadius:16, overflow:"visible", boxShadow:"0 8px 32px rgba(0,0,0,0.12)", height:"fit-content" }}>
+  // ── Suggested stops based on the user's From / To ────────
+  // Simple table of well-known intermediate cities for the most-
+  // travelled Tamil-Nadu / South-India routes. If we don't have a
+  // direct match, fall back to a couple of safe defaults so the chips
+  // are never empty when both From + To are picked.
+  const suggestedStops = (() => {
+    const f = (form.from || "").toLowerCase();
+    const t = (form.to   || "").toLowerCase();
+    if (!f || !t) return [];
 
-        {/* Header */}
-        <div style={{ padding:"24px 24px 8px" }}>
-          <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:8, flexWrap:"wrap" }}>
-            <h1 style={{ fontSize:22, fontWeight:700, color:"#1a1a2e", margin:0 }}>Post</h1>
-            <span style={{ fontSize:11, color:"#888" }}>{liveLabel}</span>
-          </div>
-          <p style={{ fontSize:13, color:"#888", marginTop:2 }}>Share your journey with others</p>
+    const ROUTES = [
+      { from: "chennai",    to: "bangalore",   stops: ["Vellore", "Krishnagiri"] },
+      { from: "chennai",    to: "madurai",     stops: ["Trichy", "Dindigul"] },
+      { from: "chennai",    to: "coimbatore",  stops: ["Salem", "Erode"] },
+      { from: "coimbatore", to: "madurai",     stops: ["Dindigul", "Pollachi"] },
+      { from: "madurai",    to: "trichy",      stops: ["Dindigul", "Manapparai"] },
+      { from: "madurai",    to: "kanyakumari", stops: ["Tirunelveli", "Nagercoil"] },
+      { from: "salem",      to: "bangalore",   stops: ["Krishnagiri", "Hosur"] },
+      { from: "trichy",     to: "chennai",     stops: ["Villupuram", "Tindivanam"] },
+    ];
+
+    const match = ROUTES.find(
+      (r) =>
+        (f.includes(r.from) && t.includes(r.to)) ||
+        (f.includes(r.to)   && t.includes(r.from))   // reverse direction works too
+    );
+    if (match) return match.stops;
+
+    // Generic fallback: middle-of-state cities that show up on most
+    // long-haul TN journeys.
+    return ["Salem", "Trichy"];
+  })();
+
+  const isStopAlready = (name) =>
+    form.stops.some((s) => s.toLowerCase() === name.toLowerCase());
+
+  // ── Reusable single-line field block (label on top, input below) ──
+  // Uses the Figma label font: Plus Jakarta Sans, 13/600, dark slate.
+  const fieldBlock = (label, body) => (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{
+        fontSize: 13,
+        color: "#1a1a2e",
+        fontWeight: 600,
+        marginBottom: 6,
+        letterSpacing: "-0.1px",
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+      }}>{label}</div>
+      {body}
+    </div>
+  );
+
+  return (
+    <div style={{
+      fontFamily: "'Plus Jakarta Sans', 'Inter', 'DM Sans', system-ui, sans-serif",
+      background: "#f5f5f7", minHeight: "100vh", padding: "28px 16px 40px",
+    }}>
+      {/* Strip LocationSearch's default chrome so From/To render as a
+          single clean input field rather than a "box inside a box". */}
+      <style>{`
+        .post-page-card .locsearch__input {
+          border: none !important;
+          padding: 0 !important;
+          background: transparent !important;
+          height: auto !important;
+          font-size: 14px !important;
+          color: #1a1a2e !important;
+          font-family: inherit !important;
+          width: 100%;
+        }
+        .post-page-card .locsearch__input:focus { box-shadow: none !important; }
+        .post-page-card .locsearch__input::placeholder { color: #9ca3af !important; }
+      `}</style>
+
+      <div style={{ maxWidth: 560, margin: "0 auto" }}>
+
+        {/* Heading OUTSIDE the card — matches Figma */}
+        <div style={{ marginBottom: 18 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: "#1a1a2e", margin: 0, letterSpacing: "-0.4px" }}>Post</h1>
+          <p style={{ fontSize: 14, color: "#6b7280", margin: "4px 0 0" }}>Share your journey with others</p>
         </div>
 
-        {/* From / To with TN districts autocomplete */}
-        <div style={{ padding:"12px 24px 0" }}>
-          <div style={{ border:"1.5px solid #e8e8e8", borderRadius:12, overflow:"visible", marginBottom:10 }}>
-            <div style={{ display:"flex", alignItems:"center", padding:"10px 14px", borderBottom:"1.5px solid #f0f0f0" }}>
-              <div style={dot("#4f6ef7")}/>
-              <div style={{ flex:1 }}>
-                <LocationSearch
-                  placeholder="Starting location (Tamil Nadu)"
-                  value={form.from}
-                  onChange={(v) => setForm((f) => ({ ...f, from: v, fromCoords: null }))}
-                  onSelect={(item) => setForm((f) => ({ ...f, from: item.display_name, fromCoords: { lat: item.lat, lon: item.lon } }))}
-                />
-              </div>
-            </div>
-            <div style={{ display:"flex", alignItems:"center", padding:"10px 14px" }}>
-              <div style={dot("#22c55e")}/>
-              <div style={{ flex:1 }}>
-                <LocationSearch
-                  placeholder="Destination (Tamil Nadu)"
-                  value={form.to}
-                  onChange={(v) => setForm((f) => ({ ...f, to: v, toCoords: null }))}
-                  onSelect={(item) => setForm((f) => ({ ...f, to: item.display_name, toCoords: { lat: item.lat, lon: item.lon } }))}
-                />
-              </div>
-            </div>
-          </div>
+        {/* Main white card */}
+        <div className="post-page-card" style={{
+          background:"#fff", borderRadius:16, overflow:"visible",
+          boxShadow:"0 4px 18px rgba(0,0,0,0.06)",
+          padding: "22px 22px 6px",
+        }}>
 
-          {/* Date + Time — live values, no past allowed */}
-          <div style={{ display:"flex", gap:10, marginBottom:10 }}>
-            <div style={{ flex:1, border:"1.5px solid #e8e8e8", borderRadius:10, padding:"10px 12px", display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:14 }}>📅</span>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:11, color:"#888", marginBottom:2 }}>Date</div>
-                <input
-                  type="date"
-                  value={form.date}
-                  min={todayISO()}
-                  onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                  style={{ ...inputBase, fontSize:13 }}
-                />
-              </div>
+          {/* From — same map-pin glyph as Hero, violet for the starting point */}
+          {fieldBlock(
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              From
+            </>,
+            <div style={{
+              border: "1.5px solid #e5e7eb", borderRadius: 10,
+              padding: "12px 14px", background: "#fff",
+            }}>
+              <LocationSearch
+                placeholder="Starting location"
+                value={form.from}
+                onChange={(v) => setForm((f) => ({ ...f, from: v, fromCoords: null }))}
+                onSelect={(item) => setForm((f) => ({ ...f, from: item.display_name, fromCoords: { lat: item.lat, lon: item.lon } }))}
+              />
             </div>
-            <div style={{ flex:1, border:"1.5px solid #e8e8e8", borderRadius:10, padding:"10px 12px", display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:14 }}>🕐</span>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:11, color:"#888", marginBottom:2 }}>Time</div>
+          )}
+
+          {/* To — same map-pin glyph as Hero */}
+          {fieldBlock(
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              To
+            </>,
+            <div style={{
+              border: "1.5px solid #e5e7eb", borderRadius: 10,
+              padding: "12px 14px", background: "#fff",
+            }}>
+              <LocationSearch
+                placeholder="Destination"
+                value={form.to}
+                onChange={(v) => setForm((f) => ({ ...f, to: v, toCoords: null }))}
+                onSelect={(item) => setForm((f) => ({ ...f, to: item.display_name, toCoords: { lat: item.lat, lon: item.lon } }))}
+              />
+            </div>
+          )}
+
+          {/* Date + Time — side by side on the same row */}
+          <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+            {/* Date */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 13, color: "#1a1a2e", fontWeight: 600,
+                marginBottom: 6, letterSpacing: "-0.1px",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
+                Date
+              </div>
+              <input
+                type="date"
+                value={form.date}
+                min={todayISO()}
+                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid #e5e7eb", borderRadius: 10,
+                  padding: "12px 14px",
+                  fontSize: 14, fontFamily: "inherit", color: "#1a1a2e",
+                  outline: "none", background: "#fff",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            {/* Time */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 13, color: "#1a1a2e", fontWeight: 600,
+                marginBottom: 6, letterSpacing: "-0.1px",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <polyline points="12 7 12 12 15 14" />
+                </svg>
+                Time
+              </div>
+              <div style={{
+                border: "1.5px solid #e5e7eb", borderRadius: 10,
+                padding: "10px 14px", background: "#fff",
+              }}>
                 <Time12Picker
                   value={form.time}
                   min={minTimeAttr}
@@ -236,50 +360,115 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
             </div>
           </div>
 
-          {/* Gender */}
-          <div style={{ display:"flex", gap:10, marginBottom:14 }}>
+          {/* Gender — small pill row */}
+          <div style={{ display:"flex", gap:10, marginBottom:18 }}>
             {["Male","Female"].map((g) => {
               const active = form.gender === g;
               return (
                 <button key={g} type="button"
                   onClick={() => setForm((f) => ({ ...f, gender: g }))}
-                  style={{ display:"flex", alignItems:"center", gap:6, border:`1.5px solid ${active?"#4f6ef7":"#e8e8e8"}`, borderRadius:20, padding:"7px 18px", fontSize:13, fontFamily:"'Poppins',sans-serif", cursor:"pointer", background:active?"#f0f3ff":"#fff", color:active?"#4f6ef7":"#444", fontWeight:500 }}>
+                  style={{
+                    display:"flex", alignItems:"center", gap:6,
+                    border:`1.5px solid ${active?"#4f6ef7":"#e5e7eb"}`,
+                    borderRadius:24, padding:"8px 20px",
+                    fontSize:13, fontFamily:"inherit", cursor:"pointer",
+                    background:active?"#eef2ff":"#fff",
+                    color:active?"#4f6ef7":"#444", fontWeight:600
+                  }}>
                   👤 {g}
                 </button>
               );
             })}
           </div>
-        </div>
 
-        {/* Confirm Route — auto-filled from /api/route */}
-        <div style={{ padding:"0 24px 10px" }}>
-          <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e", marginBottom:6 }}>Confirm your route</div>
-          <div style={{ border:"1.5px solid #e8e8e8", borderRadius:12, overflow:"visible", marginBottom:10 }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 14px", borderBottom:"1.5px solid #f0f0f0", gap:8 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
-                <div style={{ width:22, height:22, borderRadius:"50%", background:"#4f6ef7", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0 }}>A</div>
+          {/* ── Confirm your route ────────────────────────────────
+              Two separate stacked cards, exactly like the Figma:
+                1) Details card — from → to row + hours / km row
+                2) Map card     — just the map preview          */}
+          <div style={{ fontSize:14, fontWeight:600, color:"#1a1a2e", marginBottom:8, letterSpacing:"-0.1px" }}>
+            Confirm your route
+          </div>
+
+          {/* Card 1 — details only */}
+          <div style={{
+            background:"#fff",
+            border:"1px solid #e5e7eb",
+            borderRadius:12,
+            padding:"14px 16px",
+            marginBottom:10,
+          }}>
+            {/* From → To row */}
+            <div style={{
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              gap:8,
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0, flex:"1 1 0" }}>
+                <div style={{
+                  width:22, height:22, borderRadius:"50%",
+                  background:"#4f6ef7", color:"#fff",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:10, fontWeight:700, flexShrink:0,
+                }}>A</div>
                 <div style={{ minWidth:0 }}>
-                  <div style={{ fontSize:10, color:"#aaa" }}>From</div>
-                  <div style={{ fontSize:13, color:"#1a1a2e", fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{form.from || "—"}</div>
+                  <div style={{ fontSize:10, color:"#9ca3af", fontWeight:500 }}>From</div>
+                  <div style={{
+                    fontSize:13, color:"#1a1a2e", fontWeight:600,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                  }}>
+                    {form.from || "—"}
+                  </div>
                 </div>
               </div>
-              <span style={{ color:"#bbb", fontSize:18, flexShrink:0 }}>→</span>
-              <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:0 }}>
+              <span style={{ color:"#cbd5e1", fontSize:18, flexShrink:0 }}>→</span>
+              <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0, flex:"1 1 0", justifyContent:"flex-end" }}>
                 <div style={{ textAlign:"right", minWidth:0 }}>
-                  <div style={{ fontSize:10, color:"#aaa" }}>To</div>
-                  <div style={{ fontSize:13, color:"#1a1a2e", fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{form.to || "—"}</div>
+                  <div style={{ fontSize:10, color:"#9ca3af", fontWeight:500 }}>To</div>
+                  <div style={{
+                    fontSize:13, color:"#1a1a2e", fontWeight:600,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                  }}>
+                    {form.to || "—"}
+                  </div>
                 </div>
-                <div style={{ width:22, height:22, borderRadius:"50%", background:"#22c55e", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0 }}>B</div>
+                <div style={{
+                  width:22, height:22, borderRadius:"50%",
+                  background:"#ef4444", color:"#fff",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:10, fontWeight:700, flexShrink:0,
+                }}>B</div>
               </div>
             </div>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:24, padding:"8px 14px" }}>
-              <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:12, color:"#555" }}>
-                <span>🕐</span> {routeLoading ? "calculating…" : (duration || "—")}
+
+            {/* hours / km row — divider on top */}
+            <div style={{
+              display:"flex", alignItems:"center", justifyContent:"center", gap:32,
+              marginTop:12, paddingTop:12,
+              borderTop:"1px solid #f3f4f6",
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:"#4b5563", fontWeight:600 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <polyline points="12 7 12 12 15 14" />
+                </svg>
+                {routeLoading ? "calculating…" : (duration || "—")}
               </div>
-              <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:12, color:"#555" }}>
-                <span>📍</span> {routeLoading ? "calculating…" : (distance || "—")}
+              <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:"#4b5563", fontWeight:600 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+                {routeLoading ? "calculating…" : (distance || "—")}
               </div>
             </div>
+          </div>
+
+          {/* Card 2 — map only (taller so the route reads clearly) */}
+          <div style={{
+            border:"1px solid #e5e7eb",
+            borderRadius:12,
+            overflow:"hidden",
+            marginBottom:14,
+            height: 260,
+          }}>
             <RouteMap
               coords={route}
               fromCoords={form.fromCoords}
@@ -288,59 +477,124 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
               toName={form.to}
             />
           </div>
-        </div>
 
-        {/* Stopovers */}
-        <div style={{ padding:"0 24px 10px" }}>
-          <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e", marginBottom:6 }}>
-            Add stopovers <span style={{ fontSize:11, color:"#aaa", fontWeight:400 }}>(optional)</span>
+          {/* Add stopovers — Figma label with "(optional)" on next line */}
+          <div style={{ marginBottom: 6 }}>
+            <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e" }}>Add stopovers</div>
+            <div style={{ fontSize:11, color:"#9ca3af", marginTop: 2 }}>(optional)</div>
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-            <div style={{ flex:1, border:"1.5px solid #e8e8e8", borderRadius:20, padding:"9px 14px", display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:14, color:"#bbb" }}>📍</span>
-              <input style={inputBase} placeholder="Add a stop along the way" value={stopInput}
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+            <div style={{
+              flex:1, border:"1.5px solid #e5e7eb", borderRadius:20,
+              padding:"9px 14px", display:"flex", alignItems:"center", gap:8, background:"#fff",
+            }}>
+              {/* Grey map-pin glyph — same shape as From/To, neutral colour */}
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              <input
+                style={{ ...inputBase, fontSize: 13 }}
+                placeholder="Add a stop along the way"
+                value={stopInput}
                 onChange={(e) => setStopInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addStop()} />
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addStop())}
+              />
             </div>
-            <button type="button" onClick={addStop} style={{ width:32, height:32, background:"#4f6ef7", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", border:"none", cursor:"pointer", color:"#fff", fontSize:20, flexShrink:0 }}>+</button>
+            <button type="button" onClick={() => addStop()}
+              style={{
+                width:32, height:32, background:"#4f6ef7",
+                borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center",
+                border:"none", cursor:"pointer", color:"#fff", fontSize:20, flexShrink:0,
+                fontFamily: "inherit",
+              }}>+</button>
           </div>
+
+          {/* Suggested stop chips — only shown when from + to are picked */}
+          {suggestedStops.length > 0 && (
+            <>
+              <div style={{ fontSize:11, color:"#6b7280", marginBottom:6 }}>Suggested stops</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:14 }}>
+                {suggestedStops.map((s) => {
+                  const taken = isStopAlready(s);
+                  return (
+                    <button key={s} type="button"
+                      disabled={taken}
+                      onClick={() => addStop(s)}
+                      style={{
+                        border:"1.5px solid " + (taken ? "#e5e7eb" : "#cbd5e1"),
+                        background: taken ? "#f3f4f6" : "#fff",
+                        color: taken ? "#9ca3af" : "#1a1a2e",
+                        borderRadius:18, padding:"6px 14px",
+                        fontSize:12, fontWeight:600,
+                        cursor: taken ? "not-allowed" : "pointer",
+                        fontFamily:"inherit",
+                      }}>
+                      {taken ? "✓ " : "+ "}{s}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* User-added stops list */}
           {form.stops.length > 0 && (
             <>
-              <div style={{ fontSize:11, color:"#888", marginBottom:6 }}>Stops</div>
+              <div style={{ fontSize:11, color:"#6b7280", marginBottom:6 }}>Stops</div>
               <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:16 }}>
                 {form.stops.map((s, i) => (
-                  <button key={i} onClick={() => removeStop(i)} type="button"
+                  <button key={i} type="button"
+                    onClick={() => removeStop(i)}
                     title="Click to remove"
-                    style={{ border:"1.5px solid #e8e8e8", borderRadius:16, padding:"4px 13px", fontSize:12, color:"#555", background:"#fff", cursor:"pointer" }}>
+                    style={{
+                      border:"1.5px solid #4f6ef7",
+                      borderRadius:18, padding:"5px 13px",
+                      fontSize:12, color:"#4f6ef7", background:"#eef2ff",
+                      cursor:"pointer", fontFamily:"inherit", fontWeight:600,
+                    }}>
                     {s} ×
                   </button>
                 ))}
               </div>
             </>
           )}
+
+          {error && (
+            <div style={{
+              background:"#fef2f2", border:"1px solid #fecaca", color:"#dc2626",
+              borderRadius:8, padding:"10px 14px", fontSize:13, marginBottom: 12,
+            }}>
+              {error}
+            </div>
+          )}
+
+          <button onClick={onNext} type="button"
+            style={{
+              width:"100%", display:"block",
+              background:"#f5c518", border:"none", borderRadius:10,
+              padding:"14px 18px", fontSize:16, fontWeight:700,
+              fontFamily:"inherit", color:"#1a1a2e", cursor:"pointer",
+              marginBottom: 18,
+              boxShadow: "0 4px 14px rgba(245, 197, 24, 0.30)",
+            }}>
+            Next
+          </button>
         </div>
-
-        {error && (
-          <div style={{ margin:"0 24px 12px", background:"#fef2f2", border:"1px solid #fecaca", color:"#dc2626", borderRadius:8, padding:"10px 14px", fontSize:13 }}>
-            {error}
-          </div>
-        )}
-
-        <button onClick={onNext} type="button"
-          style={{ width:"calc(100% - 48px)", margin:"0 24px 24px", display:"block", background:"#f5c518", border:"none", borderRadius:10, padding:14, fontSize:16, fontWeight:600, fontFamily:"'Poppins',sans-serif", color:"#1a1a2e", cursor:"pointer" }}>
-          Next
-        </button>
       </div>
     </div>
   );
 }
 
 /* Real OpenStreetMap with the actual road geometry from /api/route */
-function RouteMap({ coords, fromCoords, toCoords, fromName, toName }) {
+function RouteMap({ coords, fromCoords, toCoords, fromName, toName, compact = false }) {
+  // Compact = the small inline preview (was 110), default = the large
+  // standalone map card on PostPage so the route reads clearly.
+  const mapHeight = compact ? 140 : 260;
   // Empty placeholder while user is still picking locations
   if ((!coords || coords.length < 2) && (!fromCoords || !toCoords)) {
     return (
-      <div style={{ position: "relative", width: "100%", height: 220, background: "linear-gradient(135deg,#dbeafe 0%,#dcfce7 100%)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ position: "relative", width: "100%", height: mapHeight, background: "linear-gradient(135deg,#dbeafe 0%,#dcfce7 100%)", display:"flex", alignItems:"center", justifyContent:"center" }}>
         <div style={{ fontSize:12, color:"#64748b" }}>Pick From and To to see the route</div>
       </div>
     );
@@ -352,7 +606,7 @@ function RouteMap({ coords, fromCoords, toCoords, fromName, toName }) {
     : (coords && coords.length ? coords[0] : [11.0, 78.5]); // fallback: TN center
 
   return (
-    <div style={{ width: "100%", height: 220, position: "relative" }}>
+    <div style={{ width: "100%", height: mapHeight, position: "relative" }}>
       <MapContainer
         center={center}
         zoom={7}

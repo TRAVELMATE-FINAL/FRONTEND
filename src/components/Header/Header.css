@@ -54,18 +54,54 @@
 }
 
 .tm-navbar__icon-btn {
-  background: none;
-  border: none;
+  background: #f4f4f6;
+  border: 1px solid #e5e7eb;
   cursor: pointer;
-  padding: 6px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  transition: background 0.15s ease;
+  border-radius: 50%;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 .tm-navbar__icon-btn:hover {
-  background: #f4f4f6;
+  background: #ebedf0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Bell-icon badge — appears when there are unread notifications.
+   Shows the unread count up to 9, then "9+". */
+.tm-navbar__bell {
+  position: relative;
+  overflow: visible;
+}
+.tm-navbar__bell-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;            /* red — matches "needs attention" */
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  font-family: inherit;
+  line-height: 18px;
+  text-align: center;
+  border: 2px solid #ffffff;       /* sits cleanly on top of the chip */
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+  pointer-events: none;
+  animation: tm-bell-pop 0.35s ease-out;
+}
+@keyframes tm-bell-pop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .tm-navbar__login {

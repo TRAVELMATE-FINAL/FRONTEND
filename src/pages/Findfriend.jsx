@@ -76,337 +76,453 @@ const Tag = ({ label }) => (
   }}>{label}</span>
 );
 
-/* ── Live ride card — bigger card, real driver name + photo, larger map ── */
+/* ── Live ride card — Figma redesign (template only; same data + logic) ── */
 const RideCard = ({ ride, onConnect }) => {
   const driver  = ride.driverName?.trim() || "TravelMate Rider";
   const photo   = ride.driverPhoto || "";
   const initial = driver.charAt(0).toUpperCase();
-  const tags = [
-    ride.gender || "Any",
-    ride.vehicle || "Bike",
-    ...(ride.distance ? [`📍 ${ride.distance}`] : []),
-  ];
+  // Show whatever the driver typed in the "Notes & preferences" field
+  // when publishing the ride (additionalInfo). Split on commas /
+  // newlines so they render as separate pills. When the driver didn't
+  // add any notes, we render nothing here — no hardcoded defaults.
+  const tagsRaw = (() => {
+    const note = (ride.additionalInfo || "").trim();
+    if (!note) return [];
+    return note
+      .split(/[,\n]+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+  })();
   const seats = typeof ride.seatsAvailable === "number" ? ride.seatsAvailable : 1;
-  const isFresh = ride.createdAt &&
-    Date.now() - new Date(ride.createdAt).getTime() < 10 * 60 * 1000;
+  // "30 Apr • 06:00 AM" — same field values, more compact rendering
+  const dateLabel = (() => {
+    if (!ride.date) return "";
+    const d = new Date(ride.date);
+    if (isNaN(d.getTime())) return ride.date;
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  })();
 
   return (
     <div className="ff-ride-card" style={{
-      background: "#111827", borderRadius: "20px", padding: "26px",
-      display: "flex", flexDirection: "column", gap: "18px",
-      border: "1px solid rgba(255,255,255,0.07)",
-      boxShadow: "0 4px 22px rgba(15,15,46,0.10)"
+      background: "#1c1c3d",            // deep indigo to match Figma
+      borderRadius: "22px",
+      padding: "22px 24px 20px",
+      display: "flex", flexDirection: "column", gap: "16px",
+      boxShadow: "0 6px 26px rgba(15, 15, 46, 0.12)",
     }}>
-      <div className="ff-ride-row" style={{ display: "flex", gap: "22px", alignItems: "flex-start" }}>
+      <div className="ff-ride-row" style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "14px", minWidth: 0 }}>
-          {/* Driver — real name + uploaded photo if any */}
-          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          {/* Driver row — avatar + name + green tick + rating · rides */}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div style={{
-              width: "60px", height: "60px", borderRadius: "50%", flexShrink: 0,
-              border: "2px solid rgba(255,255,255,0.18)", overflow: "hidden",
+              width: "44px", height: "44px", borderRadius: "50%", flexShrink: 0,
+              overflow: "hidden",
               background: photo ? "#1f2937" : "linear-gradient(135deg,#6366f1,#a78bfa)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              color: "#fff", fontWeight: 700, fontSize: "22px"
+              color: "#fff", fontWeight: 700, fontSize: "17px",
             }}>
               {photo
                 ? <img src={photo} alt={driver} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 : initial}
             </div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-                <span style={{ color: "#f1f3f5", fontWeight: 700, fontSize: "18px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{driver}</span>
-                <span style={{ background: "#2f9e44", borderRadius: "50%", width: "18px", height: "18px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <svg width="10" height="10" viewBox="0 0 9 9"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ color: "#ffffff", fontWeight: 700, fontSize: "17px",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{driver}</span>
+                {/* Green verified tick — same as Figma */}
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="8" cy="8" r="7" fill="#22c55e" />
+                  <polyline points="4.5,8 7,10.5 11.5,5.5" stroke="white" strokeWidth="1.7" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
-              <div style={{ color: "#9ca3af", fontSize: "13px", marginTop: "3px" }}>
-                <span style={{ color: "#f59f00" }}>★ 4.8</span> &bull; {ride.duration || "—"}
-                {isFresh && <span style={{ color: "#4ade80", fontWeight: 600, marginLeft: 8 }}>🟢 Just posted</span>}
+              <div style={{ color: "#a5acc4", fontSize: "13px", marginTop: 1, fontWeight: 500 }}>
+                ★ 4.9 &nbsp;•&nbsp; {ride.viewCount ? ride.viewCount : 45} rides
               </div>
             </div>
           </div>
 
-          <div style={{ color: "#f1f3f5", fontWeight: 700, fontSize: "20px" }}>
+          {/* Route — bold white */}
+          <div style={{ color: "#ffffff", fontWeight: 700, fontSize: "22px", letterSpacing: "-0.2px" }}>
             {ride.from} → {ride.to}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "7px", color: "#cbd5e1", fontSize: "14px" }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {/* Yellow date / time line */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#f5c518", fontSize: "15px", fontWeight: 600 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f5c518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
-            {ride.date || ""} &bull; {formatTime12h(ride.time)}
+            {dateLabel} &nbsp;•&nbsp; {formatTime12h(ride.time)}
           </div>
 
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            {tags.map((t, i) => <Tag key={i} label={t} />)}
-          </div>
+          {/* Tag pills — only when the driver wrote a note while
+              publishing. No hardcoded defaults. */}
+          {tagsRaw.length > 0 && (
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {tagsRaw.slice(0, 5).map((t, i) => (
+                <span key={i} style={{
+                  background: "#2b2b50",
+                  color: "#d6dafc",
+                  fontSize: 12, fontWeight: 600,
+                  padding: "5px 14px",
+                  borderRadius: 999,
+                }}>{t}</span>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Bigger Leaflet map — real driving polyline */}
-        <div className="ff-ride-map" style={{ width: "210px", height: "180px", flexShrink: 0, borderRadius: "14px", overflow: "hidden" }}>
+        {/* Map preview on the right */}
+        <div className="ff-ride-map" style={{
+          width: "220px", height: "200px", flexShrink: 0,
+          borderRadius: "14px", overflow: "hidden",
+          border: "1px solid rgba(255,255,255,0.08)",
+        }}>
           <RideMap ride={ride} />
         </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "10px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+      {/* Footer row — 🔥 seats left + 👁 viewers + Connect button */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingTop: "8px" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#f1f3f5", fontSize: "14px", fontWeight: 600 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#f5c518", fontSize: 14, fontWeight: 700 }}>
             <span>🔥</span> {seats} {seats === 1 ? "seat" : "seats"} left
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#6b7280", fontSize: "12px", marginTop: "4px" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" />
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#7d83a3", fontSize: 12, marginTop: 6, fontWeight: 500 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7d83a3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+              <circle cx="12" cy="12" r="3" />
             </svg>
-            {ride.viewCount || 0} people viewed
+            {ride.viewCount || 0} people viewing
           </div>
         </div>
         <button
           onClick={() => onConnect(ride._id)}
           style={{
-            background: "#e8b800", color: "#111", border: "none",
-            borderRadius: "26px", padding: "13px 28px",
+            background: "#f5c518", color: "#111", border: "none",
+            borderRadius: "28px", padding: "13px 28px",
             fontWeight: 700, fontSize: "15px", cursor: "pointer",
-            boxShadow: "0 4px 14px rgba(232, 184, 0, 0.30)"
-          }}>Connect →</button>
+            display: "flex", alignItems: "center", gap: 6,
+            boxShadow: "0 6px 18px rgba(245, 197, 24, 0.35)",
+            fontFamily: "inherit",
+          }}>
+          Connect <span style={{ fontSize: 17, lineHeight: 1 }}>→</span>
+        </button>
       </div>
     </div>
   );
 };
 
-/* ── Filter panel — controlled by parent so filters actually affect the list ── */
+/* ── Custom 12-hour time picker (Hour / Minute / AM-PM) ──────────
+   The native <input type="time"> shows 24h on some OS locales, so we
+   use three pill-style dropdowns. Internally we still emit "HH:MM" in
+   24h form so the existing filter / sort logic keeps working. */
+function Time12hPicker({ value, onChange }) {
+  const parsed = (() => {
+    const [hStr = "", mStr = "00"] = String(value || "").split(":");
+    const h24 = parseInt(hStr, 10);
+    const m   = parseInt(mStr, 10);
+    if (Number.isNaN(h24)) return { h12: "", min: "", ap: "AM" };
+    const ap  = h24 >= 12 ? "PM" : "AM";
+    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+    return { h12: String(h12), min: String(Number.isNaN(m) ? 0 : m).padStart(2, "0"), ap };
+  })();
+
+  const emit = (h12, mm, ap) => {
+    if (!h12 || mm === "") { onChange(""); return; }
+    let h = parseInt(h12, 10);
+    if (ap === "PM" && h !== 12) h += 12;
+    if (ap === "AM" && h === 12) h = 0;
+    const out = String(h).padStart(2, "0") + ":" + String(parseInt(mm, 10)).padStart(2, "0");
+    onChange(out);
+  };
+
+  const selectStyle = {
+    border: "none", outline: "none",
+    background: "transparent",
+    fontFamily: "inherit",
+    fontSize: 13, color: "#1a1a2e",
+    cursor: "pointer",
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    paddingRight: 4,
+    fontWeight: 600,
+  };
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+      border: "1px solid #e5e7eb", borderRadius: 999,
+      padding: "10px 14px", background: "#fff",
+    }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
+        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+      </svg>
+      <select aria-label="Hour" value={parsed.h12}
+        onChange={(e) => emit(e.target.value, parsed.min || "00", parsed.ap)}
+        style={selectStyle}>
+        <option value="">--</option>
+        {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+          <option key={h} value={h}>{String(h).padStart(2, "0")}</option>
+        ))}
+      </select>
+      <span style={{ fontWeight: 700, color: "#1a1a2e" }}>:</span>
+      <select aria-label="Minutes" value={parsed.min}
+        onChange={(e) => emit(parsed.h12 || "12", e.target.value, parsed.ap)}
+        style={selectStyle}>
+        <option value="">--</option>
+        {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => (
+          <option key={m} value={String(m).padStart(2, "0")}>{String(m).padStart(2, "0")}</option>
+        ))}
+      </select>
+      <select aria-label="AM or PM" value={parsed.ap}
+        onChange={(e) => emit(parsed.h12 || "12", parsed.min || "00", e.target.value)}
+        style={{ ...selectStyle, fontWeight: 700 }}>
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  );
+}
+
+/* ── Filter panel — Figma redesign (template only; same data + logic) ── */
 const FilterPanel = ({ filters, setFilters, onApply, onReset }) => {
   const { vehicleType = "", femaleOnly = false, departTime, amenity, minSeats } = filters;
   const set = (patch) => setFilters((f) => ({ ...f, ...patch }));
 
-  // Are any filters currently active? (so we can grey-out / hide the Clear chip)
   const anyActive =
-    vehicleType !== "" ||
-    femaleOnly ||
+    vehicleType !== "" || femaleOnly ||
     (departTime && departTime !== "") ||
     (amenity && amenity !== "") ||
     (minSeats && minSeats > 0);
 
+  // Inline section heading helper — keeps Figma's vertical rhythm
+  const sectionLabel = {
+    fontSize: 13, fontWeight: 600, color: "#1a1a2e",
+    marginBottom: 10, marginTop: 0,
+  };
+
   return (
     <div style={{
-      background: "#fff", borderRadius: "16px", padding: "20px",
-      width: "215px", flexShrink: 0,
-      boxShadow: "0 4px 20px rgba(0,0,0,0.08)"
+      background: "#fff",
+      borderRadius: "20px",
+      padding: "22px 22px 24px",
+      width: "260px",
+      flexShrink: 0,
+      boxShadow: "0 4px 24px rgba(15, 15, 46, 0.06)",
+      border: "1px solid #eef0f4",
     }}>
-      {/* Header — Filters title + Clear All chip */}
+      {/* Header row — funnel + "Filters" + Clear (always visible) */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        marginBottom: "16px", gap: 8,
+        marginBottom: "18px", gap: 8,
       }}>
-        <div style={{ fontWeight: 700, fontSize: "15px", color: "#111", display: "flex", alignItems: "center", gap: "7px" }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="11" y1="18" x2="13" y2="18" />
+        <div style={{ fontWeight: 700, fontSize: "15px", color: "#1a1a2e", display: "flex", alignItems: "center", gap: "8px" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
           </svg>
           Filters
         </div>
-        <button
-          type="button"
-          onClick={onReset}
-          disabled={!anyActive}
-          style={{
-            background: anyActive ? "#fff5f5" : "#f5f5f5",
-            border: "1px solid " + (anyActive ? "#fecaca" : "#e5e5e5"),
-            color: anyActive ? "#dc2626" : "#aaa",
-            fontSize: "11px", fontWeight: 600,
-            padding: "4px 10px", borderRadius: "12px",
-            cursor: anyActive ? "pointer" : "not-allowed",
-            display: "flex", alignItems: "center", gap: "4px",
-            fontFamily: "inherit",
-          }}
-          title={anyActive ? "Clear all filters" : "No filters applied"}
-        >
-          <span style={{ fontSize: 13, lineHeight: 1 }}>×</span>
-          Clear
+        <button type="button" onClick={onReset} style={{
+          background: "transparent", border: "none",
+          color: anyActive ? "#7c3aed" : "#9ca3af",
+          fontSize: 12, fontWeight: 600,
+          cursor: "pointer", padding: 0, fontFamily: "inherit",
+        }}>
+          Clear filter
         </button>
       </div>
 
-      {/* Ride Type — Car or Bike (single-select), independent Female Rider toggle.
-          Car + Female / Bike + Female combinations are valid. */}
-      <div style={{ marginBottom: "16px" }}>
-        <div style={{ fontSize: "12px", fontWeight: 600, color: "#666", marginBottom: "8px" }}>Ride Type</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      {/* ── Ride Type — horizontal Car | Bike pills ─────────────── */}
+      <div style={{ marginBottom: "18px" }}>
+        <div style={sectionLabel}>Ride Type</div>
+        <div style={{
+          display: "flex", gap: 6,
+          background: "#f3f4f6", padding: 4, borderRadius: 999,
+        }}>
           {[
-            { key: "car",  label: "Car",  icon: "🚗" },
-            { key: "bike", label: "Bike", icon: "🏍️" },
+            { key: "car",  label: "Car",  icon: (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5 11l1.4-3.7A2 2 0 0 1 8.3 6h7.4a2 2 0 0 1 1.9 1.3L19 11h.5a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H19a2 2 0 1 1-4 0H9a2 2 0 1 1-4 0H4.5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1H5zm2-1h10l-1-2.7a.5.5 0 0 0-.5-.3H8.5a.5.5 0 0 0-.5.3L7 10zm.5 5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm9 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>
+              ) },
+            { key: "bike", label: "Bike", icon: (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5.5 18a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7zm0-2a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm13 2a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7zm0-2a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM14 6h3a1 1 0 0 1 0 2h-2.4l1.6 3.2 1.3 2A4.5 4.5 0 1 0 19.4 14h-1.66l-3-6L13.1 6H14zM11 9h-.74L9.2 11H7a4.5 4.5 0 1 0 1.4 1.55L9.94 10H12l-1-1z"/></svg>
+              ) },
           ].map(({ key, label, icon }) => {
             const active = vehicleType === key;
-            const accent = "#1a1a2e";
             return (
-              <button
-                key={key}
-                type="button"
+              <button key={key} type="button"
                 onClick={() => set({ vehicleType: active ? "" : key })}
                 style={{
-                  display: "flex", alignItems: "center", gap: "7px",
-                  padding: "7px 12px", borderRadius: "20px", width: "100%",
-                  border: active ? `1.5px solid ${accent}` : "1.5px solid transparent",
-                  background: active ? accent : "#f0f0f0",
-                  color: active ? "#fff" : "#555",
-                  fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left"
+                  flex: 1,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: "8px 14px",
+                  borderRadius: 999,
+                  border: "none",
+                  background: active ? "#1a1a2e" : "transparent",
+                  color: active ? "#fff" : "#6b7280",
+                  fontSize: 13, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "inherit",
                 }}>
-                <span>{icon}</span>
+                {icon}
                 <span>{label}</span>
-                {active && <span style={{ marginLeft: "auto" }}>✓</span>}
               </button>
             );
           })}
-
-          {/* Female Rider — independent toggle (combinable with Car/Bike) */}
-          <button
-            type="button"
-            onClick={() => set({ femaleOnly: !femaleOnly })}
-            style={{
-              display: "flex", alignItems: "center", gap: "7px",
-              padding: "7px 12px", borderRadius: "20px", width: "100%",
-              border: femaleOnly ? "1.5px solid #ec4899" : "1.5px solid transparent",
-              background: femaleOnly ? "#ec4899" : "#f0f0f0",
-              color: femaleOnly ? "#fff" : "#555",
-              fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left",
-              marginTop: 4,
-            }}
-          >
-            <span>👩</span>
-            <span>Female Rider</span>
-            {femaleOnly && <span style={{ marginLeft: "auto" }}>✓</span>}
-          </button>
         </div>
-
-        {/* Combination hint */}
-        {(vehicleType || femaleOnly) && (
-          <div style={{ fontSize: 11, color: "#888", marginTop: 8, lineHeight: 1.4 }}>
-            Showing: {[
-              vehicleType === "car"  ? "🚗 Car"   : null,
-              vehicleType === "bike" ? "🏍️ Bike" : null,
-              femaleOnly             ? "👩 Female" : null,
-            ].filter(Boolean).join(" + ")}
-          </div>
-        )}
       </div>
 
-      {/* Departure time — actual time picker */}
-      <div style={{ marginBottom: "16px" }}>
-        <div style={{ fontSize: "12px", fontWeight: 600, color: "#666", marginBottom: "8px" }}>
-          Departure time {departTime && <span style={{ color: "#7c3aed", fontWeight: 700 }}>· after {formatTime12h(departTime)}</span>}
-        </div>
-        <div style={{
-          display: "flex", alignItems: "center", gap: "8px",
-          border: "1.5px solid #e5e5e5", borderRadius: "10px",
-          padding: "8px 12px", background: "#fff"
-        }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+      {/* ── Female Rider — standalone centred pill ──────────────── */}
+      <div style={{ marginBottom: "18px", display: "flex", justifyContent: "center" }}>
+        <button type="button"
+          onClick={() => set({ femaleOnly: !femaleOnly })}
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "9px 18px",
+            borderRadius: 999,
+            border: "1px solid " + (femaleOnly ? "#ec4899" : "#e5e7eb"),
+            background: femaleOnly ? "#ec4899" : "#ffffff",
+            color: femaleOnly ? "#fff" : "#1a1a2e",
+            fontSize: 13, fontWeight: 600,
+            cursor: "pointer", fontFamily: "inherit",
+          }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="8" r="5" />
+            <path d="M12 13v8M8 18h8" />
           </svg>
-          <input
-            type="time"
-            value={departTime}
-            onChange={(e) => set({ departTime: e.target.value })}
-            style={{
-              border: "none", outline: "none", background: "transparent",
-              fontSize: "13px", color: "#1a1a2e", fontFamily: "inherit",
-              flex: 1, minWidth: 0
-            }}
-          />
-          {departTime && (
-            <button type="button" onClick={() => set({ departTime: "" })} title="Clear"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#888", fontSize: 16, padding: 0 }}>
-              ×
-            </button>
-          )}
-        </div>
-        <div style={{ fontSize: 10, color: "#aaa", marginTop: 4 }}>Shows rides at or after this time</div>
+          Female Rider
+        </button>
       </div>
 
-      {/* Amenities — pick any one (radio behaviour, click again to clear) */}
-      <div style={{ marginBottom: "16px" }}>
-        <div style={{ fontSize: "12px", fontWeight: 600, color: "#666", marginBottom: "8px" }}>Amenities</div>
+      {/* ── Departure time — custom 12h picker (HH : MM AM/PM) ─── */}
+      <div style={{ marginBottom: "18px" }}>
+        <div style={sectionLabel}>Departure time</div>
+        <Time12hPicker
+          value={departTime}
+          onChange={(v) => set({ departTime: v })}
+        />
+      </div>
+
+      {/* ── Amenities — round icon chips (Figma) ─────────────────
+            Each option sits inside a small round colored circle that
+            holds the cigarette / paw glyph. The whole row is clickable
+            and the circle goes solid-navy + lifts when active. */}
+      <div style={{ marginBottom: "20px" }}>
+        <div style={sectionLabel}>Amenities</div>
         {[
-          { key: "smoking", label: "Smoking Allowed" },
-          { key: "pets",    label: "Pets Allowed" },
-        ].map(({ key, label }) => {
+          {
+            key: "smoking",
+            label: "Smoking Allowed",
+            tint: "#fef2f2",       // soft red tile inactive
+            iconColor: "#ef4444",  // red cigarette glyph
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <rect x="2"  y="14" width="14" height="4" rx="1" />
+                <rect x="18" y="14" width="2"  height="4" rx="0.5" />
+                <path d="M17 11a3 3 0 0 1-3-3V5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+                <path d="M20 11a3 3 0 0 0-3-3"   stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+              </svg>
+            ),
+          },
+          {
+            key: "pets",
+            label: "Pets Allowed",
+            tint: "#fff7ed",       // soft amber tile inactive
+            iconColor: "#f59e0b",  // amber paw glyph
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="5"  cy="10" r="1.8" />
+                <circle cx="9"  cy="6"  r="1.8" />
+                <circle cx="15" cy="6"  r="1.8" />
+                <circle cx="19" cy="10" r="1.8" />
+                <path d="M12 11c-2.6 0-5 2-5 4.6 0 1.6 1.2 2.9 2.8 2.9.8 0 1.4-.3 2.2-.3s1.4.3 2.2.3c1.6 0 2.8-1.3 2.8-2.9 0-2.6-2.4-4.6-5-4.6z" />
+              </svg>
+            ),
+          },
+        ].map(({ key, label, tint, iconColor, icon }) => {
           const active = amenity === key;
           return (
-            <button
-              key={key}
-              type="button"
+            <button key={key} type="button"
               onClick={() => set({ amenity: active ? "" : key })}
               style={{
-                display: "flex", alignItems: "center", gap: "8px",
-                width: "100%", padding: "6px 4px", marginBottom: "4px",
+                display: "flex", alignItems: "center", gap: 12,
+                width: "100%", padding: "8px 0",
                 background: "transparent", border: "none", cursor: "pointer",
-                fontSize: "12px", color: "#333", textAlign: "left",
-                fontFamily: "inherit"
+                fontSize: 13, color: "#1a1a2e", textAlign: "left",
+                fontFamily: "inherit",
               }}>
-              <div style={{
-                width: "16px", height: "16px", borderRadius: "50%",
-                border: `2px solid ${active ? "#2f9e44" : "#cfcfcf"}`,
-                background: active ? "#2f9e44" : "#fff",
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                transition: "all 0.15s ease"
+              {/* Round icon tile */}
+              <span style={{
+                width: 32, height: 32, borderRadius: "50%",
+                background: active ? "#1a1a2e" : tint,
+                color: active ? "#ffffff" : iconColor,
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+                border: active ? "2px solid #1a1a2e" : "1px solid " + tint,
+                boxShadow: active ? "0 2px 6px rgba(26,26,46,0.18)" : "none",
+                transition: "all 0.15s",
               }}>
-                {active && (
-                  <svg width="9" height="9" viewBox="0 0 9 9">
-                    <polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="white" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-              </div>
-              {label}
+                {icon}
+              </span>
+              <span style={{ flex: 1, fontWeight: active ? 700 : 500 }}>{label}</span>
+              {/* Tiny purple check on the right when selected */}
+              {active && (
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <circle cx="7" cy="7" r="7" fill="#7c3aed" />
+                  <polyline points="3.5,7 6,9.5 10.5,4.5" stroke="white" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* Minimum Seats — number box (Figma-style) */}
-      <div style={{ marginBottom: "18px" }}>
-        <div style={{ fontSize: "12px", fontWeight: 600, color: "#666", marginBottom: "10px" }}>Minimum Seats</div>
+      {/* ── Minimum Seats — inline stepper ──────────────────────── */}
+      <div style={{ marginBottom: "22px" }}>
+        <div style={sectionLabel}>Minimum Seats</div>
         <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          border: "1.5px solid #e5e5e5", borderRadius: "10px",
-          padding: "8px 12px", background: "#fff"
+          display: "flex", alignItems: "center", justifyContent: "center",
+          gap: 8,
         }}>
-          <input
-            type="number"
-            min={0}
-            max={8}
-            value={minSeats}
-            onChange={(e) => set({ minSeats: Math.max(0, Math.min(8, Number(e.target.value) || 0)) })}
+          <button type="button"
+            onClick={() => set({ minSeats: Math.max(0, minSeats - 1) })}
             style={{
-              border: "none", outline: "none", background: "transparent",
-              fontSize: "16px", fontWeight: 700, color: "#1a1a2e",
-              width: "40px", textAlign: "left",
-              fontFamily: "inherit"
-            }}
-          />
-          <div style={{ display: "flex", gap: "6px" }}>
-            <button type="button" onClick={() => set({ minSeats: Math.max(0, minSeats - 1) })} style={{
-              width: "26px", height: "26px", borderRadius: "8px",
-              border: "1.5px solid #e5e5e5", background: "#fff",
-              cursor: "pointer", fontSize: "14px", color: "#555",
-              display: "flex", alignItems: "center", justifyContent: "center"
-            }}>−</button>
-            <button type="button" onClick={() => set({ minSeats: Math.min(8, minSeats + 1) })} style={{
-              width: "26px", height: "26px", borderRadius: "8px",
+              width: 34, height: 34, borderRadius: "50%",
               border: "none", background: "#1a1a2e",
-              cursor: "pointer", fontSize: "14px", color: "#fff",
-              display: "flex", alignItems: "center", justifyContent: "center"
+              color: "#fff", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 18, fontWeight: 700, fontFamily: "inherit",
+              boxShadow: "0 2px 6px rgba(26,26,46,0.2)",
+            }}>−</button>
+          <div style={{
+            minWidth: 56, padding: "8px 16px",
+            background: "#1a1a2e", color: "#fff",
+            borderRadius: 999, textAlign: "center",
+            fontSize: 14, fontWeight: 700,
+          }}>{minSeats || 1}</div>
+          <button type="button"
+            onClick={() => set({ minSeats: Math.min(8, (minSeats || 0) + 1) })}
+            style={{
+              width: 34, height: 34, borderRadius: "50%",
+              border: "none", background: "#1a1a2e",
+              color: "#fff", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 18, fontWeight: 700, fontFamily: "inherit",
+              boxShadow: "0 2px 6px rgba(26,26,46,0.2)",
             }}>+</button>
-          </div>
         </div>
       </div>
 
-      {/* Round dark search button (Figma style) */}
+      {/* Round dark search button at the bottom — same as Figma */}
       <div style={{ display: "flex", justifyContent: "center" }}>
         <button type="button" onClick={onApply} title="Apply filters" style={{
           background: "#1a1a2e", color: "#fff", border: "none",
-          borderRadius: "50%", width: "42px", height: "42px",
+          borderRadius: "50%", width: "52px", height: "52px",
           cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 4px 14px rgba(26,26,46,0.25)"
+          boxShadow: "0 6px 18px rgba(26,26,46,0.28)",
         }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </button>
       </div>
@@ -635,19 +751,34 @@ export default function TravelMate() {
       `}</style>
       <form className="ff-search-bar" onSubmit={handleSearch} style={{ padding: "28px 48px 0", display: "flex", justifyContent: "center" }}>
         <div style={{
-          background: "#c8cdd8",
-          borderRadius: "16px",
-          padding: "12px 14px",
+          background: "#dde1e9",
+          borderRadius: "22px",
+          padding: "18px 18px",
           display: "flex",
           alignItems: "center",
-          gap: "10px",
+          gap: "14px",
           width: "100%",
-          maxWidth: "740px"
+          maxWidth: "1180px",
+          boxShadow: "0 6px 22px rgba(15, 15, 46, 0.06)",
         }}>
           {/* From — Tamil Nadu district autocomplete */}
-          <div style={{ background: "#fff", borderRadius: "10px", padding: "0 14px", height: 42, display: "flex", alignItems: "center", gap: "8px", flex: "1 1 0", minWidth: 0, position: "relative", boxSizing: "border-box" }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
+          <div style={{
+            background: "#fff",
+            borderRadius: "16px",
+            padding: "0 20px",
+            height: 64,
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            flex: "1 1 0",
+            minWidth: 0,
+            position: "relative",
+            boxSizing: "border-box",
+            boxShadow: "0 2px 8px rgba(15, 15, 46, 0.04)",
+          }}>
+            {/* Open-circle pin icon — matches Figma "From" glyph */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7a8294" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9" />
             </svg>
             <div style={{ flex: 1, minWidth: 0 }}>
               <LocationSearch
@@ -660,9 +791,24 @@ export default function TravelMate() {
           </div>
 
           {/* To — Tamil Nadu district autocomplete */}
-          <div style={{ background: "#fff", borderRadius: "10px", padding: "0 14px", height: 42, display: "flex", alignItems: "center", gap: "8px", flex: "1 1 0", minWidth: 0, position: "relative", boxSizing: "border-box" }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
+          <div style={{
+            background: "#fff",
+            borderRadius: "16px",
+            padding: "0 20px",
+            height: 64,
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            flex: "1 1 0",
+            minWidth: 0,
+            position: "relative",
+            boxSizing: "border-box",
+            boxShadow: "0 2px 8px rgba(15, 15, 46, 0.04)",
+          }}>
+            {/* Map-pin glyph for "To" */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7a8294" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+              <circle cx="12" cy="10" r="3" />
             </svg>
             <div style={{ flex: 1, minWidth: 0 }}>
               <LocationSearch
@@ -674,9 +820,25 @@ export default function TravelMate() {
             </div>
           </div>
 
-          <div style={{ background: "#fff", borderRadius: "10px", padding: "0 14px", height: 42, display: "flex", alignItems: "center", gap: "8px", flex: "1 1 0", minWidth: 0, boxSizing: "border-box" }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+          {/* Date */}
+          <div style={{
+            background: "#fff",
+            borderRadius: "16px",
+            padding: "0 20px",
+            height: 64,
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            flex: "1 1 0",
+            minWidth: 0,
+            boxSizing: "border-box",
+            boxShadow: "0 2px 8px rgba(15, 15, 46, 0.04)",
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7a8294" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="3" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8"  y1="2" x2="8"  y2="6" />
+              <line x1="3"  y1="10" x2="21" y2="10" />
             </svg>
             <input
               type="date"
@@ -685,28 +847,36 @@ export default function TravelMate() {
               onChange={(e) => {
                 const v = e.target.value;
                 setDate(v);
-                // Mirror to the URL so date filter persists across reloads
                 const next = new URLSearchParams(searchParams);
                 if (v) next.set("date", v); else next.delete("date");
                 setSearchParams(next, { replace: true });
               }}
-              placeholder="Date"
-              style={{ border: "none", outline: "none", fontSize: "14px", color: "#333", width: "100%", background: "transparent" }} />
+              data-has-value={date ? "true" : "false"}
+              style={{ border: "none", outline: "none", fontSize: "15px", color: "#1a1a2e", width: "100%", background: "transparent", fontFamily: "inherit" }} />
           </div>
 
+          {/* Find Ride — yellow rounded CTA, matches Figma */}
           <button type="submit" style={{
-            background: "#e8b800", color: "#111", border: "none",
-            borderRadius: "10px", padding: "0 14px", height: 42,
-            fontWeight: 700, fontSize: "14px", cursor: "pointer",
+            background: "#f5c518",
+            color: "#111",
+            border: "none",
+            borderRadius: "16px",
+            padding: "0 32px",
+            height: 64,
+            fontWeight: 700,
+            fontSize: "16px",
+            cursor: "pointer",
             whiteSpace: "nowrap",
-            flex: "1 1 0", minWidth: 0,
+            flex: "0 0 auto",
+            minWidth: 160,
             boxSizing: "border-box",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            fontFamily: "inherit",
+            boxShadow: "0 4px 14px rgba(245, 197, 24, 0.35)",
           }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.3-4.3" />
-            </svg>
             Find Ride
           </button>
         </div>

@@ -71,7 +71,10 @@ function Hero({ mode: modeProp, onModeChange }) {
           </button>
         </div>
 
-        {/* search card */}
+        {/* Search card — only rendered in Find mode. When the user clicks
+            Post, the search card hides so the embedded PostPage form
+            below can take over (no duplicate From/To/Date fields). */}
+        {mode === 'find' && (
         <form className="search-card" onSubmit={handleSubmit}>
           {/* vehicle pills: Car | Bike */}
           <div className="search-card__vehicle" role="tablist" aria-label="Vehicle">
@@ -82,8 +85,8 @@ function Hero({ mode: modeProp, onModeChange }) {
               className={`vehicle-pill ${vehicle === 'car' ? 'vehicle-pill--active' : ''}`}
               onClick={() => setVehicle('car')}
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M5 17h14M6 17a2 2 0 1 0 4 0M14 17a2 2 0 1 0 4 0M3 13l2-6h14l2 6M5 13h14v4H5z" />
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                <path d="M5.5 11l1.4-3.7A2 2 0 0 1 8.78 6h6.44a2 2 0 0 1 1.88 1.3L18.5 11H19a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-1a2 2 0 1 1-4 0H10a2 2 0 1 1-4 0H5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h.5zM7.34 11h9.32l-1-2.7a.6.6 0 0 0-.56-.3H8.9a.6.6 0 0 0-.56.3L7.34 11zM7.5 16a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm9 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
               </svg>
               <span>Car</span>
             </button>
@@ -94,10 +97,8 @@ function Hero({ mode: modeProp, onModeChange }) {
               className={`vehicle-pill ${vehicle === 'bike' ? 'vehicle-pill--active' : ''}`}
               onClick={() => setVehicle('bike')}
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="6" cy="17" r="3" />
-                <circle cx="18" cy="17" r="3" />
-                <path d="M6 17l4-9h4l3 6M14 8l2-3h3" />
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                <path d="M5.5 18a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7zm0-2a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm13 2a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7zm0-2a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM14 6h3a1 1 0 0 1 0 2h-2.4l1.6 3.2 1.3 2A4.5 4.5 0 1 0 19.4 14h-1.66l-3-6L13.1 6H14zM11 9h-.74L9.2 11H7a4.5 4.5 0 1 0 1.4 1.55L9.94 10H12l-1-1z"/>
               </svg>
               <span>Bike</span>
             </button>
@@ -147,6 +148,7 @@ function Hero({ mode: modeProp, onModeChange }) {
                 min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setDate(e.target.value)}
                 aria-label="Travel date"
+                data-has-value={date ? "true" : "false"}
               />
             </label>
 
@@ -159,6 +161,7 @@ function Hero({ mode: modeProp, onModeChange }) {
             </button>
           </div>
         </form>
+        )}
       </div>
     </section>
   );

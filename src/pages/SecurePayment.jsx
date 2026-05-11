@@ -369,55 +369,9 @@ export default function SecurePayment() {
               </div>
             )}
 
-            {/* Available coupons — tap a chip to auto-apply */}
-            {availableCoupons.length > 0 && !appliedCoupon && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 8 }}>
-                  Available coupons (tap to apply):
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {availableCoupons.map((c) => {
-                    const cashbackText =
-                      c.type === "percent"
-                        ? c.value + "% off" + (c.maxCashback ? " (max ₹" + c.maxCashback + ")" : "")
-                        : "₹" + c.value + " off";
-                    const days = Math.max(0, Math.ceil((new Date(c.expiresAt) - new Date()) / (1000 * 60 * 60 * 24)));
-                    return (
-                      <button
-                        key={c.code}
-                        type="button"
-                        onClick={() => applyCouponDirect(c.code)}
-                        title={"Expires in " + days + " day(s)"}
-                        style={{
-                          background: "#fff7e6",
-                          border: "1px dashed #f5c518",
-                          borderRadius: 8,
-                          padding: "8px 12px",
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "#0d1b2a",
-                          cursor: "pointer",
-                          textAlign: "left",
-                          fontFamily: "inherit",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 2,
-                          minWidth: 130,
-                        }}
-                      >
-                        <span style={{ fontWeight: 800, color: "#b8860b" }}>{c.code}</span>
-                        <span style={{ fontSize: 11, color: "#555", fontWeight: 500 }}>
-                          {cashbackText}
-                        </span>
-                        <span style={{ fontSize: 10, color: "#999" }}>
-                          Expires in {days}d
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* Tap-to-apply coupon chips were removed from the UI
+                per request. Users can still type a code into the
+                input above and click Apply. */}
           </div>
 
           <hr style={{ border: "none", borderTop: "1px solid #f0f0f0", margin: "0 0 18px" }} />

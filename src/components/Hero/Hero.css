@@ -18,7 +18,7 @@
 
 .hero__title {
   font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-extrabold);
+  font-weight: 600;                 /* lighter than the previous extrabold */
   line-height: var(--line-height-tight);
   letter-spacing: -0.02em;
   margin-bottom: var(--space-3);
@@ -28,33 +28,38 @@
 .hero__subtitle {
   font-size: var(--font-size-md);
   color: var(--color-text-on-dark-muted);
+  font-weight: 400;                 /* lighter than the title */
   margin-bottom: var(--space-8);
 }
 
-/* ---------- MODE TOGGLE (Find | Post) ---------- */
+/* ---------- MODE TOGGLE (Find | Post) — solid white, larger ---------- */
 .hero__toggle {
   display: inline-flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-pill);
-  padding: 0.35rem;
+  background: #ffffff;              /* solid white, no blur */
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 6px;                     /* a touch more breathing room */
   margin-bottom: var(--space-8);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  backdrop-filter: none;            /* explicitly kill any inherited blur */
+  -webkit-backdrop-filter: none;
 }
 
 .hero__toggle-btn {
-  padding: 0.7rem 2rem;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-on-dark);
-  border-radius: var(--radius-pill);
+  padding: 0.95rem 2.6rem;          /* bigger overall */
+  font-size: 1rem;                  /* up from sm */
+  font-weight: 600;
+  color: #4b5563;                   /* readable on white */
+  border-radius: 999px;
   transition: background var(--t-base), color var(--t-base);
-  min-width: 96px;
+  min-width: 120px;
 }
 
 .hero__toggle-btn--active {
   background: var(--color-primary);
   color: var(--color-primary-text);
+  box-shadow: 0 4px 14px rgba(255, 203, 5, 0.35);
 }
 
 /* ---------- SEARCH CARD ---------- */
@@ -107,11 +112,15 @@
   display: flex;
   align-items: center;
   background: var(--color-surface);
-  border: 1px solid var(--color-border-input);
+  border: 1.5px solid #4b5563;        /* gray-600 — clearly visible outline */
   border-radius: var(--radius-md);
   padding: 0 var(--space-3);
   height: 52px;
   transition: border-color var(--t-base), box-shadow var(--t-base);
+}
+
+.field:hover {
+  border-color: #1f2937;              /* gray-800 — almost black on hover */
 }
 
 .field:focus-within {
@@ -120,7 +129,7 @@
 }
 
 .field__icon {
-  color: var(--color-text-muted);
+  color: #374151;                /* gray-700 — matches the dark outline */
   display: inline-flex;
   margin-right: var(--space-2);
 }
@@ -139,12 +148,43 @@
 }
 
 .field input[type="date"] {
-  color: var(--color-text-muted);
+  color: var(--color-text);
   cursor: pointer;
 }
 
-.field input[type="date"]:valid {
+/* Default state — hide the browser's "dd-mm-yyyy" placeholder.
+   Chrome / Edge / Safari render the placeholder via the inner
+   ::-webkit-datetime-edit pseudo-element. Setting the color of every
+   sub-field to transparent on the parent input hides it cleanly. */
+.field input[type="date"]::-webkit-datetime-edit-text,
+.field input[type="date"]::-webkit-datetime-edit-month-field,
+.field input[type="date"]::-webkit-datetime-edit-day-field,
+.field input[type="date"]::-webkit-datetime-edit-year-field {
+  color: transparent;
+}
+
+/* Reveal the date text when the field is focused OR has a real value
+   (we flag that via the data-has-value attribute from JSX). */
+.field input[type="date"]:focus::-webkit-datetime-edit-text,
+.field input[type="date"]:focus::-webkit-datetime-edit-month-field,
+.field input[type="date"]:focus::-webkit-datetime-edit-day-field,
+.field input[type="date"]:focus::-webkit-datetime-edit-year-field,
+.field input[type="date"][data-has-value="true"]::-webkit-datetime-edit-text,
+.field input[type="date"][data-has-value="true"]::-webkit-datetime-edit-month-field,
+.field input[type="date"][data-has-value="true"]::-webkit-datetime-edit-day-field,
+.field input[type="date"][data-has-value="true"]::-webkit-datetime-edit-year-field {
   color: var(--color-text);
+}
+
+/* Keep the calendar picker icon visible so the user knows it's a date */
+.field input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+/* Firefox uses the standard placeholder mechanism — hide that too */
+.field input[type="date"]::placeholder {
+  color: transparent;
 }
 
 /* ---------- BUTTON ---------- */
