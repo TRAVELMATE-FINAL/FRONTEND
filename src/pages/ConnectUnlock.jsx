@@ -176,66 +176,110 @@ export default function ConnectUnlock() {
 
       {!loading && !error && ride && (
         <main style={{
-          flex: 1, display: "flex", justifyContent: "center", alignItems: "flex-start",
-          padding: "40px 16px", gap: "24px", flexWrap: "wrap"
-        }}>
+          flex: 1,
+          width: "100%",
+          maxWidth: 1240,
+          margin: "0 auto",
+          padding: "32px 24px 60px",
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) 380px",
+          gap: 22,
+          alignItems: "start",
+          boxSizing: "border-box",
+        }} className="cu-grid">
           {/* ── LEFT COLUMN ── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%", maxWidth: "500px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
 
-            {/* ── Card 1: Driver Header ── */}
-            <div style={{ background: "#fff", borderRadius: "18px", padding: "22px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "22px" }}>
-                {/* Avatar — photo if uploaded, else initial */}
+            {/* ── Card 1: Driver Header + Route ── */}
+            <div style={{
+              background: "#fff",
+              borderRadius: 20,
+              padding: "26px 28px",
+              boxShadow: "0 2px 14px rgba(15, 15, 46, 0.06)",
+              border: "1px solid #eef0f4",
+            }}>
+              {/* Driver row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
                 <div style={{
-                  width: "52px", height: "52px", borderRadius: "50%",
-                  background: driverPhoto ? "#f3f4f6" : "#7c3aed",
+                  width: 56, height: 56, borderRadius: "50%",
+                  background: driverPhoto ? "#f3f4f6" : "#d63384",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0, overflow: "hidden"
+                  flexShrink: 0, overflow: "hidden",
                 }}>
                   {driverPhoto
                     ? <img src={driverPhoto} alt={driverName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    : <span style={{ color: "#fff", fontWeight: 800, fontSize: "20px", letterSpacing: "-0.5px" }}>{initial}</span>}
+                    : <span style={{ color: "#fff", fontWeight: 800, fontSize: 24 }}>{initial}</span>}
                 </div>
 
-                <span style={{ fontWeight: 800, fontSize: "20px", color: "#111", flex: 1, letterSpacing: "-0.3px",
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{
+                  fontWeight: 800, fontSize: 26, color: "#1a1a2e",
+                  flex: 1, letterSpacing: "-0.4px",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>
                   {driverName}
                 </span>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "5px",
-                  background: "#fff8e1", border: "1.5px solid #f59f00",
-                  borderRadius: "20px", padding: "5px 13px" }}>
-                  <span style={{ color: "#f59f00", fontSize: "13px" }}>★</span>
-                  <span style={{ color: "#111", fontWeight: 700, fontSize: "13px" }}>4.8(43)</span>
+                {/* Light-blue rating pill — matches Figma exactly */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  background: "#e7eefc",
+                  borderRadius: 999, padding: "8px 16px",
+                  flexShrink: 0,
+                }}>
+                  <span style={{ color: "#f59e0b", fontSize: 14 }}>★</span>
+                  <span style={{ color: "#1a1a2e", fontWeight: 700, fontSize: 14 }}>4.8(43)</span>
                 </div>
 
-                <button style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", color: "#999", fontSize: "18px", letterSpacing: "2px" }}>
-                  •••
+                <button style={{
+                  background: "transparent", border: "none", cursor: "pointer",
+                  padding: 4, color: "#9ca3af", flexShrink: 0,
+                }} aria-label="More">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <circle cx="5"  cy="12" r="1.7" />
+                    <circle cx="12" cy="12" r="1.7" />
+                    <circle cx="19" cy="12" r="1.7" />
+                  </svg>
                 </button>
               </div>
 
+              {/* Route */}
               <div>
-                <div style={{ fontWeight: 700, fontSize: "13px", color: "#888", marginBottom: "14px", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                <div style={{
+                  fontSize: 18, fontWeight: 700, color: "#1a1a2e",
+                  marginBottom: 16, letterSpacing: "-0.2px",
+                }}>
                   Route
                 </div>
 
-                <div style={{ display: "flex", gap: "16px" }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "3px" }}>
-                    <div style={{ width: "14px", height: "14px", borderRadius: "50%", background: "#3b82f6", border: "2px solid #3b82f6", flexShrink: 0 }} />
-                    <div style={{ width: "2px", flex: 1, margin: "4px 0",
-                      background: "repeating-linear-gradient(to bottom, #ccc 0px, #ccc 5px, transparent 5px, transparent 10px)",
-                      minHeight: "38px" }} />
-                    <div style={{ width: "14px", height: "14px", borderRadius: "50%", background: "#22c55e", border: "2px solid #22c55e", flexShrink: 0 }} />
+                <div style={{ display: "flex", gap: 18 }}>
+                  <div style={{
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                    paddingTop: 6,
+                  }}>
+                    <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#3b82f6", flexShrink: 0 }} />
+                    <div style={{
+                      width: 2, flex: 1, margin: "6px 0",
+                      background: "repeating-linear-gradient(to bottom, #cbd5e1 0px, #cbd5e1 4px, transparent 4px, transparent 9px)",
+                      minHeight: 46,
+                    }} />
+                    <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }} />
                   </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "20px", flex: 1 }}>
+                  <div style={{
+                    display: "flex", flexDirection: "column", justifyContent: "space-between",
+                    gap: 22, flex: 1,
+                  }}>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: "15px", color: "#111" }}>{fromCity}</div>
-                      <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>{fromSub || `Starting point in ${fromCity}`}</div>
+                      <div style={{ fontWeight: 700, fontSize: 17, color: "#1a1a2e" }}>{fromCity}</div>
+                      <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 3 }}>
+                        {fromSub || `Starting point in ${fromCity}`}
+                      </div>
                     </div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: "15px", color: "#111" }}>{toCity}</div>
-                      <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>{toSub || `Drop-off in ${toCity}`}</div>
+                      <div style={{ fontWeight: 700, fontSize: 17, color: "#1a1a2e" }}>{toCity}</div>
+                      <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 3 }}>
+                        {toSub || `Drop-off in ${toCity}`}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -243,42 +287,49 @@ export default function ConnectUnlock() {
             </div>
 
             {/* ── Card 2: Vehicle Details ── */}
-            <div style={{ background: "#fff", borderRadius: "18px", padding: "22px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
-              <div style={{ fontWeight: 800, fontSize: "18px", color: "#111", marginBottom: "16px", letterSpacing: "-0.2px" }}>
+            <div style={{
+              background: "#fff", borderRadius: 20,
+              padding: "26px 28px",
+              boxShadow: "0 2px 14px rgba(15, 15, 46, 0.06)",
+              border: "1px solid #eef0f4",
+            }}>
+              <div style={{
+                fontWeight: 800, fontSize: 22, color: "#1a1a2e",
+                marginBottom: 18, letterSpacing: "-0.3px",
+              }}>
                 Vehicle Details
               </div>
 
-              <div style={{ marginBottom: "18px" }}>
+              {/* Soft blue pill with model name */}
+              <div style={{ marginBottom: 22 }}>
                 <span style={{
-                  display: "inline-flex", alignItems: "center", gap: "6px",
-                  border: "1.5px solid #e5e7eb", borderRadius: "8px",
-                  padding: "5px 12px", fontSize: "12px", fontWeight: 600, color: "#555",
-                  background: "#fafafa"
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  background: "#e7eefc", color: "#1a1a2e",
+                  borderRadius: 999, padding: "7px 14px",
+                  fontSize: 13, fontWeight: 600,
                 }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/>
-                    <rect x="7" y="14" width="10" height="6" rx="1"/>
-                    <circle cx="8" cy="20" r="1"/><circle cx="16" cy="20" r="1"/>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M5 11l1.4-3.7A2 2 0 0 1 8.3 6h7.4a2 2 0 0 1 1.9 1.3L19 11h.5a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H19a2 2 0 1 1-4 0H9a2 2 0 1 1-4 0H4.5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1H5z" />
                   </svg>
                   {vehicleModel || vehicleType}
                 </span>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 0", borderTop: "1px solid #f3f4f6", paddingTop: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 22, columnGap: 16 }}>
                 <div>
-                  <div style={{ fontSize: "12px", color: "#aaa", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.4px" }}>Vehicle</div>
-                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#111" }}>{vehicleModel || vehicleType}</div>
+                  <div style={{ fontSize: 14, color: "#1a1a2e", fontWeight: 600, marginBottom: 6 }}>Vehicle</div>
+                  <div style={{ fontSize: 14, color: "#6b7280" }}>{vehicleModel || vehicleType}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "12px", color: "#aaa", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.4px" }}>Color</div>
-                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#111" }}>{vehicleColor}</div>
+                  <div style={{ fontSize: 14, color: "#1a1a2e", fontWeight: 600, marginBottom: 6 }}>Color</div>
+                  <div style={{ fontSize: 14, color: "#6b7280" }}>{vehicleColor}</div>
                 </div>
 
-                <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: "14px" }}>
-                  <div style={{ fontSize: "12px", color: "#aaa", fontWeight: 600, marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.4px" }}>Plate Number</div>
+                <div>
+                  <div style={{ fontSize: 14, color: "#1a1a2e", fontWeight: 600, marginBottom: 6 }}>Plate Number</div>
                   {ride.plateNumber ? (
                     <div style={{
-                      fontSize: "14px", fontWeight: 700, color: "#111",
+                      fontSize: 14, color: "#6b7280", fontWeight: 500,
                       filter: unlocked ? "none" : "blur(4px)",
                       userSelect: unlocked ? "text" : "none",
                       transition: "filter 0.3s ease",
@@ -287,110 +338,144 @@ export default function ConnectUnlock() {
                     </div>
                   ) : (
                     <div style={{
-                      width: "110px", height: "14px", borderRadius: "4px",
+                      width: 110, height: 14, borderRadius: 4,
                       background: "linear-gradient(90deg, #d1d5db 0%, #e5e7eb 50%, #d1d5db 100%)",
-                      filter: "blur(1.5px)"
+                      filter: "blur(1.5px)",
                     }} />
                   )}
                 </div>
-                <div style={{ textAlign: "right", borderTop: "1px solid #f3f4f6", paddingTop: "14px" }}>
-                  <div style={{ fontSize: "12px", color: "#aaa", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.4px" }}>Type</div>
-                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#111" }}>{vehicleType}</div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 14, color: "#1a1a2e", fontWeight: 600, marginBottom: 6 }}>Type</div>
+                  <div style={{ fontSize: 14, color: "#6b7280" }}>{vehicleType}</div>
                 </div>
               </div>
             </div>
 
             {/* ── Card 3: Additional Information ── */}
-            <div style={{ background: "#fff", borderRadius: "18px", padding: "22px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
-              <div style={{ fontWeight: 800, fontSize: "16px", color: "#111", marginBottom: "10px", letterSpacing: "-0.2px" }}>
+            <div style={{
+              background: "#fff", borderRadius: 20,
+              padding: "24px 28px",
+              boxShadow: "0 2px 14px rgba(15, 15, 46, 0.06)",
+              border: "1px solid #eef0f4",
+            }}>
+              <div style={{
+                fontWeight: 700, fontSize: 17, color: "#1a1a2e",
+                marginBottom: 10, letterSpacing: "-0.2px",
+              }}>
                 Additional Information
               </div>
-              <div style={{ fontSize: "14px", color: "#666", lineHeight: "1.6" }}>
+              <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
                 {additional}
               </div>
             </div>
           </div>
 
-          {/* ── RIGHT COLUMN: Booking/Contact card ── */}
-          <div style={{ width: "100%", maxWidth: "280px" }}>
+          {/* ── RIGHT COLUMN: Booking / Contact sidebar ── */}
+          <aside style={{ position: "sticky", top: 88 }}>
             <div style={{
-              background: "#fff", borderRadius: "18px",
-              padding: "22px 20px", boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-              display: "flex", flexDirection: "column", gap: "14px"
+              background: "#fff", borderRadius: 20,
+              padding: "24px 22px",
+              boxShadow: "0 2px 14px rgba(15, 15, 46, 0.06)",
+              border: "1px solid #eef0f4",
+              display: "flex", flexDirection: "column", gap: 16,
             }}>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "9px", color: "#333", fontSize: "14px", fontWeight: 600 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              {/* Time row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#1a1a2e", fontSize: 14, fontWeight: 500 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8"  y1="2" x2="8"  y2="6" />
+                  <line x1="3"  y1="10" x2="21" y2="10" />
                 </svg>
                 {dtLabel}
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "9px", color: "#333", fontSize: "14px", fontWeight: 600 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              {/* Seats row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#1a1a2e", fontSize: 14, fontWeight: 500 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
                 {seats} {seats === 1 ? "seat" : "seats"} available
               </div>
 
-              <div style={{ height: "1px", background: "#f0f0f0" }} />
-
-              {/* Contact Number field */}
-              <div>
+              {/* Contact Number — locked block matching Figma */}
+              <div style={{
+                background: "#f3f4f6",
+                borderRadius: 12,
+                padding: "14px 16px",
+                position: "relative",
+              }}>
                 <div style={{
-                  border: "1.5px solid #e5e7eb", borderRadius: "10px",
-                  padding: "12px 14px", display: "flex",
-                  alignItems: "center", justifyContent: "space-between",
-                  background: "#fafafa"
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  marginBottom: 8,
                 }}>
-                  <span style={{
-                    fontSize: "14px",
-                    color: unlocked ? "#111" : "#bbb",
-                    fontWeight: unlocked ? 700 : 400,
-                    letterSpacing: unlocked ? "1px" : "0",
-                    filter: unlocked ? "none" : "blur(4px)",
-                    userSelect: unlocked ? "text" : "none",
-                    transition: "all 0.3s ease"
-                  }}>
-                    {unlocked ? contact : (maskedPhone || "Contact Number")}
+                  <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 600 }}>
+                    Contact Number
                   </span>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={unlocked ? "#22c55e" : "#ccc"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2"/>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={unlocked ? "#22c55e" : "#9ca3af"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
+                </div>
+                <div style={{
+                  height: 18,
+                  borderRadius: 6,
+                  background: unlocked ? "transparent" : "linear-gradient(90deg,#d1d5db 0%,#e5e7eb 50%,#d1d5db 100%)",
+                  filter: unlocked ? "none" : "blur(3px)",
+                  color: "#1a1a2e", fontSize: 16, fontWeight: 700,
+                  letterSpacing: "0.5px", padding: unlocked ? "0" : "0 8px",
+                  display: "flex", alignItems: "center",
+                  userSelect: unlocked ? "text" : "none",
+                  transition: "all 0.3s ease",
+                }}>
+                  {unlocked ? contact : ""}
                 </div>
               </div>
 
-              {seats > 0 && seats <= 2 && !unlocked && (
+              {/* Red low-seat alert — always shown under the Contact
+                  Number block whenever there are seats remaining and
+                  the contact isn't unlocked yet. */}
+              {seats > 0 && !unlocked && (
                 <div style={{
-                  border: "1.5px solid #fecaca", borderRadius: "10px",
-                  padding: "11px 14px", display: "flex",
-                  alignItems: "center", gap: "8px", background: "#fff5f5"
+                  background: "#fff5f5",
+                  border: "1px solid #fecaca",
+                  borderRadius: 10,
+                  padding: "11px 14px",
+                  display: "flex", alignItems: "center", gap: 8,
                 }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
-                  <span style={{ color: "#ef4444", fontWeight: 700, fontSize: "13px" }}>
+                  <span style={{ color: "#ef4444", fontWeight: 700, fontSize: 13 }}>
                     Only {seats} {seats === 1 ? "seat" : "seats"} left!
                   </span>
                 </div>
               )}
 
+              {/* Yellow Unlock Contact button */}
               <button
                 onClick={handleUnlock}
                 disabled={unlocked || unlocking}
                 style={{
-                  background: unlocked ? "#22c55e" : "#e8b800",
-                  color: "#111", border: "none", borderRadius: "12px",
+                  background: unlocked ? "#22c55e" : "#f5c518",
+                  color: "#111", border: "none", borderRadius: 12,
                   padding: "14px 0", width: "100%",
-                  fontWeight: 800, fontSize: "15px",
+                  fontWeight: 700, fontSize: 15,
                   cursor: unlocked || unlocking ? "default" : "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  gap: "8px", transition: "background 0.3s ease",
-                  letterSpacing: "-0.1px"
+                  gap: 8, transition: "background 0.3s ease",
+                  fontFamily: "inherit",
+                  boxShadow: unlocked
+                    ? "0 4px 14px rgba(34, 197, 94, 0.30)"
+                    : "0 4px 14px rgba(245, 197, 24, 0.30)",
                 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                   {unlocked
                     ? <polyline points="20 6 9 17 4 12"/>
                     : <><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></>}
@@ -398,11 +483,19 @@ export default function ConnectUnlock() {
                 {unlocked ? "Contact Unlocked!" : (unlocking ? "Unlocking…" : "Unlock Contact")}
               </button>
 
-              <div style={{ textAlign: "center", fontSize: "12px", color: "#aaa", lineHeight: "1.5" }}>
+              <div style={{ textAlign: "center", fontSize: 12, color: "#9ca3af", lineHeight: 1.5 }}>
                 Secure payment • Get contact instantly
               </div>
             </div>
-          </div>
+          </aside>
+
+          {/* Mobile fallback: collapse sidebar under left column at narrow widths */}
+          <style>{`
+            @media (max-width: 900px) {
+              .cu-grid { grid-template-columns: 1fr !important; padding: 18px 12px 40px !important; }
+              .cu-grid > aside { position: static !important; }
+            }
+          `}</style>
         </main>
       )}
 

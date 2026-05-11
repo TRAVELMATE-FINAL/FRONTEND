@@ -92,6 +92,10 @@ export default function RideDetailsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Whether the *viewer* (current logged-in user) has paid — only
+  // then do we reveal the full driver phone. Default false until the
+  // subscription endpoint confirms an active plan.
+  const [hasPaid, setHasPaid] = useState(false);
 
   useEffect(() => {
     if (!rideId) {
@@ -146,8 +150,50 @@ export default function RideDetailsPage() {
     };
   }, [rideId]);
 
+  // Check whether the viewer has an active paid subscription — that's
+  // what unlocks the contact number reveal. If they're the rider's
+  // own ride (their phone matches the driver's phone) we always
+  // reveal it without payment.
+  useEffect(() => {
+    const phone =
+      (typeof window !== "undefined" && localStorage.getItem("phone")) || "";
+    if (!phone) {
+      setHasPaid(false);
+      return;
+    }
+    let cancelled = false;
+    axios
+      .get(`${API_BASE}/api/plans/me`, {
+        params: { phone },
+        timeout: 6000,
+      })
+      .then(({ data: resp }) => {
+        if (cancelled) return;
+        const status = resp?.subscription?.status;
+        setHasPaid(status === "active");
+      })
+      .catch(() => {
+        if (!cancelled) setHasPaid(false);
+      });
+    return () => { cancelled = true; };
+  }, [rideId]);
+
   const ride = data?.ride;
   const driver = data?.driver;
+
+  // ── Contact-number gate ──────────────────────────────────────
+  // Reveal the full phone when ANY of these are true:
+  //   1. The viewer has an active subscription (hasPaid)
+  //   2. The viewer IS the driver (looking at their own ride)
+  // Otherwise show the masked phone + Unlock Contact CTA.
+  const viewerPhone =
+    (typeof window !== "undefined" && localStorage.getItem("phone")) || "";
+  const isOwnRide = (() => {
+    if (!driver?.phone || !viewerPhone) return false;
+    const onlyDigits = (s) => String(s).replace(/\D/g, "").slice(-10);
+    return onlyDigits(driver.phone) === onlyDigits(viewerPhone);
+  })();
+  const contactUnlocked = hasPaid || isOwnRide;
 
   // Friendly fallbacks for every text field — never render raw "—" in
   // a UI that's supposed to look populated.
@@ -157,10 +203,12 @@ export default function RideDetailsPage() {
   const vehicleType = (ride?.vehicle || "").toLowerCase() === "car" ? "Car" : "Bike";
   const seats       = typeof ride?.seatsAvailable === "number" ? ride.seatsAvailable : 0;
   const seatsLabel  = `${seats} ${seats === 1 ? "seat" : "seats"} available`;
-  // The user has paid before reaching this page, so we show the full
-  // unmasked number. Falls back to the masked version if the backend
-  // didn't include the unmasked one (older payload).
-  const contactNum  = driver?.phone || driver?.maskedPhone || "—";
+  // Only show the real number once the viewer has paid (or is the
+  // ride's own poster). Otherwise show the masked version so the
+  // last few digits are visible but the full number stays locked.
+  const contactNum  = contactUnlocked
+    ? (driver?.phone || driver?.maskedPhone || "—")
+    : (driver?.maskedPhone || "•••• •••• ••");
 
   return (
     <div
@@ -388,20 +436,58 @@ export default function RideDetailsPage() {
                 <span style={{ fontSize: 14, color: "#374151", fontWeight: 500 }}>{seatsLabel}</span>
               </div>
 
-              {/* Contact Number — masked unless the user has unlocked */}
+              {/* Contact Number — masked unless the viewer has paid
+                  for an active subscription, or is the ride poster. */}
               <div style={{
-                background: "#f9fafb",
-                border: "1px solid #e5e7eb",
+                background: contactUnlocked ? "#f0fdf4" : "#f9fafb",
+                border: "1px solid " + (contactUnlocked ? "#bbf7d0" : "#e5e7eb"),
                 borderRadius: 12,
                 padding: "14px 16px",
                 marginBottom: 12,
               }}>
-                <p style={{ fontSize: 12, color: "#9ca3af", margin: "0 0 6px", fontWeight: 500 }}>
-                  Contact Number
+                <p style={{
+                  fontSize: 12,
+                  color: contactUnlocked ? "#15803d" : "#9ca3af",
+                  margin: "0 0 6px",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}>
+                  {contactUnlocked ? "🔓" : "🔒"} Contact Number
                 </p>
                 <p style={{ fontSize: 22, fontWeight: 700, color: "#111827", margin: 0, letterSpacing: "0.5px" }}>
                   {contactNum}
                 </p>
+                {!contactUnlocked && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try { localStorage.setItem("pendingUnlockRideId", rideId); } catch {}
+                      navigate("/findrideplan");
+                    }}
+                    style={{
+                      marginTop: 12,
+                      width: "100%",
+                      background: "#f5c518",
+                      color: "#111",
+                      border: "none",
+                      borderRadius: 10,
+                      padding: "10px 14px",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      boxShadow: "0 4px 12px rgba(245,197,24,0.30)",
+                    }}
+                  >
+                    Pay to unlock contact →
+                  </button>
+                )}
               </div>
 
               {/* Low-seat alert — surfaces only if 1–2 seats remain */}

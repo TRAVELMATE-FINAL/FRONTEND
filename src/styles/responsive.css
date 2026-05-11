@@ -660,3 +660,73 @@ img { max-width: 100%; height: auto; }
     border-radius: 10px !important;
   }
 }
+
+/* =============================================================
+   FINAL RESPONSIVE SWEEP
+   Covers the latest ConnectUnlock 2-col grid + PostPage form +
+   anything else that's been added since the last responsive pass.
+   ============================================================= */
+@media (max-width: 900px) {
+  /* ConnectUnlock collapses to single column at tablet width */
+  .cu-grid {
+    grid-template-columns: 1fr !important;
+    padding: 18px 14px 40px !important;
+    gap: 14px !important;
+  }
+  .cu-grid > aside { position: static !important; }
+}
+
+@media (max-width: 640px) {
+  /* ── ConnectUnlock cards — fill width, tighter padding ── */
+  .cu-grid > div > div,
+  .cu-grid > aside > div {
+    padding: 18px 16px !important;
+    border-radius: 14px !important;
+  }
+  /* Vehicle Details 2x2 grid — keep two columns but reduce gap */
+  .cu-grid > div > div > div[style*="grid-template-columns: 1fr 1fr"] {
+    row-gap: 16px !important;
+    column-gap: 12px !important;
+  }
+  /* Driver-row name shrinks so the rating pill + menu still fit */
+  .cu-grid > div > div > div:first-child > span:first-of-type {
+    font-size: 20px !important;
+  }
+
+  /* ── PostPage form — already responsive but tighten card paddings ── */
+  .post-page-card {
+    padding: 18px 16px 8px !important;
+  }
+  .post-page-card .frp-feature { display: none !important; }
+
+  /* ── ProfileSettings posted-ride cards — tighter on phones ── */
+  .ps-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* ── Smaller phones — extra-snug ConnectUnlock cards ── */
+  .cu-grid {
+    padding: 12px 8px 32px !important;
+  }
+  .cu-grid > div > div,
+  .cu-grid > aside > div {
+    padding: 16px 14px !important;
+    border-radius: 12px !important;
+  }
+  /* Driver row stacks the menu button below if too tight */
+  .cu-grid > div > div > div:first-child {
+    flex-wrap: wrap !important;
+    row-gap: 10px !important;
+  }
+  .cu-grid > div > div > div:first-child > span:first-of-type {
+    font-size: 18px !important;
+  }
+  /* Rating pill stays small */
+  .cu-grid > div > div > div:first-child > div[style*="border-radius: 999"] {
+    padding: 5px 11px !important;
+    font-size: 12px !important;
+  }
+}
