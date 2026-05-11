@@ -6,16 +6,16 @@ function Header() {
 
   return (
     <div className="tm-navbar">
-      {/* Brand (click → home) */}
+      {/* Brand (click → home) — uses the user-supplied favicon.png as
+          the logo icon, paired with the gradient wordmark. */}
       <div className="tm-navbar__brand" onClick={() => navigate('/')}>
-        <div className="tm-navbar__logo">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.8" />
-            <polygon points="12,4 14.5,11 12,10 9.5,11" fill="white" />
-            <polygon points="12,20 9.5,13 12,14 14.5,13" fill="rgba(255,255,255,0.5)" />
-            <circle cx="12" cy="12" r="1.5" fill="white" />
-          </svg>
-        </div>
+        <img
+          className="tm-navbar__logo-img"
+          src="/favicon.png"
+          alt="Travel Mate"
+          width="38"
+          height="38"
+        />
         <span className="tm-navbar__name">Travel Mate</span>
       </div>
 
