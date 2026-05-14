@@ -37,6 +37,10 @@ export default function RideMap({ ride }) {
   const [hasRoute, setHasRoute] = useState(false);
   const [routeError, setRouteError] = useState("");
   const [routeInfo, setRouteInfo] = useState({ distance: "", duration: "" });
+  // mapReady is a STATE (not just ref) so the route-drawing useEffect re-runs
+  // once Google has actually mounted the <GoogleMap>. Otherwise the effect
+  // can fire while mapRef.current is still null, bail out, and never retry.
+  const [mapReady, setMapReady] = useState(false);
 
   const fromLat = ride?.fromLat;
   const fromLon = ride?.fromLon;
@@ -47,10 +51,12 @@ export default function RideMap({ ride }) {
 
   const onMapLoad = useCallback((map) => {
     mapRef.current = map;
+    setMapReady(true);
   }, []);
 
   const onMapUnmount = useCallback(() => {
     mapRef.current = null;
+    setMapReady(false);
   }, []);
 
   // Clean up any drawings on this map (route, fallback line, markers)
@@ -102,9 +108,11 @@ export default function RideMap({ ride }) {
     [fromLat, fromLon, toLat, toLon]
   );
 
-  // Fetch + render the directions whenever the coords change
+  // Fetch + render the directions whenever the coords change.
+  // `mapReady` is in the deps so the effect re-fires after the <GoogleMap>
+  // mounts on first paint — otherwise the route never draws.
   useEffect(() => {
-    if (!isLoaded || !haveCoords || !mapRef.current) return;
+    if (!isLoaded || !mapReady || !haveCoords || !mapRef.current) return;
     const g = window.google;
     const map = mapRef.current;
 
@@ -191,7 +199,7 @@ export default function RideMap({ ride }) {
     return () => {
       clearMapLayers();
     };
-  }, [isLoaded, haveCoords, fromLat, fromLon, toLat, toLon, drawMarkers, clearMapLayers]);
+  }, [isLoaded, mapReady, haveCoords, fromLat, fromLon, toLat, toLon, drawMarkers, clearMapLayers]);
 
   // ─── Render states ───────────────────────────────────────────────
   if (!haveCoords) {
