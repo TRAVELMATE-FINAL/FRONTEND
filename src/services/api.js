@@ -3,8 +3,12 @@ import axios from "axios";
 // ======================
 // AXIOS INSTANCE
 // ======================
-const APP_URL =
+// Normalize the backend URL so a misconfigured env var (e.g. trailing slash
+// or "/api" already appended on Vercel) doesn't produce a "/api/api/..." path
+// that the backend will reject with a 404 "Route not found".
+const RAW_APP_URL =
   import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
+const APP_URL = RAW_APP_URL.replace(/\/+$/, "").replace(/\/api$/, "");
 
 const API = axios.create({
   baseURL: APP_URL + "/api",
@@ -12,6 +16,14 @@ const API = axios.create({
     "Content-Type": "application/json",
   },
 });
+
+// Log the resolved baseURL once so the deployed bundle is self-diagnosing.
+// Open DevTools → Console after page load — this prints the actual backend
+// URL the app will hit. If it shows anything other than
+// "https://travelmate-backend-dzpq.onrender.com/api" → fix the Vercel env var.
+if (typeof window !== "undefined") {
+  console.info("[TravelMate] API baseURL:", API.defaults.baseURL);
+}
 
 // ======================
 // REQUEST INTERCEPTOR (future-ready)

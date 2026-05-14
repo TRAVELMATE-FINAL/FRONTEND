@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { GoogleMap } from "@react-google-maps/api";
@@ -583,14 +583,20 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false }) {
   const markersRef = useRef([]);
   const [routeError, setRouteError] = useState("");
   const [routeInfo, setRouteInfo] = useState({ distance: "", duration: "" });
+  // mapReady is a STATE (not just ref) so the route-drawing useEffect re-runs
+  // once Google has actually mounted the <GoogleMap>. Otherwise the effect
+  // can fire while mapRef.current is still null, bail out, and never retry.
+  const [mapReady, setMapReady] = useState(false);
 
   const haveCoords = !!(fromCoords && toCoords);
 
   const onMapLoad = useCallback((map) => {
     mapRef.current = map;
+    setMapReady(true);
   }, []);
   const onMapUnmount = useCallback(() => {
     mapRef.current = null;
+    setMapReady(false);
   }, []);
 
   const clearMapLayers = useCallback(() => {
@@ -606,9 +612,11 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false }) {
     markersRef.current = [];
   }, []);
 
-  // Render the route whenever from/to changes
+  // Render the route whenever from/to changes (or once the map is ready).
+  // `mapReady` is included in the deps so the effect re-fires after the
+  // <GoogleMap> mounts on first paint.
   useEffect(() => {
-    if (!isLoaded || !haveCoords || !mapRef.current) return;
+    if (!isLoaded || !mapReady || !haveCoords || !mapRef.current) return;
     const g = window.google;
     const map = mapRef.current;
     clearMapLayers();
@@ -726,6 +734,7 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false }) {
     };
   }, [
     isLoaded,
+    mapReady,
     haveCoords,
     fromCoords?.lat,
     fromCoords?.lon,
@@ -896,178 +905,281 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false }) {
 }
 
 /* ─────────────────────────────────────────
-   PAGE 2 — Vehicle details
+   PAGE 2 — Vehicle details (Figma redesign)
 ───────────────────────────────────────── */
-function PostRidePage({ form, setForm, onPublish, publishing, error, onBack, liveLabel }) {
-  const fieldStyle = {
-    width: "100%", border: "none", borderBottom: "1.5px solid #e8e8e8",
-    outline: "none", padding: "10px 0", fontSize: 13,
-    fontFamily: "'Poppins', sans-serif", color: "#333",
-    background: "transparent",
+function PostRidePage({ form, setForm, onPublish, publishing, error, onBack }) {
+  /* Shared bordered-box input style matching Figma */
+  const boxedInput = {
+    width: "100%",
+    border: "1.5px solid #e5e7eb",
+    borderRadius: 10,
+    outline: "none",
+    padding: "13px 16px",
+    fontSize: 14,
+    fontFamily: "inherit",
+    color: "#1a1a2e",
+    background: "#fff",
+    boxSizing: "border-box",
   };
 
-  const CarIcon = () => (
-    <svg viewBox="0 0 48 32" width="44" height="30" fill="currentColor">
-      <path d="M8 20h32l-4-10H12L8 20z" opacity="0.15"/>
-      <rect x="4" y="18" width="40" height="10" rx="4"/>
-      <rect x="2" y="22" width="5" height="6" rx="2"/>
-      <rect x="41" y="22" width="5" height="6" rx="2"/>
-      <circle cx="12" cy="28" r="4" fill="#333"/><circle cx="12" cy="28" r="2" fill="#fff"/>
-      <circle cx="36" cy="28" r="4" fill="#333"/><circle cx="36" cy="28" r="2" fill="#fff"/>
-      <path d="M12 18l4-10h16l4 10H12z" fill="#555"/>
-      <rect x="14" y="10" width="8" height="6" rx="1" fill="#a0c4ff" opacity="0.8"/>
-      <rect x="24" y="10" width="8" height="6" rx="1" fill="#a0c4ff" opacity="0.8"/>
+  /* SVG icons — match Figma exactly (purple accent for active) */
+  const VehicleIcon = ({ color = "#7c3aed" }) => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h2" />
+      <circle cx="6.5" cy="16.5" r="2.5" />
+      <circle cx="16.5" cy="16.5" r="2.5" />
     </svg>
   );
-  const BikeIcon = () => (
-    <svg viewBox="0 0 48 32" width="44" height="30" fill="none">
-      <circle cx="12" cy="24" r="7" stroke="#bbb" strokeWidth="2"/>
-      <circle cx="12" cy="24" r="3" fill="#bbb"/>
-      <circle cx="36" cy="24" r="7" stroke="#bbb" strokeWidth="2"/>
-      <circle cx="36" cy="24" r="3" fill="#bbb"/>
-      <path d="M12 24 L24 12 L36 24" stroke="#bbb" strokeWidth="2" strokeLinecap="round"/>
-      <path d="M20 12 L28 12" stroke="#bbb" strokeWidth="2" strokeLinecap="round"/>
-      <path d="M24 12 L24 8" stroke="#bbb" strokeWidth="2" strokeLinecap="round"/>
+  const PeopleIcon = ({ color = "#7c3aed" }) => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
+  );
+  const NotesIcon = ({ color = "#7c3aed" }) => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <polyline points="10 9 9 9 8 9" />
+    </svg>
+  );
+
+  /* Large vehicle silhouettes shown inside the Car / Bike selector cards */
+  const CarSilhouette = ({ color }) => (
+    <svg viewBox="0 0 80 48" width="80" height="48" fill="none" aria-hidden="true">
+      <path d="M10 32h60v-7a3 3 0 0 0-2.5-2.95L60 20l-6-9a3 3 0 0 0-2.5-1.3H29.5A3 3 0 0 0 27 11l-6 9-7.5 2.05A3 3 0 0 0 11 25v7h-1z"
+        fill={color} stroke={color} strokeWidth="2" strokeLinejoin="round"/>
+      <path d="M27 11l-4 9h34l-4-9" fill="#fff" opacity="0.18"/>
+      <circle cx="22" cy="34" r="6" fill="#1a1a2e"/>
+      <circle cx="22" cy="34" r="2.5" fill="#fff"/>
+      <circle cx="58" cy="34" r="6" fill="#1a1a2e"/>
+      <circle cx="58" cy="34" r="2.5" fill="#fff"/>
+    </svg>
+  );
+  const BikeSilhouette = ({ color }) => (
+    <svg viewBox="0 0 80 48" width="80" height="48" fill="none" aria-hidden="true" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="16" cy="34" r="9" />
+      <circle cx="64" cy="34" r="9" />
+      <path d="M16 34 L34 16 L52 34" />
+      <path d="M30 16 L42 16" />
+      <path d="M40 16 L48 8 L56 8" />
+      <path d="M52 34 L46 22 L34 22" />
+    </svg>
+  );
+
+  /* Reusable section label (icon + text) — matches Figma typography */
+  const SectionLabel = ({ icon, children }) => (
+    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+      {icon}
+      <span style={{ fontSize:14, fontWeight:600, color:"#1a1a2e", letterSpacing:"-0.1px" }}>
+        {children}
+      </span>
+    </div>
   );
 
   return (
-    <div style={{ fontFamily:"'Poppins',sans-serif", background:"#f0f0f0", minHeight:"100vh", display:"flex", justifyContent:"center", padding:"24px 16px" }}>
-      <div style={{ width:480, maxWidth:"100%", background:"#fff", borderRadius:16, overflow:"visible", boxShadow:"0 8px 32px rgba(0,0,0,0.12)", height:"fit-content" }}>
+    <div style={{
+      fontFamily: "'Plus Jakarta Sans', 'Inter', 'DM Sans', system-ui, sans-serif",
+      background: "#f5f5f7", minHeight: "100vh", padding: "28px 16px 40px",
+    }}>
+      <div style={{ maxWidth: 560, margin: "0 auto" }}>
 
-        <div style={{ padding:"24px 24px 16px", background:"#f8f8ff", borderBottom:"1.5px solid #f0f0f0", display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:8, flexWrap:"wrap" }}>
+        {/* Heading OUTSIDE the card — clean Figma layout, no date/time chip */}
+        <div style={{ marginBottom: 18, display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap: 12 }}>
           <div>
-            <h1 style={{ fontSize:20, fontWeight:700, color:"#c0bfcf", margin:0 }}>Post</h1>
-            <p style={{ fontSize:12, color:"#ccc", marginTop:2 }}>Share your journey with others</p>
+            <h1 style={{ fontSize:26, fontWeight:700, color:"#1a1a2e", margin:0, letterSpacing:"-0.4px" }}>Post</h1>
+            <p style={{ fontSize:14, color:"#6b7280", margin:"4px 0 0" }}>Share your journey with others</p>
           </div>
-          <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-            <span style={{ fontSize:11, color:"#999" }}>{liveLabel}</span>
-            <button onClick={onBack} type="button" style={{ background:"transparent", border:"1.5px solid #e8e8e8", borderRadius:8, padding:"5px 11px", fontSize:12, color:"#666", cursor:"pointer" }}>← Back</button>
-          </div>
+          <button onClick={onBack} type="button"
+            style={{
+              background:"#fff", border:"1.5px solid #e5e7eb", borderRadius:8,
+              padding:"6px 12px", fontSize:12, color:"#4b5563", cursor:"pointer",
+              fontFamily:"inherit", fontWeight:500, flexShrink:0,
+            }}>
+            ← Back
+          </button>
         </div>
 
-        <div style={{ margin:"20px 20px 0", background:"#fff", borderRadius:16, border:"1.5px solid #ede8ff", padding:"20px 20px 0", boxShadow:"0 2px 16px rgba(120,80,255,0.06)" }}>
+        {/* Main white card */}
+        <div style={{
+          background:"#fff", borderRadius:16,
+          boxShadow:"0 4px 18px rgba(0,0,0,0.06)",
+          padding:"22px 22px 22px",
+        }}>
 
           {/* Vehicle Type */}
-          <div style={{ marginBottom:18 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:12 }}>
-              <span style={{ fontSize:14 }}>🚗</span>
-              <span style={{ fontSize:13, fontWeight:600, color:"#1a1a2e" }}>Vehicle Type</span>
-            </div>
+          <div style={{ marginBottom: 22 }}>
+            <SectionLabel icon={<VehicleIcon />}>Vehicle Type</SectionLabel>
             <div style={{ display:"flex", gap:12 }}>
               {["Car","Bike"].map((v) => {
                 const active = form.vehicleType === v;
-                const Icon = v === "Car" ? CarIcon : BikeIcon;
+                const Silhouette = v === "Car" ? CarSilhouette : BikeSilhouette;
                 return (
-                  <button key={v} type="button" onClick={() => setForm((f) => ({ ...f, vehicleType: v }))}
-                    style={{ flex:1, border:`1.5px solid ${active?"#a78bfa":"#e8e8e8"}`, borderRadius:12, padding:"16px 10px 10px", display:"flex", flexDirection:"column", alignItems:"center", gap:6, cursor:"pointer", background:active?"#faf5ff":"#fff", transition:"all 0.2s" }}>
-                    <div style={{ color: active ? "#333" : "#bbb" }}><Icon/></div>
-                    <span style={{ fontSize:13, fontWeight:500, color: active ? "#1a1a2e" : "#bbb" }}>{v}</span>
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, vehicleType: v }))}
+                    style={{
+                      flex:1,
+                      border: active ? "2px solid #7c3aed" : "1.5px solid #e5e7eb",
+                      borderRadius:14,
+                      padding:"20px 12px 14px",
+                      display:"flex", flexDirection:"column", alignItems:"center", gap:8,
+                      cursor:"pointer",
+                      background: active ? "#faf5ff" : "#fff",
+                      transition:"all 0.18s ease",
+                      fontFamily:"inherit",
+                    }}>
+                    <Silhouette color={active ? "#1a1a2e" : "#cbd5e1"} />
+                    <span style={{
+                      fontSize:14, fontWeight:600,
+                      color: active ? "#1a1a2e" : "#9ca3af",
+                      letterSpacing:"-0.1px",
+                    }}>{v}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Color — required */}
-          <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e", marginBottom:6 }}>
-              Color <span style={{ color: "#e53e3e" }}>*</span>
-            </div>
+          {/* Color */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{
+              display:"block", fontSize:14, fontWeight:600, color:"#1a1a2e",
+              marginBottom:8, letterSpacing:"-0.1px",
+            }}>Color</label>
             <input
-              style={fieldStyle}
-              placeholder="Enter Colour (e.g. White, Black)"
+              type="text"
+              style={boxedInput}
+              placeholder="Enter Colour"
               value={form.vehicleColor}
               onChange={(e) => setForm((f) => ({ ...f, vehicleColor: e.target.value }))}
-              required
             />
           </div>
 
-          {/* Vehicle Name — required */}
-          <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e", marginBottom:6 }}>
-              Vehicle Name <span style={{ color: "#e53e3e" }}>*</span>
-            </div>
+          {/* Vehicle Name */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{
+              display:"block", fontSize:14, fontWeight:600, color:"#1a1a2e",
+              marginBottom:8, letterSpacing:"-0.1px",
+            }}>Vehicle Name</label>
             <input
-              style={fieldStyle}
-              placeholder="e.g. Swift, Activa, Pulsar"
+              type="text"
+              style={boxedInput}
+              placeholder="Enter Name"
               value={form.vehicleName}
               onChange={(e) => setForm((f) => ({ ...f, vehicleName: e.target.value }))}
-              required
             />
           </div>
 
-          {/* Number Plate — required + Indian-format validation */}
-          <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:"#1a1a2e", marginBottom:6 }}>
-              Number Plate <span style={{ color: "#e53e3e" }}>*</span>
-            </div>
+          {/* Number Plate */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{
+              display:"block", fontSize:14, fontWeight:600, color:"#1a1a2e",
+              marginBottom:8, letterSpacing:"-0.1px",
+            }}>Number Plate</label>
             <input
-              style={fieldStyle}
-              placeholder="TN09AB1234 or 22BH1234AB"
+              type="text"
+              style={boxedInput}
+              placeholder="Enter number"
               value={form.plateNumber}
               onChange={(e) =>
                 setForm((f) => ({ ...f, plateNumber: e.target.value.toUpperCase().replace(/\s+/g, "") }))
               }
               maxLength={11}
-              required
             />
-            <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>
-              Indian formats: standard (TN09AB1234) or BH series (22BH1234AB)
-            </div>
           </div>
 
-          {/* Available Seats — required, 1-8 */}
-          <div style={{ marginBottom:16 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
-              <span style={{ fontSize:13 }}>🪑</span>
-              <span style={{ fontSize:13, fontWeight:600, color:"#1a1a2e" }}>
-                Available Seats <span style={{ color: "#e53e3e" }}>*</span>
-              </span>
-            </div>
-            <div style={{ display:"flex", alignItems:"center", borderBottom:"1.5px solid #e8e8e8", paddingBottom:8 }}>
+          {/* Available Seats */}
+          <div style={{ marginBottom: 18 }}>
+            <SectionLabel icon={<PeopleIcon />}>Available Seats</SectionLabel>
+            <div style={{
+              ...boxedInput,
+              padding: 0,
+              display:"flex", alignItems:"center", overflow:"hidden",
+            }}>
               <input
                 type="number"
                 value={form.seats}
                 min={1}
                 max={8}
-                onChange={(e) => setForm((f) => ({ ...f, seats: Math.max(1, Math.min(8, Number(e.target.value) || 1)) }))}
-                style={{ ...fieldStyle, borderBottom:"none", width:60 }}
+                onChange={(e) => setForm((f) => ({
+                  ...f,
+                  seats: Math.max(1, Math.min(8, Number(e.target.value) || 1)),
+                }))}
+                style={{
+                  flex:1, border:"none", outline:"none",
+                  padding:"13px 16px",
+                  fontSize:15, fontFamily:"inherit", color:"#1a1a2e",
+                  background:"transparent",
+                  minWidth: 0,
+                }}
               />
-              <div style={{ display:"flex", gap:8, marginLeft:"auto" }}>
-                <button type="button" onClick={() => setForm((f) => ({ ...f, seats: Math.max(1, f.seats - 1) }))}
-                  style={{ width:28, height:28, border:"1.5px solid #e8e8e8", borderRadius:6, background:"#fff", cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", color:"#555" }}>−</button>
-                <button type="button" onClick={() => setForm((f) => ({ ...f, seats: Math.min(8, f.seats + 1) }))}
-                  style={{ width:28, height:28, border:"1.5px solid #e8e8e8", borderRadius:6, background:"#fff", cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", color:"#555" }}>+</button>
+              <div style={{ display:"flex", gap:6, padding:"0 10px 0 4px" }}>
+                <button type="button"
+                  onClick={() => setForm((f) => ({ ...f, seats: Math.max(1, (Number(f.seats)||1) - 1) }))}
+                  style={{
+                    width:30, height:30, border:"1.5px solid #e5e7eb", borderRadius:8,
+                    background:"#fff", cursor:"pointer", fontSize:18, fontWeight:600,
+                    color:"#4b5563", lineHeight:1,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontFamily:"inherit",
+                  }}>−</button>
+                <button type="button"
+                  onClick={() => setForm((f) => ({ ...f, seats: Math.min(8, (Number(f.seats)||1) + 1) }))}
+                  style={{
+                    width:30, height:30, border:"1.5px solid #e5e7eb", borderRadius:8,
+                    background:"#fff", cursor:"pointer", fontSize:18, fontWeight:600,
+                    color:"#4b5563", lineHeight:1,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontFamily:"inherit",
+                  }}>+</button>
               </div>
             </div>
           </div>
 
           {/* Notes & Preferences */}
-          <div style={{ marginBottom:20 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
-              <span style={{ fontSize:13 }}>📋</span>
-              <span style={{ fontSize:13, fontWeight:600, color:"#1a1a2e" }}>Notes & Preferences</span>
-            </div>
+          <div style={{ marginBottom: 22 }}>
+            <SectionLabel icon={<NotesIcon />}>Notes & Preferences</SectionLabel>
             <textarea
               placeholder="e.g., No smoking, music lovers welcome, pet friendly..."
               value={form.notes}
               maxLength={500}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              style={{ width:"100%", border:"none", borderBottom:"1.5px solid #e8e8e8", outline:"none", fontFamily:"'Poppins',sans-serif", fontSize:13, color:"#333", resize:"none", height:90, background:"transparent", paddingTop:4, boxSizing:"border-box" }}
+              style={{
+                ...boxedInput,
+                resize:"none",
+                height:110,
+                paddingTop:14,
+              }}
             />
           </div>
-        </div>
 
-        {error && (
-          <div style={{ margin:"12px 20px 0", background:"#fef2f2", border:"1px solid #fecaca", color:"#dc2626", borderRadius:8, padding:"10px 14px", fontSize:13 }}>
-            {error}
-          </div>
-        )}
+          {error && (
+            <div style={{
+              background:"#fef2f2", border:"1px solid #fecaca", color:"#dc2626",
+              borderRadius:10, padding:"11px 14px", fontSize:13, marginBottom: 14,
+            }}>
+              {error}
+            </div>
+          )}
 
-        <div style={{ padding:"20px 20px 24px" }}>
+          {/* Publish Ride — yellow Figma button */}
           <button onClick={onPublish} type="button" disabled={publishing}
-            style={{ width:"100%", background: publishing ? "#f5d56a" : "#f5c518", border:"none", borderRadius:10, padding:14, fontSize:16, fontWeight:600, fontFamily:"'Poppins',sans-serif", color:"#1a1a2e", cursor: publishing ? "not-allowed" : "pointer" }}>
+            style={{
+              width:"100%", display:"block",
+              background: publishing ? "#f5d56a" : "#f5c518",
+              border:"none", borderRadius:12,
+              padding:"15px 18px", fontSize:16, fontWeight:700,
+              fontFamily:"inherit", color:"#1a1a2e",
+              cursor: publishing ? "not-allowed" : "pointer",
+              boxShadow: "0 4px 14px rgba(245, 197, 24, 0.30)",
+              letterSpacing:"-0.1px",
+            }}>
             {publishing ? "Publishing…" : "Publish Ride"}
           </button>
         </div>
@@ -1091,14 +1203,6 @@ export default function TravelMatePost({ embedded = false } = {}) {
     vehicleType: "Car", vehicleColor: "", vehicleName: "", plateNumber: "",
     seats: 1, notes: "",
   });
-
-  // Live "Now: HH:MM • DD/MM/YYYY" — ticks every minute
-  const [now, setNow] = useState(new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 30 * 1000);
-    return () => clearInterval(id);
-  }, []);
-  const liveLabel = useMemo(() => formatPretty(now), [now]);
 
   // Auto-fetch route when both coordinates are picked
   const [route, setRoute] = useState([]);     // [[lat,lon],...]
@@ -1322,7 +1426,6 @@ export default function TravelMatePost({ embedded = false } = {}) {
           route={route} distance={distance} duration={duration}
           routeLoading={routeLoading} error={error}
           onNext={goToVehicle}
-          liveLabel={liveLabel}
         />
       ) : (
         <PostRidePage
@@ -1331,7 +1434,6 @@ export default function TravelMatePost({ embedded = false } = {}) {
           publishing={publishing}
           error={error}
           onBack={() => setStep(1)}
-          liveLabel={liveLabel}
         />
       )}
 
