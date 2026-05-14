@@ -132,13 +132,16 @@ await saveProfile({
   photo: photoUrl, // ✅ URL, not file
 });
 
-    // ── Branch on whether this profile-setup was triggered by Unlock-Contact ──
-    //   • If pendingUnlockRideId is set → user came from Connect&Unlock and
-    //     needs to pay → send to /findrideplan (rideId stays in localStorage).
-    //   • Otherwise (normal sign-up) → land on the FindRide dashboard.
+    // ── Branch on the saved "what brought you here" breadcrumb ──
+    //   • pendingPostRide      → user is mid-Publish Ride flow → /plan
+    //   • pendingUnlockRideId  → user is mid-Unlock Contact   → /findrideplan
+    //   • normal sign-up       → /find-ride dashboard
+    const pendingPostRide     = localStorage.getItem("pendingPostRide");
     const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
-    if (pendingUnlockRideId) {
-      navigate("/findrideplan", { replace: true });
+    if (pendingPostRide) {
+      navigate("/plan", { replace: true });
+    } else if (pendingUnlockRideId) {
+      navigate(`/findrideplan?rideId=${pendingUnlockRideId}`, { replace: true });
     } else {
       navigate("/find-ride", { replace: true });
     }

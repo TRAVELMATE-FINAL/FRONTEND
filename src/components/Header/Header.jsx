@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import './Header.css';
 
-const API_BASE = import.meta.env.VITE_APP_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_APP_URL || 'https://travelmate-backend-dzpq.onrender.com';
 
 function Header() {
   const navigate = useNavigate();

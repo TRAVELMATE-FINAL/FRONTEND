@@ -1,32 +1,14 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import {
-  MapContainer,
-  TileLayer,
-  Polyline,
-  CircleMarker,
-  Tooltip,
-  useMap,
-} from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+import { GoogleMap } from "@react-google-maps/api";
+import { useGoogleMaps } from "../utils/googleMapsLoader";
 import { formatTime12h } from "../utils/time.js";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
 
-const API = import.meta.env.VITE_APP_URL || "http://localhost:5000";
-
-// Auto-fit map to the route bounds (re-fits whenever coords change)
-function FitRoute({ coords }) {
-  const map = useMap();
-  useEffect(() => {
-    if (coords && coords.length > 1) {
-      map.fitBounds(coords, { padding: [30, 30] });
-    }
-  }, [coords, map]);
-  return null;
-}
+const API = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
 /* ─────────────────────────────────────────
    Date / time helpers — local time, no UTC
@@ -586,75 +568,329 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
   );
 }
 
-/* Real OpenStreetMap with the actual road geometry from /api/route */
-function RouteMap({ coords, fromCoords, toCoords, fromName, toName, compact = false }) {
-  // Compact = the small inline preview (was 110), default = the large
-  // standalone map card on PostPage so the route reads clearly.
+/* Real Google Map with actual driving route from Google Directions API.
+   Accepts the same props as the old Leaflet version — `coords` is now ignored
+   (Google computes the route from fromCoords/toCoords directly). */
+function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false }) {
+  // Compact = small inline preview (used in step 1); default = large map card.
   const mapHeight = compact ? 140 : 260;
-  // Empty placeholder while user is still picking locations
-  if ((!coords || coords.length < 2) && (!fromCoords || !toCoords)) {
+
+  const { isLoaded, loadError } = useGoogleMaps();
+
+  const mapRef = useRef(null);
+  const directionsRendererRef = useRef(null);
+  const fallbackPolylineRef = useRef(null);
+  const markersRef = useRef([]);
+  const [routeError, setRouteError] = useState("");
+  const [routeInfo, setRouteInfo] = useState({ distance: "", duration: "" });
+
+  const haveCoords = !!(fromCoords && toCoords);
+
+  const onMapLoad = useCallback((map) => {
+    mapRef.current = map;
+  }, []);
+  const onMapUnmount = useCallback(() => {
+    mapRef.current = null;
+  }, []);
+
+  const clearMapLayers = useCallback(() => {
+    if (directionsRendererRef.current) {
+      directionsRendererRef.current.setMap(null);
+      directionsRendererRef.current = null;
+    }
+    if (fallbackPolylineRef.current) {
+      fallbackPolylineRef.current.setMap(null);
+      fallbackPolylineRef.current = null;
+    }
+    markersRef.current.forEach((m) => m.setMap(null));
+    markersRef.current = [];
+  }, []);
+
+  // Render the route whenever from/to changes
+  useEffect(() => {
+    if (!isLoaded || !haveCoords || !mapRef.current) return;
+    const g = window.google;
+    const map = mapRef.current;
+    clearMapLayers();
+
+    const directionsService = new g.maps.DirectionsService();
+    const renderer = new g.maps.DirectionsRenderer({
+      map,
+      suppressMarkers: true,
+      polylineOptions: {
+        strokeColor: "#4f6ef7",
+        strokeWeight: 4,
+        strokeOpacity: 0.9,
+      },
+      preserveViewport: false,
+    });
+
+    const origin = { lat: Number(fromCoords.lat), lng: Number(fromCoords.lon) };
+    const destination = { lat: Number(toCoords.lat), lng: Number(toCoords.lon) };
+
+    const drawAB = () => {
+      const from = new g.maps.Marker({
+        position: origin,
+        map,
+        label: { text: "A", color: "#fff", fontSize: "11px", fontWeight: "700" },
+        icon: {
+          path: g.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: "#4f6ef7",
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 2,
+        },
+        title: fromName || "From",
+      });
+      const to = new g.maps.Marker({
+        position: destination,
+        map,
+        label: { text: "B", color: "#fff", fontSize: "11px", fontWeight: "700" },
+        icon: {
+          path: g.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: "#22c55e",
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 2,
+        },
+        title: toName || "To",
+      });
+      markersRef.current = [from, to];
+    };
+
+    directionsService.route(
+      {
+        origin,
+        destination,
+        travelMode: g.maps.TravelMode.DRIVING,
+      },
+      (result, status) => {
+        if (status === "OK") {
+          renderer.setDirections(result);
+          directionsRendererRef.current = renderer;
+          drawAB();
+          // Distance + duration from the Directions response (no extra call)
+          const leg = result.routes?.[0]?.legs?.[0];
+          setRouteInfo({
+            distance: leg?.distance?.text || "",
+            duration: leg?.duration?.text || "",
+          });
+          setRouteError("");
+        } else {
+          // Fallback: straight line between A and B
+          const path = [origin, destination];
+          const line = new g.maps.Polyline({
+            path,
+            map,
+            strokeColor: "#4f6ef7",
+            strokeOpacity: 0.9,
+            strokeWeight: 4,
+          });
+          fallbackPolylineRef.current = line;
+          const bounds = new g.maps.LatLngBounds();
+          path.forEach((p) => bounds.extend(p));
+          map.fitBounds(bounds, 40);
+          drawAB();
+          // Fallback: use Distance Matrix to still surface km/min when Directions fails
+          if (g.maps.DistanceMatrixService) {
+            const dm = new g.maps.DistanceMatrixService();
+            dm.getDistanceMatrix(
+              {
+                origins: [origin],
+                destinations: [destination],
+                travelMode: g.maps.TravelMode.DRIVING,
+                unitSystem: g.maps.UnitSystem.METRIC,
+              },
+              (resp, st) => {
+                const el = resp?.rows?.[0]?.elements?.[0];
+                if (st === "OK" && el?.status === "OK") {
+                  setRouteInfo({
+                    distance: el.distance?.text || "",
+                    duration: el.duration?.text || "",
+                  });
+                } else {
+                  setRouteInfo({ distance: "", duration: "" });
+                }
+              }
+            );
+          }
+          setRouteError("Direct line shown");
+        }
+      }
+    );
+
+    return () => {
+      clearMapLayers();
+    };
+  }, [
+    isLoaded,
+    haveCoords,
+    fromCoords?.lat,
+    fromCoords?.lon,
+    toCoords?.lat,
+    toCoords?.lon,
+    fromName,
+    toName,
+    clearMapLayers,
+  ]);
+
+  // Empty placeholder while user is picking locations
+  if (!haveCoords) {
     return (
-      <div style={{ position: "relative", width: "100%", height: mapHeight, background: "linear-gradient(135deg,#dbeafe 0%,#dcfce7 100%)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <div style={{ fontSize:12, color:"#64748b" }}>Pick From and To to see the route</div>
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          height: mapHeight,
+          background: "linear-gradient(135deg,#dbeafe 0%,#dcfce7 100%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ fontSize: 12, color: "#64748b" }}>
+          Pick From and To to see the route
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: mapHeight,
+          background: "#fee2e2",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 12,
+          color: "#b91c1c",
+        }}
+      >
+        Google Maps failed to load — check VITE_GOOGLE_MAPS_API_KEY
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: mapHeight,
+          background: "#f1f5f9",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 12,
+          color: "#64748b",
+        }}
+      >
+        Loading map…
       </div>
     );
   }
 
   // Initial center — midpoint between A and B
-  const center = fromCoords && toCoords
-    ? [(fromCoords.lat + toCoords.lat) / 2, (fromCoords.lon + toCoords.lon) / 2]
-    : (coords && coords.length ? coords[0] : [11.0, 78.5]); // fallback: TN center
+  const center = {
+    lat: (Number(fromCoords.lat) + Number(toCoords.lat)) / 2,
+    lng: (Number(fromCoords.lon) + Number(toCoords.lon)) / 2,
+  };
 
   return (
     <div style={{ width: "100%", height: mapHeight, position: "relative" }}>
-      <MapContainer
+      <GoogleMap
+        mapContainerStyle={{ width: "100%", height: "100%" }}
         center={center}
         zoom={7}
-        scrollWheelZoom={false}
-        style={{ width: "100%", height: "100%" }}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-
-        {/* Auto-fit to the route once it loads */}
-        {coords && coords.length > 1 && <FitRoute coords={coords} />}
-
-        {/* Blue road polyline */}
-        {coords && coords.length > 1 && (
-          <Polyline
-            positions={coords}
-            pathOptions={{ color: "#4f6ef7", weight: 4, opacity: 0.9 }}
-          />
-        )}
-
-        {/* From marker (A) */}
-        {fromCoords && (
-          <CircleMarker
-            center={[fromCoords.lat, fromCoords.lon]}
-            radius={8}
-            pathOptions={{ color: "#fff", fillColor: "#4f6ef7", fillOpacity: 1, weight: 2 }}
-          >
-            <Tooltip permanent direction="top" offset={[0, -10]}>
-              <b style={{ fontSize: 11 }}>{fromName || "From"}</b>
-            </Tooltip>
-          </CircleMarker>
-        )}
-
-        {/* To marker (B) */}
-        {toCoords && (
-          <CircleMarker
-            center={[toCoords.lat, toCoords.lon]}
-            radius={8}
-            pathOptions={{ color: "#fff", fillColor: "#22c55e", fillOpacity: 1, weight: 2 }}
-          >
-            <Tooltip permanent direction="top" offset={[0, -10]}>
-              <b style={{ fontSize: 11 }}>{toName || "To"}</b>
-            </Tooltip>
-          </CircleMarker>
-        )}
-      </MapContainer>
+        options={{
+          disableDefaultUI: true,
+          zoomControl: !compact,
+          gestureHandling: compact ? "none" : "cooperative",
+          clickableIcons: false,
+          styles: [
+            { featureType: "poi", stylers: [{ visibility: "off" }] },
+            { featureType: "transit", stylers: [{ visibility: "off" }] },
+          ],
+        }}
+        onLoad={onMapLoad}
+        onUnmount={onMapUnmount}
+      />
+      {routeError && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 8,
+            left: 8,
+            background: "rgba(220, 38, 38, 0.85)",
+            color: "#fff",
+            fontSize: 10,
+            fontWeight: 600,
+            padding: "4px 8px",
+            borderRadius: 6,
+            pointerEvents: "none",
+          }}
+        >
+          {routeError}
+        </div>
+      )}
+      {(routeInfo.distance || routeInfo.duration) && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 8,
+            right: 8,
+            display: "flex",
+            gap: 6,
+            pointerEvents: "none",
+          }}
+        >
+          {routeInfo.distance && (
+            <span
+              style={{
+                background: "rgba(15, 23, 42, 0.9)",
+                color: "#fff",
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "5px 10px",
+                borderRadius: 999,
+                boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                lineHeight: 1,
+              }}
+            >
+              <span aria-hidden>📍</span>
+              {routeInfo.distance}
+            </span>
+          )}
+          {routeInfo.duration && (
+            <span
+              style={{
+                background: "rgba(79, 110, 247, 0.95)",
+                color: "#fff",
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "5px 10px",
+                borderRadius: 999,
+                boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                lineHeight: 1,
+              }}
+            >
+              <span aria-hidden>⏱</span>
+              {routeInfo.duration}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1016,20 +1252,54 @@ export default function TravelMatePost({ embedded = false } = {}) {
         additionalInfo: form.notes || "",
       };
 
-      // Stash the payload — the actual POST /api/rides happens AFTER
-      // the user completes payment in SecurePayment. This way no ride
-      // is published unless the plan payment succeeds.
+      // Stash the payload first — the actual POST /api/rides happens
+      // AFTER the user completes payment in SecurePayment. This way no
+      // ride is published unless the plan payment succeeds.
       try {
         localStorage.setItem("pendingRidePayload", JSON.stringify(payload));
       } catch (e) {
         console.warn("Could not stash pendingRidePayload:", e);
       }
-
       // Clear any previous "lastPostedRideId" — it will be set freshly
       // once payment succeeds and the ride is actually persisted.
       try { localStorage.removeItem("lastPostedRideId"); } catch (e) {}
 
-      console.log("📦 Ride payload stashed — will publish after payment");
+      // ── Auth + profile gate before payment ────────────────────
+      // The poster must be:
+      //   1. Logged in  (localStorage.phone exists, looks like a phone)
+      //   2. Have a saved profile (fullName + city in /auth/profile)
+      // If either is missing, breadcrumb the post-ride intent and send
+      // them through the existing /login → /otp → /profile-setup →
+      // /plan chain. That chain reads `pendingPostRide` to deliver
+      // them back to the payment step automatically.
+      try { localStorage.setItem("pendingPostRide", "1"); } catch (e) {}
+
+      const phoneLooksValid = /^\+?\d{10,13}$/.test(userPhone);
+      if (!phoneLooksValid) {
+        console.log("📦 Stashed payload — user not logged in, sending to /login");
+        navigate("/login");
+        return;
+      }
+
+      // Check profile completeness in the background
+      try {
+        const r = await axios.get(`${API}/api/auth/profile?phone=${encodeURIComponent(userPhone)}`, { timeout: 6000 });
+        const u = r?.data?.user || r?.data || {};
+        const hasProfile = !!(u.fullName && u.city);
+        if (!hasProfile) {
+          console.log("📦 Stashed payload — profile incomplete, sending to /profile-setup");
+          navigate("/profile-setup");
+          return;
+        }
+      } catch (e) {
+        // If the profile endpoint fails, default to forcing setup
+        // rather than letting an unverified user post.
+        console.warn("Profile check failed, routing through /login:", e?.message);
+        navigate("/login");
+        return;
+      }
+
+      console.log("📦 Ride payload stashed — proceeding to payment");
       navigate("/plan");
     } catch (err) {
       console.error("❌ Publish prep error:", err);

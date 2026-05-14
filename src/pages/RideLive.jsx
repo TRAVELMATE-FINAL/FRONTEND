@@ -6,7 +6,7 @@ import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import { formatTime12h } from "../utils/time.js";
 
-const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
 // "2026-05-08" + "06:00" → "8 May, 6:00 AM" / "Today" / "Tomorrow"
 function formatDate(date) {

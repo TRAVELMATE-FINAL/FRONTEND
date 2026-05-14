@@ -6,7 +6,7 @@ import Footer from "../components/Footer/Footer.jsx";
 import Spinner from "../components/Spinner/Spinner.jsx";
 import { formatTime12h } from "../utils/time.js";
 
-const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
 /* "YYYY-MM-DD" + "HH:MM" → "Today, 3:00 PM" / "Tomorrow, 8:30 AM" / "5 May, 11:00 AM"
    Uses the shared 12-hour formatter so AM/PM rendering matches every other page. */

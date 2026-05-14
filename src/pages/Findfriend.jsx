@@ -8,7 +8,7 @@ import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import { formatTime12h } from "../utils/time.js";
 
-const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
 /* ── Inject spinner + shimmer keyframes once per page mount ── */
 const SpinnerStyles = () => (
@@ -535,6 +535,50 @@ export default function TravelMate() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // ── Auth + profile check before connecting to a ride ────────────────
+  // Returns true if the user is logged in AND has a complete profile.
+  // If either condition fails, stashes the rideId and routes the user
+  // through /login → /otp → /profile-setup → /findrideplan (chain is
+  // driven by pendingUnlockRideId breadcrumb set here).
+  const handleConnect = async (rideId) => {
+    const phone = localStorage.getItem("phone") || "";
+    const phoneLooksValid = /^\+?\d{10,13}$/.test(phone);
+
+    // ── Step 1: Not logged in → send to login ──
+    if (!phoneLooksValid) {
+      try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e) {}
+      navigate("/login");
+      return;
+    }
+
+    // ── Step 2: Logged in — check profile completeness ──
+    try {
+      const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
+      const r = await axios.get(
+        `${API_BASE}/api/auth/profile?phone=${encodeURIComponent(phone)}`,
+        { timeout: 6000 }
+      );
+      const u = r?.data?.user || r?.data || {};
+      const hasProfile = !!(u.fullName && u.city);
+
+      if (!hasProfile) {
+        // Logged in but profile incomplete → set up profile first, then plan
+        try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e) {}
+        navigate("/profile-setup");
+        return;
+      }
+    } catch (e) {
+      // Profile check failed → route through login to be safe
+      try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e2) {}
+      navigate("/login");
+      return;
+    }
+
+    // ── Step 3: Logged in + profile complete → go straight to plan ──
+    try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e) {}
+    navigate(`/findrideplan?rideId=${rideId}`);
+  };
+
   const queryFrom = searchParams.get("from") || "";
   const queryTo   = searchParams.get("to")   || "";
   const queryDate = searchParams.get("date") || "";
@@ -960,7 +1004,7 @@ export default function TravelMate() {
             <RideCard
               key={ride._id}
               ride={ride}
-              onConnect={(id) => navigate(`/connect-unlock?rideId=${id}`)}
+              onConnect={handleConnect}
             />
           ))}
         </div>

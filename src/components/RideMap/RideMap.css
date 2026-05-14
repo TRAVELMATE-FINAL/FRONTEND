@@ -42,8 +42,38 @@
   background: rgba(220, 38, 38, 0.85);
 }
 
-/* Make the leaflet container play nice inside the dark card */
-.ridemap .leaflet-container {
-  background: #1a1a3e;
+/* Distance + duration badge — bottom-right of the map */
+.ridemap__info {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  z-index: 500;
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.ridemap__info-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(15, 15, 46, 0.88);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  line-height: 1;
+}
+
+.ridemap__info-icon {
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* Google Map container background while tiles load */
+.ridemap > div:first-child {
+  background: #1a1a3e !important;
   border-radius: 14px;
 }

@@ -5,7 +5,7 @@ import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import Spinner from "../components/Spinner/Spinner.jsx";
 
-const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
 /* ─── helpers ────────────────────────────────────────────────── */
 

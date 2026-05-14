@@ -82,25 +82,32 @@ export default function OtpVerify() {
       const u = (data && data.user) || {};
       const hasProfile = !!(u.fullName && u.city);
       const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
+      const pendingPostRide     = localStorage.getItem("pendingPostRide");
 
       // Routing rules:
-      //   1. Came from "Unlock Contact" (pendingUnlockRideId set) →
-      //        - existing user with profile → /findrideplan (pay first, then unlock)
+      //   1. Came from "Publish Ride" (pendingPostRide set) →
+      //        - profile complete → /plan (pay → publish ride)
+      //        - no profile        → /profile-setup (then chain back to /plan)
+      //   2. Came from "Unlock Contact" (pendingUnlockRideId set) →
+      //        - existing user with profile → /findrideplan
       //        - new user / no profile      → /profile-setup → /findrideplan
-      //   2. Normal login (no pending unlock) →
+      //   3. Normal login (no pending intent) →
       //        - new user / no profile → /profile-setup → /find-ride
       //        - existing user         → /find-ride dashboard directly
       let nextPath;
-      if (pendingUnlockRideId && hasProfile) {
-        // EXISTING user mid-unlock → go to the plan page to pay
-        nextPath = "/findrideplan";
+      if (pendingPostRide && hasProfile) {
+        nextPath = "/plan";
+        setSuccess("✅ Verified! Choose your plan to publish the ride…");
+      } else if (pendingPostRide && !hasProfile) {
+        nextPath = "/profile-setup";
+        setSuccess("✅ Verified! Set up your profile to publish the ride…");
+      } else if (pendingUnlockRideId && hasProfile) {
+        nextPath = `/findrideplan?rideId=${pendingUnlockRideId}`;
         setSuccess("✅ Verified! Choose your plan to continue…");
       } else if (!hasProfile) {
-        // NEW user (with or without pending unlock) → finish profile first
         nextPath = "/profile-setup";
         setSuccess("✅ Verified! Let's set up your profile…");
       } else {
-        // EXISTING user, no pending unlock → straight to the dashboard
         nextPath = "/find-ride";
         setSuccess("✅ Verified! Redirecting to your dashboard…");
       }

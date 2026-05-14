@@ -1,89 +1,52 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
+import planImage from "../assets/plan-travelmate.png";
+
+
+/* ─── Icons ─────────────────────────────────────────────────────────────── */
 
 const CheckIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-    <circle cx="10" cy="10" r="10" fill="#1a73e8" opacity="0.12" />
-    <path d="M6 10.5l3 3 5-5.5" stroke="#1a73e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{ flexShrink: 0 }}>
+    <circle cx="11" cy="11" r="10" fill="#00b37e" />
+    <path
+      d="M6.5 11l3 3 5.5-6"
+      stroke="#fff"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
-const ImagePlaceholder = ({ index }) => {
-  const colors = ["#b0c4de", "#87afd4", "#c8dae8"];
-  return (
-    <div
-      style={{
-        width: index === 1 ? 120 : 80,
-        height: index === 1 ? 160 : 140,
-        background: colors[index],
-        borderRadius: index === 1 ? "12px" : "8px",
-        flexShrink: 0,
-        overflow: "hidden",
-        position: "relative",
-        alignSelf: index === 1 ? "flex-start" : "center",
-      }}
-    >
-      {index === 1 && (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            background: "linear-gradient(160deg, #4a8fc1 0%, #2e6ea6 40%, #1d5a8e 100%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-            <ellipse cx="24" cy="36" rx="20" ry="6" fill="#1a4f7a" opacity="0.4" />
-            <path d="M8 30 Q12 18 24 16 Q36 18 40 30" fill="#2e8b57" opacity="0.6" />
-            <circle cx="24" cy="14" r="10" fill="#87ceeb" opacity="0.5" />
-            <path d="M14 26 Q20 20 24 22 Q28 20 34 26" fill="#228b22" opacity="0.7" />
-          </svg>
-        </div>
-      )}
-      {index !== 1 && (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            background:
-              index === 0
-                ? "linear-gradient(135deg, #c8dae8 0%, #a8c4d8 100%)"
-                : "linear-gradient(135deg, #d8e8f0 0%, #b8d0e0 100%)",
-          }}
-        />
-      )}
-    </div>
-  );
-};
-
-const DotIndicator = ({ active }) => (
-  <div
-    style={{
-      width: active ? 22 : 8,
-      height: 8,
-      borderRadius: 4,
-      background: active ? "#1a73e8" : "#c0cdd8",
-      transition: "width 0.3s ease",
-    }}
-  />
-);
+/* ─── Page Component ─────────────────────────────────────────────────────── */
 
 export default function TravelMatePlanPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeSlide, setActiveSlide] = useState(1);
 
-  // "Go Daily" → save the plan choice and ALWAYS navigate to the
-  // Unlock Contact page. The login / OTP / profile-setup gating
-  // happens inside UnlockContact's "Pay Now" handler — so the user
-  // gets to see the page first, then auths if they're not signed in.
+  // Pick up rideId from URL (?rideId=...) — set by FindFriend's handleConnect
+  // and also falls back to the localStorage breadcrumb set during the
+  // login → otp → profile-setup chain.
+  const rideId =
+    searchParams.get("rideId") ||
+    (() => { try { return localStorage.getItem("pendingUnlockRideId") || ""; } catch { return ""; } })();
+
+  // "Go Daily" → save plan choice and carry rideId to UnlockContact
   const goDaily = () => {
     try { localStorage.setItem("chosenPlan", "daily"); } catch (e) {}
-    console.log("[Findrideplan] Go Daily clicked → /unlock-contact");
-    navigate("/unlock-contact");
+    // Keep the rideId breadcrumb alive so UnlockContact can read it
+    if (rideId) {
+      try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e) {}
+    }
+    console.log("[Findrideplan] Go Daily → /unlock-contact?rideId=" + rideId);
+    navigate(rideId ? `/unlock-contact?rideId=${rideId}` : "/unlock-contact");
+  };
+
+  const claimDiscount = () => {
+    navigate(rideId ? `/unlock-contact?rideId=${rideId}` : "/unlock-contact");
   };
 
   return (
@@ -94,7 +57,7 @@ export default function TravelMatePlanPage() {
         background: "#f5f7fa",
         display: "flex",
         flexDirection: "column",
-        fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+        fontFamily: "'Poppins', system-ui, -apple-system, sans-serif",
       }}
     >
       <Header />
@@ -109,243 +72,398 @@ export default function TravelMatePlanPage() {
           padding: "40px 20px",
         }}
       >
-        <div className="frp-shell" style={{ width: "100%", maxWidth: 920 }}>
-          {/* Heading */}
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <h1
-              style={{
-                fontSize: 32,
-                fontWeight: 700,
-                color: "#111827",
-                margin: "0 0 12px",
-                letterSpacing: "-0.5px",
-              }}
-            >
-              Choose your plan
-            </h1>
-            <p
-              style={{
-                fontSize: 15,
-                color: "#6b7280",
-                lineHeight: 1.6,
-                margin: 0,
-                maxWidth: 520,
-                marginLeft: "auto",
-                marginRight: "auto",
-              }}
-            >
-              Elevate your social experience with premium networking tools and exclusive insights tailored for modern creators.
+        <div className="ps-screen">
+
+          {/* ── Header ── */}
+          <div className="ps-header">
+            <h1 className="ps-heading">Choose your plan</h1>
+            <p className="ps-sub">
+              Elevate your social experience with premium networking tools and exclusive
+              insights tailored for modern creators.
             </p>
           </div>
 
-          {/* Daily Plan Card */}
-          <div
-            className="frp-plan-row"
-            style={{
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 16,
-              padding: "20px 24px",
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              marginBottom: 16,
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-              flexWrap: "wrap",
-            }}
-          >
-            {/* Plan Info */}
-            <div style={{ flex: "1 1 140px", minWidth: 0 }}>
-              <p style={{ fontWeight: 700, fontSize: 16, color: "#111827", margin: "0 0 2px" }}>
-                Daily Plan
-              </p>
-              <p style={{ fontSize: 13, color: "#9ca3af", margin: 0 }}>Short-term Access</p>
+          {/* ── Daily Plan Card ── */}
+          <div className="ps-card">
+            <div className="ps-card-left">
+              <div className="ps-plan-name">Daily Plan</div>
+              <div className="ps-plan-duration">Short-term Access</div>
             </div>
-
-            {/* Price */}
-            <div style={{ display: "flex", alignItems: "baseline", gap: 2, flexShrink: 0 }}>
-              <span style={{ fontSize: 28, fontWeight: 800, color: "#111827", letterSpacing: "-1px" }}>
-                ₹30
-              </span>
-              <span style={{ fontSize: 13, color: "#9ca3af", marginLeft: 2 }}>/24h</span>
+            <div className="ps-card-mid">
+              <span className="ps-price">₹30</span>
+              <span className="ps-per">/24h</span>
             </div>
-
-            {/* Feature */}
-            <div
-              className="frp-feature"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                flex: "1 1 200px",
-                maxWidth: 240,
-                minWidth: 0,
-              }}
-            >
-              <CheckIcon />
-              <span style={{ fontSize: 12.5, color: "#4b5563", lineHeight: 1.4 }}>
-                Unlimited Ride For Only This Route For 24 Hours
-              </span>
+            <div className="ps-card-right">
+              <div className="ps-feature">
+                <span className="ps-tick"><CheckIcon /></span>
+                <span>Unlimited Ride For Only This Route For 24 Hours</span>
+              </div>
             </div>
-
-            {/* CTA — Go Daily → /unlock-contact */}
-            <button
-              type="button"
-              onClick={goDaily}
-              style={{
-                background: "transparent",
-                border: "1.5px solid #d1d5db",
-                borderRadius: 10,
-                padding: "10px 20px",
-                fontSize: 14,
-                fontWeight: 600,
-                color: "#111827",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-                fontFamily: "inherit",
-                transition: "border-color 0.2s, background 0.2s, color 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "#1a73e8";
-                e.currentTarget.style.color = "#1a73e8";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "#d1d5db";
-                e.currentTarget.style.color = "#111827";
-              }}
-            >
-              Go Daily
-            </button>
+            <button className="ps-btn" onClick={goDaily}>Go Daily</button>
           </div>
 
-          {/* Special Offer Card */}
-          <div
-            className="frp-promo"
-            style={{
-              background: "#111827",
-              borderRadius: 20,
-              padding: 28,
-              display: "flex",
-              gap: 24,
-              alignItems: "center",
-              position: "relative",
-              overflow: "hidden",
-              flexWrap: "wrap",
-            }}
-          >
-            {/* Image collage */}
-            <div
-              style={{
-                display: "flex",
-                gap: 6,
-                alignItems: "flex-end",
-                flexShrink: 0,
-              }}
-            >
-              <ImagePlaceholder index={0} />
-              <ImagePlaceholder index={1} />
-              <ImagePlaceholder index={2} />
+          {/* ── Offer Banner ── */}
+          <div className="ps-offer">
+            <div className="ps-offer-images">
+              <div className="ps-offer-img-stack">
+                <div className="ps-offer-img ps-main">
+                  <img src={planImage} alt="trip" />
+                </div>
+              </div>
             </div>
-
-            {/* Content */}
-            <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-              <p
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "1.5px",
-                  color: "#9ca3af",
-                  textTransform: "uppercase",
-                  margin: "0 0 8px",
-                }}
-              >
-                SPECIAL OFFER
-              </p>
-              <h2
-                style={{
-                  fontSize: 22,
-                  fontWeight: 700,
-                  color: "#ffffff",
-                  margin: "0 0 10px",
-                  lineHeight: 1.25,
-                  letterSpacing: "-0.3px",
-                }}
-              >
-                Get 20% off on your next trip
-              </h2>
-              <p
-                style={{
-                  fontSize: 13,
-                  color: "#9ca3af",
-                  lineHeight: 1.6,
-                  margin: "0 0 20px",
-                }}
-              >
-                Book your summer getaway through our partner portal and enjoy exclusive savings only for LuxeTier users.
-              </p>
-              <button
-                type="button"
-                style={{
-                  background: "#22c55e",
-                  border: "none",
-                  borderRadius: 10,
-                  padding: "11px 22px",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: "#ffffff",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "background 0.2s, transform 0.1s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#16a34a")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "#22c55e")}
-                onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.97)")}
-                onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
-              >
+            <div className="ps-offer-content">
+              <div className="ps-offer-tag">SPECIAL OFFER</div>
+              <div className="ps-offer-title">Get 20% off on your next trip</div>
+              <div className="ps-offer-desc">
+                Book your summer getaway through our partner portal and enjoy exclusive
+                savings only for LuxeTier users.
+              </div>
+              <button className="ps-offer-btn" onClick={claimDiscount}>
                 Claim Discount
               </button>
             </div>
           </div>
 
-          {/* Slide indicators */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: 6,
-              marginTop: 18,
-            }}
-          >
+          {/* ── Pagination Dots ── */}
+          <div className="ps-dots">
             {[0, 1, 2].map((i) => (
-              <div key={i} onClick={() => setActiveSlide(i)} style={{ cursor: "pointer" }}>
-                <DotIndicator active={activeSlide === i} />
-              </div>
+              <span
+                key={i}
+                className={`ps-dot${activeSlide === i ? " ps-dot-active" : ""}`}
+                onClick={() => setActiveSlide(i)}
+                style={{ cursor: "pointer" }}
+              />
             ))}
           </div>
+
         </div>
       </div>
 
       <Footer />
 
-      {/* Inline responsive rules — keeps the wide horizontal row layout
-          on desktop while gracefully stacking on phones. */}
+      {/* ── All styles inline — no external CSS file needed ── */}
       <style>{`
-        @media (max-width: 760px) {
-          .frp-shell { max-width: 100% !important; padding: 0 4px; }
-          .frp-plan-row { padding: 16px 18px !important; gap: 12px !important; }
-          .frp-feature { flex: 1 1 100% !important; max-width: 100% !important; order: 4; }
-          .frp-promo { padding: 22px !important; gap: 18px !important; }
-          .frp-promo h2 { font-size: 19px !important; }
-          .plan-page h1 { font-size: 28px !important; }
+        /* ── Plan Screen Container ── */
+        .ps-screen {
+          width: 100%;
+          max-width: 1300px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          padding-bottom: 16px;
+          box-sizing: border-box;
         }
+
+        /* ── Header ── */
+        .ps-header {
+          text-align: center;
+          padding: 0 0 8px;
+          margin-bottom: 8px;
+        }
+        .ps-heading {
+          font-family: 'Poppins', sans-serif;
+          font-weight: 600;
+          font-size: 48px;
+          line-height: 57.6px;
+          letter-spacing: -0.96px;
+          color: #131313;
+          text-align: center;
+          margin-bottom: 14px;
+        }
+        .ps-sub {
+          font-family: 'Poppins', sans-serif;
+          font-weight: 400;
+          font-size: 18px;
+          line-height: 28.8px;
+          color: #4A4A4A;
+          text-align: center;
+          max-width: 520px;
+          margin: 0 auto;
+        }
+
+        /* ── Daily Plan Card ── */
+        .ps-card {
+          background: #ffffff;
+          border-radius: 10px;
+          padding: 30px 40px;
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 73px;
+          box-shadow: 0 0 14px rgba(0,0,0,0.25);
+          width: 100%;
+          max-width: 1000px;
+          min-height: 125px;
+          box-sizing: border-box;
+          margin: 0 auto;
+        }
+        .ps-card-left {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          flex-shrink: 0;
+        }
+        .ps-plan-name {
+          font-family: 'Poppins', sans-serif;
+          font-size: 18px;
+          font-weight: 700;
+          color: #131313;
+          line-height: 1.2;
+          white-space: nowrap;
+        }
+        .ps-plan-duration {
+          font-family: 'Poppins', sans-serif;
+          font-size: 13px;
+          font-weight: 400;
+          color: #9aa3b8;
+          white-space: nowrap;
+        }
+        .ps-card-mid {
+          display: flex;
+          align-items: baseline;
+          flex-shrink: 0;
+        }
+        .ps-price {
+          font-family: 'Poppins', sans-serif;
+          font-size: 46px;
+          font-weight: 800;
+          color: #131313;
+          letter-spacing: -1.5px;
+          line-height: 1;
+        }
+        .ps-per {
+          font-family: 'Inter', sans-serif;
+          font-size: 16px;
+          font-weight: 400;
+          color: #404751;
+          margin-left: 3px;
+          align-self: flex-end;
+          padding-bottom: 5px;
+        }
+        .ps-card-right {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          min-width: 0;
+        }
+        .ps-feature {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-family: 'Poppins', sans-serif;
+          font-size: 14px;
+          font-weight: 400;
+          color: #4a5568;
+          line-height: 1.5;
+        }
+        .ps-tick {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .ps-btn {
+          flex-shrink: 0;
+          margin-left: auto;
+          padding: 15px 64px;
+          background: transparent;
+          color: #1a6644;
+          border: 1.5px solid #c9a800;
+          border-radius: 10px;
+          font-family: Plus Jakarta Sans;
+          font-size: 17px;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background 0.2s, color 0.2s;
+        }
+        .ps-btn:hover {
+          background: #c9a800;
+          color: #fff;
+        }
+
+        /* ── Offer Banner ── */
+        .ps-offer {
+          background: #0d1b35;
+          border-radius: 14px;
+          padding: 24px 36px;
+          display: flex;
+          align-items: center;
+          gap: 28px;
+          width: 100%;
+          max-width: 1300px;
+          height:300px;
+          box-sizing: border-box;
+          margin-top:20px;
+        }
+        .ps-offer-images { flex-shrink: 0; }
+        .ps-offer-img-stack {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .ps-offer-img {
+          border-radius: 10px;
+          overflow: hidden;
+          background: #ffffff;
+        }
+        .ps-offer-img.ps-main {
+          width: 372px;
+          height: 192px;
+        }
+        .ps-offer-img.ps-main img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .ps-offer-img.ps-side {
+          width: 90px;
+          height: 120px;
+          background: #ffffff;
+        }
+        .ps-offer-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          padding-left: 20px;
+        }
+        .ps-offer-tag {
+          font-size: 10px;
+          font-weight: 400;
+          font-family: 'Inter', sans-serif;
+          color: #DAE2FD;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          margin-bottom: 6px;
+        }
+        .ps-offer-title {
+          font-size: 36px;
+          font-weight: 600;
+          font-family: 'Inter', sans-serif;
+          color: #ffffff;
+          margin-bottom: 8px;
+          line-height: 1.3;
+        }
+        .ps-offer-desc {
+          font-size: 16px;
+          font-family: 'Inter', sans-serif;
+          font-weight: 400;
+          color: #C7C4D7;
+          line-height: 1.6;
+          margin-bottom: 14px;
+          max-width: 690px;
+        }
+        .ps-offer-btn {
+          padding: 10px 24px;
+          background: #00A572;
+          color: #fff;
+          border: none;
+          border-radius: 50px;
+          font-size: 16px;
+          font-weight: 700;
+          cursor: pointer;
+          font-family: 'Inter', sans-serif;
+          transition: opacity 0.18s;
+          width: 198px;
+          height: 56px;
+        }
+        .ps-offer-btn:hover { opacity: 0.88; }
+
+        /* ── Pagination Dots ── */
+        .ps-dots {
+          display: flex;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 2px;
+        }
+        .ps-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #c8cdd8;
+          display: inline-block;
+          transition: width 0.3s ease, height 0.3s ease, background 0.3s ease;
+        }
+        .ps-dot-active {
+          background: #6b7280;
+          width: 12px;
+          height: 12px;
+        }
+
+        /* ════════════════════════════════
+           RESPONSIVE — TABLET (≤1024px)
+        ════════════════════════════════ */
+        @media (max-width: 1024px) {
+          .ps-screen { padding: 0 20px 20px; }
+          .ps-heading { font-size: 40px; line-height: 1.3; letter-spacing: -0.5px; }
+          .ps-sub { font-size: 16px; line-height: 1.7; max-width: 620px; }
+          .ps-card { width: 100%; max-width: 100%; gap: 40px; padding: 26px 28px; }
+          .ps-price { font-size: 40px; }
+          .ps-feature { font-size: 13px; }
+          .ps-btn { padding: 14px 32px; font-size: 14px; }
+          .ps-offer { padding: 28px 24px; gap: 24px; }
+          .ps-offer-content { padding-left: 0; }
+          .ps-offer-title { font-size: 30px; }
+          .ps-offer-desc { font-size: 15px; max-width: 100%; }
+        }
+
+        /* ════════════════════════════════
+           RESPONSIVE — MOBILE (≤768px)
+        ════════════════════════════════ */
+        @media (max-width: 768px) {
+          .ps-screen { padding: 0 16px 24px; gap: 18px; }
+          .ps-header { padding: 0; margin-bottom: 10px; }
+          .ps-heading { font-size: 30px; line-height: 1.3; letter-spacing: -0.4px; margin-bottom: 12px; }
+          .ps-sub { font-size: 14px; line-height: 1.7; max-width: 100%; }
+          .ps-card {
+            width: 100%; max-width: 100%;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 18px; padding: 22px 18px;
+            border-radius: 16px;
+          }
+          .ps-card-left { width: 100%; }
+          .ps-plan-name { font-size: 18px; }
+          .ps-plan-duration { font-size: 12px; }
+          .ps-card-mid { width: 100%; }
+          .ps-price { font-size: 38px; }
+          .ps-per { font-size: 14px; padding-bottom: 4px; }
+          .ps-card-right { width: 100%; align-items: flex-start; }
+          .ps-feature { align-items: flex-start; font-size: 13px; line-height: 1.6; }
+          .ps-tick { width: 20px; height: 20px; min-width: 20px; margin-top: 2px; }
+          .ps-btn { width: 100%; margin-left: 0; text-align: center; padding: 14px 20px; font-size: 14px; border-radius: 10px; }
+          .ps-offer { flex-direction: column; align-items: center; text-align: center; padding: 24px 18px; border-radius: 18px; gap: 22px; }
+          .ps-offer-images { width: 100%; }
+          .ps-offer-img-stack { justify-content: center; }
+          .ps-offer-img.ps-main { width: 100%; height: 180px; }
+          .ps-offer-img.ps-side { width: 70px; height: 100px; }
+          .ps-offer-content { align-items: center; padding-left: 0; }
+          .ps-offer-tag { font-size: 10px; letter-spacing: 1.5px; }
+          .ps-offer-title { font-size: 24px; line-height: 1.4; }
+          .ps-offer-desc { font-size: 14px; line-height: 1.7; margin-bottom: 18px; }
+          .ps-offer-btn { width: 100%; max-width: 240px; height: 50px; font-size: 15px; }
+          .ps-dots { margin-top: 10px; }
+          .ps-dot { width: 8px; height: 8px; }
+          .ps-dot-active { width: 10px; height: 10px; }
+        }
+
+        /* ════════════════════════════════
+           RESPONSIVE — SMALL MOBILE (≤480px)
+        ════════════════════════════════ */
         @media (max-width: 480px) {
-          .frp-plan-row { padding: 14px 16px !important; }
-          .frp-plan-row > div:first-child { flex: 1 1 100% !important; }
-          .frp-plan-row > div:nth-child(2) { flex: 0 0 auto !important; order: 3; }
-          .frp-plan-row > button { flex: 1 1 100% !important; order: 5; }
-          .plan-page h1 { font-size: 24px !important; }
+          .ps-heading { font-size: 24px; }
+          .ps-sub { font-size: 13px; }
+          .ps-card { padding: 20px 16px; gap: 16px; }
+          .ps-plan-name { font-size: 17px; }
+          .ps-price { font-size: 32px; }
+          .ps-per { font-size: 13px; }
+          .ps-feature { font-size: 12px; }
+          .ps-btn { font-size: 13px; padding: 13px 18px; }
+          .ps-offer-title { font-size: 22px; }
+          .ps-offer-desc { font-size: 13px; }
+          .ps-offer-btn { font-size: 14px; height: 48px; }
         }
       `}</style>
     </div>

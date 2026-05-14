@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
@@ -9,7 +9,7 @@ import {
   verifyPlanPayment,
 } from "../services/api";
 
-const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY || "";
 
 // Razorpay checkout script loader (idempotent — safe to call many times)
@@ -57,6 +57,7 @@ async function publishPendingRide() {
 
 export default function UnlockContact() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [coupon, setCoupon] = useState("");
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [paying, setPaying] = useState(false);
@@ -68,10 +69,27 @@ export default function UnlockContact() {
     try { return localStorage.getItem("chosenPlan") || "daily"; } catch { return "daily"; }
   })();
 
-  // ── Pay Now → Razorpay → publish ride → /ride-detail ──────────
+  // rideId from URL takes priority; fallback to localStorage breadcrumb
+  // set during the login → otp → profile-setup chain.
+  const urlRideId = searchParams.get("rideId") || "";
+  // On mount, sync the URL rideId into localStorage so the post-payment
+  // handler can always read it from one consistent place.
+  useEffect(() => {
+    if (urlRideId) {
+      try { localStorage.setItem("pendingUnlockRideId", urlRideId); } catch (e) {}
+    }
+  }, [urlRideId]);
+
+  // ── Pay Now → Razorpay → /ride-detail ──────────────────────────
   const handlePay = async () => {
     setErrMsg("");
     setSuccessMsg("");
+
+    // Must have selected UPI or Card
+    if (!selectedMethod) {
+      setErrMsg("Please select a payment method.");
+      return;
+    }
 
     const phone = localStorage.getItem("phone") || "";
     if (!phone) {
@@ -87,10 +105,11 @@ export default function UnlockContact() {
       const order = await createPlanOrder({
         plan: planKey,
         couponCode: appliedCoupon?.code || "",
+        method: selectedMethod,
       });
 
       const rzp = new window.Razorpay({
-        key: RAZORPAY_KEY,
+        key: order.key || RAZORPAY_KEY,
         amount: order.amount,
         currency: order.currency,
         order_id: order.orderId,
@@ -100,23 +119,24 @@ export default function UnlockContact() {
         theme: { color: "#0d1b2a" },
         handler: async (response) => {
           try {
-            const v = await verifyPlanPayment({
-              razorpay_order_id: response.razorpay_order_id,
+            await verifyPlanPayment({
+              razorpay_order_id:   response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
+              razorpay_signature:  response.razorpay_signature,
               plan: planKey,
               couponCode: appliedCoupon?.code || "",
+              method: selectedMethod,
             });
 
-            setSuccessMsg("✅ Payment verified — opening your ride…");
-            const publishedId = await publishPendingRide();
+            setSuccessMsg("✅ Payment verified — opening ride details…");
 
-            // Land on the populated Ride Detail page
+            // Navigate to the ride's detail page after short delay
             setTimeout(() => {
               const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
-              const lastPostedRideId    = localStorage.getItem("lastPostedRideId");
-              const rideId = publishedId || pendingUnlockRideId || lastPostedRideId || "";
-              if (pendingUnlockRideId) localStorage.removeItem("pendingUnlockRideId");
+              const rideId = urlRideId || pendingUnlockRideId || "";
+              if (pendingUnlockRideId) {
+                try { localStorage.removeItem("pendingUnlockRideId"); } catch {}
+              }
               try { localStorage.removeItem("chosenPlan"); } catch {}
               navigate(rideId ? `/ride-detail?rideId=${rideId}` : "/ride-detail");
             }, 1200);
@@ -129,7 +149,12 @@ export default function UnlockContact() {
             setPaying(false);
           }
         },
-        modal: { ondismiss: () => setPaying(false) },
+        modal: {
+          ondismiss: () => {
+            setErrMsg("Payment cancelled.");
+            setPaying(false);
+          },
+        },
       });
       rzp.open();
     } catch (err) {
@@ -181,7 +206,7 @@ export default function UnlockContact() {
         className="unlock-contact-card"
         style={{
           width: "100%",
-          maxWidth: 420,
+          maxWidth: 500,
           borderRadius: 20,
           overflow: "hidden",
           boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
@@ -227,8 +252,8 @@ export default function UnlockContact() {
             <h2
               style={{
                 color: "#fff",
-                fontSize: 22,
-                fontWeight: 700,
+                fontSize: 24,
+                fontWeight: 600,
                 margin: 0,
                 letterSpacing: "-0.3px",
               }}
@@ -236,7 +261,7 @@ export default function UnlockContact() {
               Unlock Contact
             </h2>
           </div>
-          <p style={{ color: "#8fa8c0", fontSize: 13, margin: 0 }}>
+          <p style={{ color: "#FFFFFF", fontSize: 13, margin: 0 , fontWeight:400, fontFamily:"inter" }}>
             Secure payment to access driver contact details
           </p>
         </div>
@@ -256,8 +281,8 @@ export default function UnlockContact() {
           >
             <label
               style={{
-                fontSize: 12,
-                color: "#555",
+                fontSize: 11,
+                color: "#131313",
                 fontWeight: 500,
                 display: "block",
                 marginBottom: 10,
@@ -276,11 +301,12 @@ export default function UnlockContact() {
                   border: "1px solid #e0e0e0",
                   borderRadius: 8,
                   padding: "10px 14px",
-                  fontSize: 14,
-                  color: "#333",
+                  fontWeight:400,
+                  fontSize: 11,
+                  color: "#6B7280",
                   outline: "none",
                   background: "#fff",
-                  fontFamily: "inherit",
+                  fontFamily: "inter",
                 }}
               />
               <button
@@ -314,10 +340,11 @@ export default function UnlockContact() {
           <div style={{ marginBottom: 22 }}>
             <div
               style={{
-                fontWeight: 700,
-                fontSize: 15,
-                color: "#111",
+                fontWeight: 600,
+                fontSize: 16,
+                color: "#131313",
                 marginBottom: 14,
+                fontFamily:"inter",
               }}
             >
               Payment Summary
@@ -330,10 +357,11 @@ export default function UnlockContact() {
                 fontSize: 14,
                 color: "#555",
                 marginBottom: 10,
+                fontFamily:"inter",
               }}
             >
               <span>Unlock Fee</span>
-              <span style={{ fontWeight: 500, color: "#222" }}>₹49</span>
+              <span style={{ fontWeight: 500, color: "#4A4A4A" , fontFamily:"inter" , fontSize:13}}>₹49</span>
             </div>
 
             <div
@@ -348,7 +376,7 @@ export default function UnlockContact() {
               }}
             >
               <span>Processing Fee</span>
-              <span style={{ fontWeight: 500, color: "#222" }}>₹1</span>
+              <span style={{ fontWeight: 500, color: "#4A4A4A" , fontFamily:"inter" , fontSize:13}}>₹1</span>
             </div>
 
             {/* Total */}
@@ -359,7 +387,7 @@ export default function UnlockContact() {
                 alignItems: "center",
               }}
             >
-              <span style={{ fontWeight: 700, fontSize: 15, color: "#111" }}>
+              <span style={{ fontWeight: 600, fontSize: 15, color: "#131313", fontFamily:"inter" }}>
                 Total
               </span>
               <span
@@ -388,10 +416,11 @@ export default function UnlockContact() {
           <div style={{ marginBottom: 22 }}>
             <div
               style={{
-                fontWeight: 700,
-                fontSize: 15,
-                color: "#111",
+                fontWeight: 600,
+                fontSize: 16,
+                color: "#131313",
                 marginBottom: 14,
+                fontFamily:"inter",
               }}
             >
               Select Payment Method
@@ -582,35 +611,44 @@ export default function UnlockContact() {
           )}
 
           {/* Pay Button — wired to Razorpay → /ride-detail */}
-          <button
-            type="button"
-            onClick={handlePay}
-            disabled={paying}
-            style={{
-              width: "100%",
-              background: paying ? "#e6c958" : "#f5c518",
-              color: "#111",
-              border: "none",
-              borderRadius: 12,
-              padding: "16px",
-              fontWeight: 700,
-              fontSize: 16,
-              cursor: paying ? "not-allowed" : "pointer",
-              marginBottom: 14,
-              letterSpacing: "0.1px",
-              fontFamily: "inherit",
-              transition: "background 0.15s",
-              opacity: paying ? 0.85 : 1,
-            }}
-            onMouseEnter={(e) => {
-              if (!paying) e.currentTarget.style.background = "#e6b800";
-            }}
-            onMouseLeave={(e) => {
-              if (!paying) e.currentTarget.style.background = "#f5c518";
-            }}
-          >
-            {paying ? "Processing..." : "Pay ₹50 & Unlock Contact"}
-          </button>
+          {(() => {
+            const isDisabled = paying || !selectedMethod;
+            return (
+              <button
+                type="button"
+                onClick={handlePay}
+                disabled={isDisabled}
+                style={{
+                  width: "100%",
+                  background: isDisabled ? "#e6c958" : "#f5c518",
+                  color: "#111",
+                  border: "none",
+                  borderRadius: 12,
+                  padding: "16px",
+                  fontWeight: 700,
+                  fontSize: 16,
+                  cursor: isDisabled ? "not-allowed" : "pointer",
+                  marginBottom: 14,
+                  letterSpacing: "0.1px",
+                  fontFamily: "inherit",
+                  transition: "background 0.15s",
+                  opacity: isDisabled ? 0.6 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isDisabled) e.currentTarget.style.background = "#e6b800";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isDisabled) e.currentTarget.style.background = "#f5c518";
+                }}
+              >
+                {paying
+                  ? "Processing..."
+                  : !selectedMethod
+                    ? "Select a payment method"
+                    : "Pay ₹50 & Unlock Contact"}
+              </button>
+            );
+          })()}
 
           {/* Security badges */}
           <div

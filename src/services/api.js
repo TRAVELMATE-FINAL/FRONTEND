@@ -3,8 +3,11 @@ import axios from "axios";
 // ======================
 // AXIOS INSTANCE
 // ======================
+const APP_URL =
+  import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
+
 const API = axios.create({
-  baseURL: import.meta.env.VITE_APP_URL + "/api",
+  baseURL: APP_URL + "/api",
   headers: {
     "Content-Type": "application/json",
   },

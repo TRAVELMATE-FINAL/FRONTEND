@@ -6,7 +6,7 @@ import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import { formatTime12h } from "../utils/time.js";
 
-const API_BASE = import.meta.env.VITE_APP_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
 /* ─────────────── SVG ICONS ─────────────── */
 const UserIcon = ({ size = 14, color = "#9ca3af" }) => (
@@ -300,8 +300,15 @@ export default function ProfileSettings() {
   // Booked rides aren't tracked separately yet — same Posted list for now
   const bookedRides = rides;
 
-  const fullName = user?.fullName?.trim() || "Akash Kumar";
-  const email    = user?.email?.trim()    || "Kumar@email.com";
+  // Show real user values once loaded; placeholders ONLY when loaded but
+  // genuinely empty. While loading we render an em-dash so no fake name
+  // ("Akash Kumar" etc.) ever flashes on screen.
+  const fullName = loading
+    ? ""
+    : (user?.fullName?.trim() || "Your Name");
+  const email = loading
+    ? ""
+    : (user?.email?.trim() || "—");
   const isFemale = (user?.gender || "").toLowerCase() === "female";
 
   // Pair blocked users into rows of 2 (Figma layout)
@@ -341,7 +348,9 @@ export default function ProfileSettings() {
 
       <Header />
 
-      {/* Hero gradient header */}
+      {/* Hero gradient header — hidden while loading so the fallback
+          placeholders never flash on screen. */}
+      {!loading && (
       <div style={{
         background: "linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%)",
         textAlign: "center",
@@ -382,9 +391,10 @@ export default function ProfileSettings() {
         </div>
 
         <div style={{ fontSize: 12, color: "#6b7280" }}>
-          {fmtMember(user?.memberSince) || "Member since 2026"}
+          {fmtMember(user?.memberSince)}
         </div>
       </div>
+      )}
 
       {/* Body */}
       <div className="ps-shell" style={{ flex: 1, marginTop: 12 }}>

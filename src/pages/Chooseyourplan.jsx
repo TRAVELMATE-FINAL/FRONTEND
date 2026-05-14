@@ -31,7 +31,7 @@ export default function ChooseYourPlan() {
     let cancelled = false;
     (async () => {
       try {
-        const baseURL = (import.meta.env.VITE_APP_URL || "http://localhost:5000") + "/api";
+        const baseURL = (import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com") + "/api";
         const r = await fetch(baseURL + "/plans/");
         if (!r.ok) return;
         const data = await r.json();
@@ -48,7 +48,7 @@ export default function ChooseYourPlan() {
       try {
         const phone = localStorage.getItem("phone");
         if (!phone) return;
-        const baseURL = (import.meta.env.VITE_APP_URL || "http://localhost:5000") + "/api";
+        const baseURL = (import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com") + "/api";
         const r = await fetch(baseURL + "/plans/me?phone=" + encodeURIComponent(phone));
         if (!r.ok) return;
         const data = await r.json();
