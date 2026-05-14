@@ -136,7 +136,7 @@ function Time12Picker({ value, onChange, min }) {
 /* ─────────────────────────────────────────
    PAGE 1 — Post (Figma redesign — vertical stack)
 ───────────────────────────────────────── */
-function PostPage({ form, setForm, route, distance, duration, routeLoading, error, onNext }) {
+function PostPage({ form, setForm, route, distance, duration, routeLoading, error, onNext, onRouteCalculated }) {
   const [stopInput, setStopInput] = useState("");
 
   const addStop = (val) => {
@@ -457,6 +457,7 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
               toCoords={form.toCoords}
               fromName={form.from}
               toName={form.to}
+              onRouteCalculated={onRouteCalculated}
             />
           </div>
 
@@ -571,7 +572,7 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
 /* Real Google Map with actual driving route from Google Directions API.
    Accepts the same props as the old Leaflet version — `coords` is now ignored
    (Google computes the route from fromCoords/toCoords directly). */
-function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false }) {
+function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onRouteCalculated }) {
   // Compact = small inline preview (used in step 1); default = large map card.
   const mapHeight = compact ? 140 : 260;
 
@@ -681,10 +682,16 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false }) {
           drawAB();
           // Distance + duration from the Directions response (no extra call)
           const leg = result.routes?.[0]?.legs?.[0];
-          setRouteInfo({
+          const next = {
             distance: leg?.distance?.text || "",
             duration: leg?.duration?.text || "",
-          });
+          };
+          setRouteInfo(next);
+          // ── Push the Google-computed values up to the parent so the
+          // "Confirm your route" card displays the SAME numbers as the
+          // map overlay (otherwise they were sourced from OSRM and could
+          // differ). This is the single source of truth for distance/time.
+          if (typeof onRouteCalculated === "function") onRouteCalculated(next);
           setRouteError("");
         } else {
           // Fallback: straight line between A and B
@@ -714,10 +721,12 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false }) {
               (resp, st) => {
                 const el = resp?.rows?.[0]?.elements?.[0];
                 if (st === "OK" && el?.status === "OK") {
-                  setRouteInfo({
+                  const next = {
                     distance: el.distance?.text || "",
                     duration: el.duration?.text || "",
-                  });
+                  };
+                  setRouteInfo(next);
+                  if (typeof onRouteCalculated === "function") onRouteCalculated(next);
                 } else {
                   setRouteInfo({ distance: "", duration: "" });
                 }
@@ -1426,6 +1435,12 @@ export default function TravelMatePost({ embedded = false } = {}) {
           route={route} distance={distance} duration={duration}
           routeLoading={routeLoading} error={error}
           onNext={goToVehicle}
+          onRouteCalculated={({ distance: d, duration: t }) => {
+            // Google Directions API is the source of truth for the numbers
+            // shown both on the map and in the "Confirm your route" card.
+            if (d) setDistance(d);
+            if (t) setDuration(t);
+          }}
         />
       ) : (
         <PostRidePage

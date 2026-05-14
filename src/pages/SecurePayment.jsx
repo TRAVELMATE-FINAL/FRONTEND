@@ -9,6 +9,11 @@ import Footer from "../components/Footer/Footer.jsx";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
+// Publish the stashed ride payload to /api/rides AFTER payment succeeds.
+// IMPORTANT: when a not-logged-in user clicked "Publish Ride", the stashed
+// payload's `userPhone` was empty. So at publish time we re-stamp `userPhone`
+// from localStorage (which is now populated after OTP verify) — otherwise
+// the published ride wouldn't show up on the user's profile.
 async function publishPendingRide() {
   let raw;
   try { raw = localStorage.getItem("pendingRidePayload"); } catch { raw = null; }
@@ -16,6 +21,11 @@ async function publishPendingRide() {
   let payload;
   try { payload = JSON.parse(raw); } catch { return ""; }
   if (!payload || !payload.from || !payload.to) return "";
+
+  // Re-stamp userPhone from the freshly-authenticated user.
+  const phoneNow = (typeof localStorage !== "undefined" && localStorage.getItem("phone")) || "";
+  if (phoneNow) payload.userPhone = phoneNow;
+
   try {
     const res = await axios.post(`${API_BASE}/api/rides`, payload);
     const newId = res.data?.data?._id || res.data?.data?.id || "";
@@ -589,7 +599,7 @@ function PayMethod({ active, onClick, icon, title, sub }) {
             background: "#0d1b2a",
           }} />
         )}
-      </div>
+</div>
     </div>
   );
 }

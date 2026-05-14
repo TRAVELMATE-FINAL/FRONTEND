@@ -90,9 +90,17 @@ export default function NotificationsPage() {
       })
       .catch((err) => {
         if (cancelled) return;
+        // A 404 here means the backend doesn't have the notifications route
+        // yet (e.g. Render hasn't redeployed with the latest server.js).
+        // Treat that as "no notifications" instead of showing a red error —
+        // an empty state is more user-friendly than a scary message.
+        if (err?.response?.status === 404) {
+          setItems([]);
+          return;
+        }
         setError(
           err?.response?.data?.message ||
-          "Could not load notifications. Make sure the server is running."
+          "Could not load notifications. Please try again later."
         );
         console.error("[Notifications] fetch failed:", err);
       })

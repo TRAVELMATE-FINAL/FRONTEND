@@ -55,15 +55,28 @@ async function publishPendingRide() {
   }
 }
 
+// Static pricing — the unlock product is a flat ₹49 + ₹1 processing fee.
+const UNLOCK_FEE = 49;
+const PROCESSING_FEE = 1;
+
 export default function UnlockContact() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [coupon, setCoupon] = useState("");
+  const [couponChecking, setCouponChecking] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [paying, setPaying] = useState(false);
   const [errMsg, setErrMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
+  // discountAmount = how many rupees the coupon knocks off the Unlock Fee.
+  // 0 means no coupon (or invalid). The render reads this and only shows
+  // the "Discount" row + reduced total when > 0.
+  const [discountAmount, setDiscountAmount] = useState(0);
+
+  // Dynamic totals — recomputed on every render based on the applied coupon.
+  const unlockAfterDiscount = Math.max(0, UNLOCK_FEE - discountAmount);
+  const total = unlockAfterDiscount + PROCESSING_FEE;
 
   const planKey = (() => {
     try { return localStorage.getItem("chosenPlan") || "daily"; } catch { return "daily"; }
@@ -171,16 +184,47 @@ export default function UnlockContact() {
   // ── Apply coupon → backend validates code + computes discount ─
   const handleApplyCoupon = async () => {
     setErrMsg("");
-    if (!coupon.trim()) return;
+    setSuccessMsg("");
+    if (!coupon.trim()) {
+      setErrMsg("Please enter a coupon code.");
+      return;
+    }
+    setCouponChecking(true);
     try {
       const code = coupon.trim().toUpperCase();
       const res = await applyCouponApi({ code, plan: planKey });
-      setAppliedCoupon({ code, ...res });
-      setSuccessMsg(`Coupon applied — ${res.discountLabel || "discount applied"}.`);
+      // Backend response shape varies — accept either discountAmount,
+      // cashback, or amount as the rupee value.
+      const amt = Number(
+        res?.discountAmount ?? res?.cashback ?? res?.amount ?? 0
+      );
+      if (!amt || amt <= 0) {
+        setAppliedCoupon(null);
+        setDiscountAmount(0);
+        setErrMsg(res?.message || "Coupon has no value for this plan.");
+        return;
+      }
+      // Cap discount at the unlock fee — you can't discount more than the
+      // base amount (we don't allow a negative price).
+      const safeAmt = Math.min(amt, UNLOCK_FEE);
+      setAppliedCoupon({ code, ...res, discountAmount: safeAmt });
+      setDiscountAmount(safeAmt);
+      setSuccessMsg(`Coupon applied — you save ₹${safeAmt}.`);
     } catch (e) {
       setAppliedCoupon(null);
+      setDiscountAmount(0);
       setErrMsg(e?.response?.data?.message || "Invalid coupon code.");
+    } finally {
+      setCouponChecking(false);
     }
+  };
+
+  const removeCoupon = () => {
+    setCoupon("");
+    setAppliedCoupon(null);
+    setDiscountAmount(0);
+    setSuccessMsg("");
+    setErrMsg("");
   };
 
   return (
@@ -295,44 +339,69 @@ export default function UnlockContact() {
                 type="text"
                 placeholder="Enter code"
                 value={coupon}
-                onChange={(e) => setCoupon(e.target.value)}
+                onChange={(e) => setCoupon(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === "Enter" && !appliedCoupon && handleApplyCoupon()}
+                disabled={!!appliedCoupon}
                 style={{
                   flex: 1,
                   border: "1px solid #e0e0e0",
                   borderRadius: 8,
                   padding: "10px 14px",
-                  fontWeight:400,
+                  fontWeight: 400,
                   fontSize: 11,
                   color: "#6B7280",
                   outline: "none",
-                  background: "#fff",
+                  background: appliedCoupon ? "#f0f1f3" : "#fff",
                   fontFamily: "inter",
+                  textTransform: "uppercase",
                 }}
               />
-              <button
-                type="button"
-                onClick={handleApplyCoupon}
-                style={{
-                  background: "#0d1b2a",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "10px 20px",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "background 0.15s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "#1a2f45")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "#0d1b2a")
-                }
-              >
-                Apply
-              </button>
+              {appliedCoupon ? (
+                <button
+                  type="button"
+                  onClick={removeCoupon}
+                  style={{
+                    background: "#fff",
+                    color: "#dc2626",
+                    border: "1.5px solid #dc2626",
+                    borderRadius: 8,
+                    padding: "10px 18px",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Remove
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={couponChecking}
+                  style={{
+                    background: "#0d1b2a",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "10px 20px",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    cursor: couponChecking ? "not-allowed" : "pointer",
+                    fontFamily: "inherit",
+                    transition: "background 0.15s",
+                    opacity: couponChecking ? 0.7 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!couponChecking) e.currentTarget.style.background = "#1a2f45";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!couponChecking) e.currentTarget.style.background = "#0d1b2a";
+                  }}
+                >
+                  {couponChecking ? "..." : "Apply"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -350,6 +419,7 @@ export default function UnlockContact() {
               Payment Summary
             </div>
 
+            {/* Unlock Fee — struck through when a coupon is applied */}
             <div
               style={{
                 display: "flex",
@@ -357,12 +427,41 @@ export default function UnlockContact() {
                 fontSize: 14,
                 color: "#555",
                 marginBottom: 10,
-                fontFamily:"inter",
+                fontFamily: "inter",
               }}
             >
               <span>Unlock Fee</span>
-              <span style={{ fontWeight: 500, color: "#4A4A4A" , fontFamily:"inter" , fontSize:13}}>₹49</span>
+              <span
+                style={{
+                  fontWeight: 500,
+                  color: discountAmount > 0 ? "#9ca3af" : "#4A4A4A",
+                  textDecoration: discountAmount > 0 ? "line-through" : "none",
+                  fontFamily: "inter",
+                  fontSize: 13,
+                }}
+              >
+                ₹{UNLOCK_FEE}
+              </span>
             </div>
+
+            {/* Discount — only shown when a coupon is applied */}
+            {discountAmount > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: 14,
+                  color: "#059669",
+                  marginBottom: 10,
+                  fontFamily: "inter",
+                }}
+              >
+                <span>Discount{appliedCoupon?.code ? ` (${appliedCoupon.code})` : ""}</span>
+                <span style={{ fontWeight: 600, color: "#059669", fontFamily: "inter", fontSize: 13 }}>
+                  − ₹{discountAmount}
+                </span>
+              </div>
+            )}
 
             <div
               style={{
@@ -376,10 +475,12 @@ export default function UnlockContact() {
               }}
             >
               <span>Processing Fee</span>
-              <span style={{ fontWeight: 500, color: "#4A4A4A" , fontFamily:"inter" , fontSize:13}}>₹1</span>
+              <span style={{ fontWeight: 500, color: "#4A4A4A", fontFamily: "inter", fontSize: 13 }}>
+                ₹{PROCESSING_FEE}
+              </span>
             </div>
 
-            {/* Total */}
+            {/* Total — dynamic */}
             <div
               style={{
                 display: "flex",
@@ -387,7 +488,7 @@ export default function UnlockContact() {
                 alignItems: "center",
               }}
             >
-              <span style={{ fontWeight: 600, fontSize: 15, color: "#131313", fontFamily:"inter" }}>
+              <span style={{ fontWeight: 600, fontSize: 15, color: "#131313", fontFamily: "inter" }}>
                 Total
               </span>
               <span
@@ -398,7 +499,7 @@ export default function UnlockContact() {
                   letterSpacing: "-0.5px",
                 }}
               >
-                ₹50
+                ₹{total}
               </span>
             </div>
           </div>
@@ -645,7 +746,7 @@ export default function UnlockContact() {
                   ? "Processing..."
                   : !selectedMethod
                     ? "Select a payment method"
-                    : "Pay ₹50 & Unlock Contact"}
+                    : `Pay ₹${total} & Unlock Contact`}
               </button>
             );
           })()}
