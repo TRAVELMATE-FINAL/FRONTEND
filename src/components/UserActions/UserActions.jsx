@@ -6,25 +6,18 @@ const API_BASE =
   import.meta.env.VITE_APP_URL ||
   "https://travelmate-backend-dzpq.onrender.com";
 
-/* Report reasons — same set rendered on the Figma "Report User" modal. */
+/* Figma reasons — in this exact order */
 const REPORT_REASONS = [
   "Spam",
+  "Fake profile",
   "Inappropriate behavior",
   "Safety concern",
   "Other",
 ];
 
 /**
- * UserActions — the kebab (⋮) menu shown on a driver/rider profile card.
- *
- * Props:
- *   targetPhone (string, required) — phone of the user being reported/blocked
- *   targetName  (string, optional) — used in confirmation copy
- *   className   (string, optional) — passed to the outer wrapper for layout
- *   onBlocked   (function, optional) — fires when block succeeds
- *
- * The viewer's own phone is read from localStorage. If they aren't logged in
- * we still let them open the menu but block + report APIs will gate them.
+ * UserActions — kebab menu + Report/Block modals.
+ * Used on RideDetail.jsx and ConnectUnlock.jsx on the driver card.
  */
 export default function UserActions({
   targetPhone,
@@ -33,21 +26,17 @@ export default function UserActions({
   onBlocked,
 }) {
   const [open, setOpen] = useState(false);
-  const [modal, setModal] = useState(null); // 'report' | 'reported' | 'block' | 'blocked' | null
+  const [modal, setModal] = useState(null);
   const [reason, setReason] = useState("");
   const [details, setDetails] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-
   const wrapRef = useRef(null);
 
-  // Close the menu when the user clicks outside it
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
-        setOpen(false);
-      }
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -57,23 +46,13 @@ export default function UserActions({
     (typeof window !== "undefined" && localStorage.getItem("phone")) || "";
 
   const resetModal = () => {
-    setModal(null);
-    setReason("");
-    setDetails("");
-    setErr("");
-    setBusy(false);
+    setModal(null); setReason(""); setDetails(""); setErr(""); setBusy(false);
   };
 
   const submitReport = async () => {
     setErr("");
-    if (!reason) {
-      setErr("Please pick a reason.");
-      return;
-    }
-    if (!viewerPhone) {
-      setErr("You must be logged in to report a user.");
-      return;
-    }
+    if (!reason) { setErr("Please pick a reason."); return; }
+    if (!viewerPhone) { setErr("You must be logged in to report a user."); return; }
     try {
       setBusy(true);
       await axios.post(`${API_BASE}/api/users/report`, {
@@ -84,20 +63,13 @@ export default function UserActions({
       });
       setModal("reported");
     } catch (e) {
-      setErr(
-        e?.response?.data?.message || e.message || "Failed to submit report."
-      );
-    } finally {
-      setBusy(false);
-    }
+      setErr(e?.response?.data?.message || e.message || "Failed to submit report.");
+    } finally { setBusy(false); }
   };
 
   const submitBlock = async () => {
     setErr("");
-    if (!viewerPhone) {
-      setErr("You must be logged in to block a user.");
-      return;
-    }
+    if (!viewerPhone) { setErr("You must be logged in to block a user."); return; }
     try {
       setBusy(true);
       await axios.post(`${API_BASE}/api/users/block`, {
@@ -107,12 +79,8 @@ export default function UserActions({
       setModal("blocked");
       if (typeof onBlocked === "function") onBlocked(targetPhone);
     } catch (e) {
-      setErr(
-        e?.response?.data?.message || e.message || "Failed to block user."
-      );
-    } finally {
-      setBusy(false);
-    }
+      setErr(e?.response?.data?.message || e.message || "Failed to block user.");
+    } finally { setBusy(false); }
   };
 
   const undoBlock = async () => {
@@ -124,17 +92,12 @@ export default function UserActions({
       );
       resetModal();
     } catch (e) {
-      setErr(
-        e?.response?.data?.message || e.message || "Failed to undo block."
-      );
-    } finally {
-      setBusy(false);
-    }
+      setErr(e?.response?.data?.message || e.message || "Failed to undo block.");
+    } finally { setBusy(false); }
   };
 
   return (
     <div ref={wrapRef} className={`ua-wrap ${className}`}>
-      {/* Kebab (⋮) trigger */}
       <button
         type="button"
         className="ua-kebab"
@@ -148,17 +111,13 @@ export default function UserActions({
         </svg>
       </button>
 
-      {/* Dropdown menu — Report user / Block user */}
       {open && (
         <div className="ua-menu" role="menu">
           <button
             type="button"
             className="ua-menu-item"
             role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              setModal("report");
-            }}
+            onClick={() => { setOpen(false); setModal("report"); }}
           >
             <span className="ua-menu-icon" aria-hidden>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -171,10 +130,7 @@ export default function UserActions({
             type="button"
             className="ua-menu-item ua-menu-item--danger"
             role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              setModal("block");
-            }}
+            onClick={() => { setOpen(false); setModal("block"); }}
           >
             <span className="ua-menu-icon" aria-hidden>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -187,75 +143,76 @@ export default function UserActions({
         </div>
       )}
 
-      {/* ── Modal: Report User ── */}
+      {/* ── Report User modal — Figma match ── */}
       {modal === "report" && (
         <Backdrop onClose={resetModal}>
           <div className="ua-modal">
             <div className="ua-modal-head">
-              <h3 className="ua-modal-title">Report User</h3>
-              <button
-                type="button"
-                className="ua-close"
-                aria-label="Close"
-                onClick={resetModal}
-              >
-                ×
-              </button>
+              <div>
+                <h3 className="ua-modal-title">Report User</h3>
+                <p className="ua-modal-sub">We prioritize your safety and privacy.</p>
+              </div>
+              <button type="button" className="ua-close" aria-label="Close" onClick={resetModal}>×</button>
             </div>
-            <p className="ua-modal-sub">Why are you reporting?</p>
+
+            <p className="ua-question">Why are you reporting?</p>
 
             <div className="ua-reasons">
-              {REPORT_REASONS.map((r) => (
-                <label key={r} className="ua-reason">
-                  <input
-                    type="radio"
-                    name="report-reason"
-                    value={r}
-                    checked={reason === r}
-                    onChange={() => setReason(r)}
-                  />
-                  <span className="ua-reason-text">{r}</span>
-                </label>
-              ))}
+              {REPORT_REASONS.map((r) => {
+                const active = reason === r;
+                return (
+                  <label key={r} className={`ua-reason ${active ? "ua-reason--active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="report-reason"
+                      value={r}
+                      checked={active}
+                      onChange={() => setReason(r)}
+                    />
+                    <span className="ua-reason-dot" aria-hidden />
+                    <span className="ua-reason-text">{r}</span>
+                  </label>
+                );
+              })}
             </div>
 
-            <label className="ua-textlabel">
-              Additional details (optional)
-            </label>
+            <label className="ua-textlabel">Additional details <span className="ua-optional">(Optional)</span></label>
             <textarea
               className="ua-textarea"
               rows={3}
               maxLength={400}
-              placeholder="Please provide any additional context about this report..."
+              placeholder="Please provide any context that helps us understand the situation better."
               value={details}
               onChange={(e) => setDetails(e.target.value)}
             />
 
+            {/* Trust & safety banner — light blue with shield icon */}
+            <div className="ua-trust">
+              <span className="ua-trust-icon" aria-hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2l8 4v6c0 5-3.5 9.4-8 11-4.5-1.6-8-6-8-11V6l8-4z" />
+                </svg>
+              </span>
+              <span className="ua-trust-text">
+                Our trust and safety team will review your report manually. This helps keep our community safe for everyone.
+              </span>
+            </div>
+
             {err && <div className="ua-err">{err}</div>}
 
             <div className="ua-actions">
-              <button
-                type="button"
-                className="ua-btn ua-btn--ghost"
-                onClick={resetModal}
-                disabled={busy}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="ua-btn ua-btn--primary"
-                onClick={submitReport}
-                disabled={busy}
-              >
+              <button type="button" className="ua-btn ua-btn--primary" onClick={submitReport} disabled={busy}>
                 {busy ? "Submitting…" : "Submit Report"}
+              </button>
+              <button type="button" className="ua-btn ua-btn--ghost" onClick={resetModal} disabled={busy}>
+                Cancel
               </button>
             </div>
           </div>
         </Backdrop>
       )}
 
-      {/* ── Modal: Report Submitted ── */}
+      {/* ── Report Submitted ── */}
       {modal === "reported" && (
         <Backdrop onClose={resetModal}>
           <div className="ua-modal ua-modal--centered">
@@ -265,96 +222,77 @@ export default function UserActions({
               </svg>
             </div>
             <h3 className="ua-modal-title">Report submitted</h3>
-            <p className="ua-modal-text">
-              Thanks for helping keep the community safe.
-            </p>
-            <div className="ua-info">
-              <strong>What's next?</strong>
-              <br />
-              Our moderation team will review the details within 24 hours.
-              You'll receive a notification once an action is taken.
+            <p className="ua-modal-text">Thanks for helping keep the community safe</p>
+
+            <div className="ua-next">
+              <span className="ua-next-icon" aria-hidden>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v4M12 16h.01" />
+                </svg>
+              </span>
+              <div className="ua-next-body">
+                <strong>What's next?</strong><br />
+                Our moderation team will review the details within 24 hours. You'll receive a notification once an action is taken.
+              </div>
             </div>
-            <button
-              type="button"
-              className="ua-btn ua-btn--primary ua-btn--block"
-              onClick={resetModal}
-            >
+
+            <button type="button" className="ua-btn ua-btn--primary ua-btn--block" onClick={resetModal}>
               Done
             </button>
+
+            <p className="ua-fine">This action contributes to our global trust and safety standard.</p>
           </div>
         </Backdrop>
       )}
 
-      {/* ── Modal: Block User confirmation ── */}
+      {/* ── Block confirmation ── */}
       {modal === "block" && (
         <Backdrop onClose={resetModal}>
           <div className="ua-modal ua-modal--centered">
-            <div className="ua-danger-icon">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M5.5 5.5l13 13" />
+            <div className="ua-shield-icon">
+              <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l8 4v6c0 5-3.5 9.4-8 11-4.5-1.6-8-6-8-11V6l8-4z" />
               </svg>
             </div>
             <h3 className="ua-modal-title">Block {targetName}?</h3>
             <p className="ua-modal-text">
-              You won't see any rides or messages from this user.
-              You can unblock them later from your profile settings.
+              You won't see any rides or messages from this user. You can unblock them later from your profile settings.
             </p>
 
             {err && <div className="ua-err">{err}</div>}
 
             <div className="ua-actions">
-              <button
-                type="button"
-                className="ua-btn ua-btn--ghost"
-                onClick={resetModal}
-                disabled={busy}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="ua-btn ua-btn--danger"
-                onClick={submitBlock}
-                disabled={busy}
-              >
+              <button type="button" className="ua-btn ua-btn--danger" onClick={submitBlock} disabled={busy}>
                 {busy ? "Blocking…" : "Block User"}
+              </button>
+              <button type="button" className="ua-btn ua-btn--ghost" onClick={resetModal} disabled={busy}>
+                Cancel
               </button>
             </div>
           </div>
         </Backdrop>
       )}
 
-      {/* ── Modal: User Blocked confirmation ── */}
+      {/* ── User blocked confirmation — BLUE shield, yellow Done ── */}
       {modal === "blocked" && (
         <Backdrop onClose={resetModal}>
           <div className="ua-modal ua-modal--centered">
             <div className="ua-shield-icon">
-              <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2l8 4v6c0 5-3.5 9.4-8 11-4.5-1.6-8-6-8-11V6l8-4z" />
               </svg>
             </div>
             <h3 className="ua-modal-title">User blocked</h3>
-            <p className="ua-modal-text">
-              You won't see content from this user anymore.
-            </p>
+            <p className="ua-modal-text">You won't see content from this user anymore</p>
 
             {err && <div className="ua-err">{err}</div>}
 
-            <button
-              type="button"
-              className="ua-btn ua-btn--primary ua-btn--block"
-              onClick={resetModal}
-            >
+            <button type="button" className="ua-btn ua-btn--primary ua-btn--block" onClick={resetModal}>
               Done
             </button>
-            <button
-              type="button"
-              className="ua-undo"
-              onClick={undoBlock}
-              disabled={busy}
-            >
-              Undo action
+            <button type="button" className="ua-undo" onClick={undoBlock} disabled={busy}>
+              ↶ Undo action
             </button>
             <p className="ua-fine">
               This update may take a few minutes to reflect across all features.
@@ -366,15 +304,11 @@ export default function UserActions({
   );
 }
 
-/* Click-outside backdrop. We deliberately render OUTSIDE the wrapRef so
-   the kebab's "click outside to close" doesn't interfere with modals. */
 function Backdrop({ children, onClose }) {
   return (
     <div
       className="ua-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {children}
     </div>

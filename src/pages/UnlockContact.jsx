@@ -150,6 +150,17 @@ export default function UnlockContact() {
               }
             } catch (_e) {}
 
+            // Drop a "Payment successful" notification so the user sees
+            // it on the Notifications page later.
+            try {
+              await axios.post(`${API_BASE}/api/notifications`, {
+                userPhone: phone,
+                type: "payment",
+                title: "Payment successful",
+                body: "Your contact unlock is now active.",
+              });
+            } catch (_e) { /* non-fatal */ }
+
             setSuccessMsg("✅ Payment verified — opening ride details…");
 
             // Navigate to the ride's detail page after short delay

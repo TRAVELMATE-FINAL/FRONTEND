@@ -190,8 +190,33 @@ export default function SecurePayment() {
               }
             } catch (_e) {}
 
+            // Notification #1 — payment success
+            const userPhone = localStorage.getItem("phone") || "";
+            try {
+              await axios.post(`${API_BASE}/api/notifications`, {
+                userPhone,
+                type: "payment",
+                title: "Payment successful",
+                body: `Your ${planMeta?.name || "plan"} subscription is now active.`,
+              });
+            } catch (_e) { /* non-fatal */ }
+
             setSuccessMsg("✅ Payment verified — publishing your ride…");
             const publishedId = await publishPendingRide();
+
+            // Notification #2 — ride published (only if there was a ride)
+            if (publishedId) {
+              try {
+                await axios.post(`${API_BASE}/api/notifications`, {
+                  userPhone,
+                  type: "ride",
+                  title: "Ride published successfully",
+                  body: "Your ride is now live and visible to other travellers.",
+                  action: { to: `/ride-detail?rideId=${publishedId}` },
+                });
+              } catch (_e) { /* non-fatal */ }
+            }
+
             setSuccessMsg(
               publishedId
                 ? "✅ Payment verified & ride published! Subscription active until " +
@@ -590,7 +615,7 @@ function PayMethod({ active, onClick, icon, title, sub }) {
       </div>
 
       {/* Radio — large dark navy ring, filled dot when active */}
-      <div style={{
+<div style={{
         width: 22,
         height: 22,
         borderRadius: "50%",
@@ -609,7 +634,7 @@ function PayMethod({ active, onClick, icon, title, sub }) {
             background: "#0d1b2a",
           }} />
         )}
-</div>
+      </div>
     </div>
   );
 }

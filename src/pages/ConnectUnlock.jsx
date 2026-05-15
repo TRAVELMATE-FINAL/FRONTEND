@@ -88,59 +88,53 @@ export default function ConnectUnlock() {
     navigate("/login");
   };
 
+  // "Unlock Contact" — kick off the standard plan + payment chain.
+  // The user lands here from FindFriends → /connect-unlock. Clicking
+  // this button doesn't reveal the phone directly — it forces the
+  // user through:
+  //   • Not logged in    → /login → /otp → /profile-setup → /findrideplan
+  //   • No profile yet   → /profile-setup → /findrideplan
+  //   • Logged in + profile → /findrideplan directly
+  //
+  // /findrideplan → user picks "Go Daily" → /unlock-contact (payment)
+  //   → on Razorpay success → /ride-detail (contact visible).
   const handleUnlock = async () => {
-    if (!rideId || unlocked) return;
+    if (!rideId) return;
+    // Always stash the rideId so the chain (login → otp → profile-setup
+    // → findrideplan → unlock-contact → ride-detail) can read it.
+    try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e) {}
 
-    // ── Auth gate (strict) ────────────────────────────────
-    // The user must be logged in with a verified phone before they can
-    // unlock a contact. If not, save the rideId and send them through
-    // /login → /otp → (/profile-setup if new) → back here.
+    // Step 1: not logged in → start the chain at /login
     if (!isLoggedIn()) {
-      sendToLogin();
+      navigate("/login");
       return;
     }
 
+    // Step 2: logged in — check profile completeness
     try {
       setUnlocking(true);
-      const { data } = await axios.post(
-        `${API_BASE}/api/rides/${rideId}/unlock`,
-        { phone: localStorage.getItem("phone") }
+      const phone = localStorage.getItem("phone") || "";
+      const r = await axios.get(
+        `${API_BASE}/api/auth/profile?phone=${encodeURIComponent(phone)}`,
+        { timeout: 6000 }
       );
-      const unlockedPhone = data?.data?.phone || "";
-
-      // Backend returned 200 but no phone? Treat as auth failure too —
-      // wipe the stale phone and route the user back through /login.
-      if (!unlockedPhone) {
-        localStorage.removeItem("phone");
-        sendToLogin();
+      const u = r?.data?.user || r?.data || {};
+      const hasProfile = !!(u.fullName && u.city);
+      if (!hasProfile) {
+        navigate("/profile-setup");
         return;
       }
-
-      setContact(unlockedPhone);
-      setUnlocked(true);
-    } catch (err) {
-      const status  = err?.response?.status;
-      const message = err?.response?.data?.error || err?.response?.data?.message || "";
-
-      // Treat any auth-ish failure (401/403/404) OR "no contact info" as
-      // "user is not really logged in" → bounce to /login so the OTP flow
-      // can re-establish the session and re-issue the unlock.
-      const looksLikeAuthFail =
-        status === 401 ||
-        status === 403 ||
-        status === 404 ||
-        /no contact info|not authorized|not logged|missing phone/i.test(message);
-
-      if (looksLikeAuthFail) {
-        localStorage.removeItem("phone");
-        sendToLogin();
-        return;
-      }
-
-      alert(message || "Could not unlock contact");
+    } catch (e) {
+      // Profile check failed → route through login to re-auth safely
+      try { localStorage.removeItem("phone"); } catch (_e) {}
+      navigate("/login");
+      return;
     } finally {
       setUnlocking(false);
     }
+
+    // Step 3: logged in + profile complete → go to plan picker
+    navigate(`/findrideplan?rideId=${rideId}`);
   };
 
   // ── derived values ──
@@ -496,5 +490,8 @@ export default function ConnectUnlock() {
 
       <Footer />
     </div>
+  );
+}
+
   );
 }
