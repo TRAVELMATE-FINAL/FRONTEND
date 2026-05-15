@@ -5,6 +5,7 @@ import Spinner from "../components/Spinner/Spinner.jsx";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import { formatTime12h } from "../utils/time.js";
+import UserActions from "../components/UserActions/UserActions.jsx";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -154,6 +155,13 @@ export default function RideDetailsPage() {
   // what unlocks the contact number reveal. If they're the rider's
   // own ride (their phone matches the driver's phone) we always
   // reveal it without payment.
+  //
+  // Race-condition fix: when the user just finished payment in
+  // UnlockContact / SecurePayment, the backend may not have flushed
+  // the new Subscription doc to MongoDB by the time we hit /plans/me.
+  // To dodge that, we (1) trust a localStorage `subEndDate` written
+  // right after a successful Razorpay verify, and (2) retry the API
+  // call once after 2.5s if the first response said "inactive".
   useEffect(() => {
     const phone =
       (typeof window !== "undefined" && localStorage.getItem("phone")) || "";
@@ -161,20 +169,48 @@ export default function RideDetailsPage() {
       setHasPaid(false);
       return;
     }
+
+    // ── 1. Instant local proof ────────────────────────────────────
+    // If we wrote subEndDate when payment succeeded, and it's still
+    // in the future, the contact is unlocked immediately while the
+    // API call below resolves in the background.
+    try {
+      const end = localStorage.getItem("subEndDate");
+      if (end && new Date(end).getTime() > Date.now()) {
+        setHasPaid(true);
+      }
+    } catch (_e) {}
+
     let cancelled = false;
-    axios
-      .get(`${API_BASE}/api/plans/me`, {
-        params: { phone },
-        timeout: 6000,
-      })
-      .then(({ data: resp }) => {
-        if (cancelled) return;
-        const status = resp?.subscription?.status;
-        setHasPaid(status === "active");
-      })
-      .catch(() => {
-        if (!cancelled) setHasPaid(false);
-      });
+    const checkSubscription = (attempt = 0) =>
+      axios
+        .get(`${API_BASE}/api/plans/me`, { params: { phone }, timeout: 6000 })
+        .then(({ data: resp }) => {
+          if (cancelled) return;
+          const status = resp?.subscription?.status;
+          const isActive = status === "active";
+          if (isActive) {
+            setHasPaid(true);
+            // Refresh the local proof so future page loads stay unlocked
+            // without waiting on the API.
+            try {
+              if (resp?.subscription?.endDate) {
+                localStorage.setItem("subEndDate", resp.subscription.endDate);
+              }
+            } catch (_e) {}
+          } else if (attempt === 0) {
+            // First attempt said inactive — wait 2.5s and retry once
+            // in case Mongo just hadn't committed yet.
+            setTimeout(() => { if (!cancelled) checkSubscription(1); }, 2500);
+          }
+          // Note: don't flip hasPaid to false if local proof says true —
+          // the user clearly just paid; let the next page load reconcile.
+        })
+        .catch(() => {
+          // Network error — leave hasPaid as whatever local proof said.
+        });
+    checkSubscription();
+
     return () => { cancelled = true; };
   }, [rideId]);
 
@@ -348,13 +384,10 @@ export default function RideDetailsPage() {
                 )}
               </div>
 
-              <button style={{
-                background: "transparent", border: "none",
-                cursor: "pointer", padding: 6, borderRadius: 8,
-                display: "flex", alignItems: "center",
-              }}>
-                <MoreIcon />
-              </button>
+              <UserActions
+                targetPhone={driver?.phone || ""}
+                targetName={driverName}
+              />
             </div>
 
             {/* Vehicle Details Card */}

@@ -1,0 +1,289 @@
+/* UserActions.css — kebab menu + report/block modals */
+
+.ua-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.ua-kebab {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.ua-kebab:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.ua-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  min-width: 180px;
+  padding: 6px;
+  z-index: 50;
+  font-family: inherit;
+}
+.ua-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #111827;
+  text-align: left;
+  font-family: inherit;
+}
+.ua-menu-item:hover {
+  background: #f3f4f6;
+}
+.ua-menu-item--danger {
+  color: #dc2626;
+  font-weight: 500;
+}
+.ua-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* ── Modal backdrop ── */
+.ua-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: ua-fade 0.18s ease-out;
+}
+@keyframes ua-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ua-modal {
+  background: #fff;
+  border-radius: 18px;
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  font-family: inherit;
+  animation: ua-pop 0.2s ease-out;
+}
+@keyframes ua-pop {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.ua-modal--centered { text-align: center; }
+
+.ua-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.ua-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.2px;
+}
+.ua-modal--centered .ua-modal-title {
+  margin: 14px 0 6px;
+  font-size: 20px;
+}
+.ua-modal-sub {
+  margin: 4px 0 14px;
+  font-size: 13px;
+  color: #6b7280;
+}
+.ua-modal-text {
+  margin: 0 0 18px;
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.5;
+}
+.ua-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ua-close:hover { background: #e5e7eb; }
+
+/* Reasons radio list */
+.ua-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.ua-reason {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #111827;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ua-reason:hover { border-color: #c4b5fd; }
+.ua-reason input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #7c3aed;
+  margin: 0;
+}
+.ua-reason input[type="radio"]:checked + .ua-reason-text {
+  font-weight: 600;
+}
+
+.ua-textlabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 6px;
+}
+.ua-textarea {
+  width: 100%;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #111827;
+  outline: none;
+  resize: vertical;
+  box-sizing: border-box;
+  margin-bottom: 14px;
+}
+.ua-textarea:focus { border-color: #7c3aed; }
+
+.ua-actions {
+  display: flex;
+  gap: 10px;
+}
+.ua-btn {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s, background 0.15s;
+}
+.ua-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.ua-btn--ghost {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+.ua-btn--ghost:hover { background: #e5e7eb; }
+.ua-btn--primary {
+  background: #f5c518;
+  color: #111827;
+}
+.ua-btn--primary:hover:not(:disabled) { background: #eab308; }
+.ua-btn--danger {
+  background: #dc2626;
+  color: #fff;
+}
+.ua-btn--danger:hover:not(:disabled) { background: #b91c1c; }
+.ua-btn--block {
+  width: 100%;
+  flex: none;
+}
+
+/* Confirmation icons */
+.ua-success-icon,
+.ua-shield-icon,
+.ua-danger-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+.ua-success-icon { background: #22c55e; }
+.ua-shield-icon { background: #16a34a; }
+.ua-danger-icon { background: #ef4444; }
+
+.ua-info {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  color: #4b5563;
+  margin: 0 0 14px;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.ua-undo {
+  display: block;
+  margin: 10px auto 0;
+  background: none;
+  border: none;
+  color: #7c3aed;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: inherit;
+}
+.ua-undo:disabled { opacity: 0.6; }
+
+.ua-fine {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+.ua-err {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  margin-bottom: 10px;
+}

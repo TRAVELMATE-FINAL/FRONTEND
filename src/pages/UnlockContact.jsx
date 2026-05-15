@@ -132,7 +132,7 @@ export default function UnlockContact() {
         theme: { color: "#0d1b2a" },
         handler: async (response) => {
           try {
-            await verifyPlanPayment({
+            const v = await verifyPlanPayment({
               razorpay_order_id:   response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature:  response.razorpay_signature,
@@ -140,6 +140,15 @@ export default function UnlockContact() {
               couponCode: appliedCoupon?.code || "",
               method: selectedMethod,
             });
+
+            // Persist subscription proof so RideDetail can unlock the
+            // contact INSTANTLY without waiting for /api/plans/me to
+            // catch up. RideDetail reads this from localStorage.
+            try {
+              if (v?.subscription?.endDate) {
+                localStorage.setItem("subEndDate", v.subscription.endDate);
+              }
+            } catch (_e) {}
 
             setSuccessMsg("✅ Payment verified — opening ride details…");
 

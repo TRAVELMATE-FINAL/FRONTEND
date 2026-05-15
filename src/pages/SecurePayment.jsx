@@ -180,6 +180,16 @@ export default function SecurePayment() {
               couponCode: discountAmt > 0 ? coupon.trim().toUpperCase() : "",
               method:     selectedMethod,
             });
+
+            // Persist subscription proof so RideDetail can reveal the
+            // contact instantly on the next page without waiting for
+            // /api/plans/me to commit.
+            try {
+              if (v?.subscription?.endDate) {
+                localStorage.setItem("subEndDate", v.subscription.endDate);
+              }
+            } catch (_e) {}
+
             setSuccessMsg("✅ Payment verified — publishing your ride…");
             const publishedId = await publishPendingRide();
             setSuccessMsg(
@@ -615,7 +625,7 @@ function SummaryRow({ label, value, valueColor = "#6b7280", strikeValue = false 
       <span style={{
         fontWeight: 500,
         color: strikeValue ? "#9ca3af" : valueColor,
-        textDecoration: strikeValue ? "line-through" : "none", // ← ADDED: strikethrough support
+        textDecoration: strikeValue ? "line-through" : "none",
       }}>
         {value}
       </span>

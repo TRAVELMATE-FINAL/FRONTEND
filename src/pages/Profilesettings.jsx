@@ -239,24 +239,50 @@ export default function ProfileSettings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Blocked users — persisted per-account in localStorage. Starts
-  // empty; rows only appear if the user has actually blocked someone.
-  // The block action is wired elsewhere in the app (e.g. RideDetail's
-  // "..." menu) and writes into "blockedUsers:<phone>".
-  const blockedKey = `blockedUsers:${phone}`;
-  const [blocked, setBlocked] = useState(() => {
+  // Blocked users — pulled from the backend so they're shared across
+  // devices, not just one browser. Each item is normalized to the shape
+  // BlockedHalf expects: { id, name, date }.
+  const [blocked, setBlocked] = useState([]);
+
+  useEffect(() => {
+    if (!phone) return;
+    let cancelled = false;
+    axios
+      .get(`${API_BASE}/api/users/blocked`, { params: { phone }, timeout: 8000 })
+      .then(({ data: resp }) => {
+        if (cancelled) return;
+        const items = Array.isArray(resp?.data) ? resp.data : [];
+        setBlocked(
+          items.map((b) => ({
+            id: b.blockedPhone,
+            name: b.blockedName || "Blocked User",
+            date: new Date(b.createdAt).toLocaleDateString("en-IN", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }),
+          }))
+        );
+      })
+      .catch(() => { /* leave list empty on failure */ })
+      .finally(() => {});
+    return () => { cancelled = true; };
+  }, [phone]);
+
+  const unblock = async (id) => {
+    // Optimistic remove
+    const prev = blocked;
+    setBlocked((cur) => cur.filter((u) => u.id !== id));
     try {
-      const raw = localStorage.getItem(blockedKey);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch { return []; }
-  });
-  const unblock = (id) => {
-    setBlocked((prev) => {
-      const next = prev.filter((u) => u.id !== id);
-      try { localStorage.setItem(blockedKey, JSON.stringify(next)); } catch {}
-      return next;
-    });
+      await axios.delete(
+        `${API_BASE}/api/users/block/${encodeURIComponent(id)}`,
+        { data: { blockerPhone: phone } }
+      );
+    } catch (e) {
+      // Roll back if the API call failed
+      console.error("Unblock failed:", e);
+      setBlocked(prev);
+    }
   };
 
   // Fetch the user's profile + their rides

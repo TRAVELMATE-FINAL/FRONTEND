@@ -5,6 +5,7 @@ import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import Spinner from "../components/Spinner/Spinner.jsx";
 import { formatTime12h } from "../utils/time.js";
+import UserActions from "../components/UserActions/UserActions.jsx";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -230,16 +231,10 @@ export default function ConnectUnlock() {
                   <span style={{ color: "#1a1a2e", fontWeight: 700, fontSize: 14 }}>4.8(43)</span>
                 </div>
 
-                <button style={{
-                  background: "transparent", border: "none", cursor: "pointer",
-                  padding: 4, color: "#9ca3af", flexShrink: 0,
-                }} aria-label="More">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <circle cx="5"  cy="12" r="1.7" />
-                    <circle cx="12" cy="12" r="1.7" />
-                    <circle cx="19" cy="12" r="1.7" />
-                  </svg>
-                </button>
+                <UserActions
+                  targetPhone={user?.phone || ""}
+                  targetName={driverName}
+                />
               </div>
 
               {/* Route */}
