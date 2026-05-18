@@ -1000,6 +1000,157 @@ img { max-width: 100%; height: auto; }
 }
 
 /* =============================================================
+   FINDFRIEND PAGE — aggressive mobile rebuild
+   The search bar, filter panel, ride cards, hero strip and filter
+   chip are all driven by inline styles in JSX, so we use heavy-
+   handed attribute selectors + !important to override them.
+   ============================================================= */
+
+/* ── TABLET ≤ 1024px ───────────────────────────────────────── */
+@media (max-width: 1024px) {
+  /* Hero strip — tighter padding */
+  .ff-hero { padding: 28px 22px 36px !important; }
+
+  /* Body flex — looser side gutters than before, but still padded */
+  .ff-body-flex { padding: 18px 20px 40px !important; gap: 16px !important; }
+
+  /* Filter panel — narrower so the cards column gets more room */
+  .ff-body-flex > div:first-child {
+    width: 220px !important;
+    padding: 18px !important;
+  }
+
+  /* Cards column — fluid up to a sensible max */
+  .ff-cards-col { max-width: 100% !important; }
+}
+
+/* ── PHONE ≤ 720px ─────────────────────────────────────────── */
+@media (max-width: 720px) {
+  /* Hero strip on Findfriend — small padding so the search bar
+     reaches edge-to-edge of the navy strip. */
+  .ff-hero { padding: 20px 12px 28px !important; }
+
+  /* The white search-card inside the strip — let it grow full width
+     and wrap children, with a tighter inner gutter. */
+  .ff-search-bar              { display: flex; justify-content: center; }
+  .ff-search-bar > div {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding: 10px !important;
+    border-radius: 16px !important;
+    max-width: 100% !important;
+  }
+
+  /* Each From / To / Date wrapper — kill the 64px desktop height,
+     drop the chunky horizontal padding, shrink the input box. */
+  .ff-search-bar > div > div {
+    flex: 1 1 calc(50% - 4px) !important;
+    min-width: 0 !important;
+    height: 48px !important;
+    padding: 0 12px !important;
+    border-radius: 12px !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* The Find Ride button — shrink padding, font-size, min-width
+     so it fits next to the other inputs in the 2-col grid. */
+  .ff-search-bar > div > button {
+    flex: 1 1 calc(50% - 4px) !important;
+    min-width: 0 !important;
+    height: 48px !important;
+    padding: 0 18px !important;
+    border-radius: 12px !important;
+    font-size: 14px !important;
+    box-sizing: border-box !important;
+  }
+  /* SVG icons in the search inputs shrink a touch */
+  .ff-search-bar > div > div > svg {
+    width: 18px !important;
+    height: 18px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Body flex — single column, full width */
+  .ff-body-flex {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 14px 12px 40px !important;
+    gap: 14px !important;
+  }
+  .ff-body-flex > div:first-child {
+    width: 100% !important;
+    padding: 18px !important;
+    border-radius: 14px !important;
+  }
+  .ff-cards-col {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Active filter chip (the "Showing rides from X to Y on Z") */
+  .ff-page > div[style*="padding: \"12px 48px 0\""],
+  .ff-page > div[style*="padding: 12px 48px 0"] {
+    padding: 10px 12px 0 !important;
+  }
+
+  /* Ride card — vertical stack */
+  .ff-ride-card { padding: 16px !important; border-radius: 18px !important; }
+  .ff-ride-row {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  .ff-ride-map {
+    width: 100% !important;
+    height: 180px !important;
+    border-radius: 14px !important;
+  }
+}
+
+/* ── SMALL PHONE ≤ 480px ──────────────────────────────────── */
+@media (max-width: 480px) {
+  .ff-hero { padding: 16px 10px 22px !important; }
+
+  /* Each search input goes full-width — 1-per-row stacking is way
+     more comfortable to tap than a cramped 2-col grid. */
+  .ff-search-bar > div {
+    padding: 8px !important;
+    gap: 6px !important;
+    border-radius: 14px !important;
+  }
+  .ff-search-bar > div > div,
+  .ff-search-bar > div > button {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    height: 46px !important;
+  }
+  .ff-search-bar > div > button {
+    font-size: 14px !important;
+    padding: 0 14px !important;
+  }
+
+  .ff-body-flex { padding: 12px 10px 36px !important; gap: 12px !important; }
+  .ff-body-flex > div:first-child { padding: 16px !important; }
+
+  /* Ride card map a touch shorter on tiny phones */
+  .ff-ride-map { height: 160px !important; }
+
+  /* The driver row inside a ride card — name + verified pill could
+     overflow when long. Let it wrap. */
+  .ff-ride-card div[style*="display: flex"][style*="alignItems: \"center\""][style*="gap: 12"] {
+    flex-wrap: wrap !important;
+  }
+}
+
+/* ── EXTRA SMALL ≤ 360px ──────────────────────────────────── */
+@media (max-width: 360px) {
+  .ff-hero { padding: 14px 8px 20px !important; }
+  .ff-search-bar > div > div,
+  .ff-search-bar > div > button { height: 44px !important; font-size: 13px !important; }
+  .ff-ride-map { height: 140px !important; }
+}
+
+/* =============================================================
    ROUND 5 — ProfileSettings ride card "Delete?" confirmation
    The new inline confirm pill (Yes, delete / Cancel) lives in the
    right column of each posted-ride card. On phones the card is
