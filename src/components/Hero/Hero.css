@@ -297,13 +297,20 @@
    HERO DECORATIVE BACKGROUND IMAGE — centre-out animation
    ===================================================== */
 
-/* The image lives in an absolutely-positioned layer with
-   overflow:hidden so it can't leak onto adjacent sections. The layer
-   is inert (pointer-events:none) so it never blocks clicks on the
-   search card / mode toggle that sit above it. */
+/* Wrapper layer — pinned to every edge of the hero so it fills the
+   entire box exactly. overflow:hidden clips the scale-in animation
+   so it can't spill past the hero. pointer-events:none means clicks
+   pass straight through to the search card sitting above. */
 .hero__icons-bg {
   position: absolute;
-  inset: 0;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
@@ -313,28 +320,31 @@
    readable. */
 .hero__inner { position: relative; z-index: 2; }
 
-/* The image must occupy the hero EXACTLY — same width, same height,
-   no cropping and no letterbox bands. We pin it to top:0 / left:0,
-   give it 100%/100% dimensions, and use object-fit:fill so the
-   bitmap stretches to fill the box edge-to-edge regardless of the
-   image's native aspect ratio.
+/* The image MUST fill its wrapper edge-to-edge. We use position:absolute
+   inset:0 so it stretches to every side, plus width:100% / height:100%
+   as belt-and-braces, plus object-fit:fill so the bitmap stretches to
+   the box (no cropping, no letterbox bands) regardless of the source
+   image's aspect ratio.
 
-   The grow-from-centre animation is done with transform-origin:
-   50% 50%, scaling from 0.15 → 1 over 1.6s. We deliberately do NOT
-   add an idle bob here — a bob would translate or scale the image,
-   which would either reveal hero background behind the edges or push
-   pixels outside the hero (then get clipped by overflow:hidden).
-   Keeping the image still after the pop guarantees a perfect fit. */
+   The grow-from-centre animation is done with transform-origin: 50% 50%,
+   scaling from 0.15 → 1 over 1.6s. We deliberately do NOT add an idle
+   bob — it would translate/scale the image away from a perfect fit. */
 .hero__bg-img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
   display: block;
   object-fit: fill;
   object-position: center;
-  transform: scale(1);
   transform-origin: 50% 50%;
   opacity: 0;
   animation: hero-bg-pop 1.6s 0.05s cubic-bezier(0.22, 1.16, 0.36, 1) forwards;
