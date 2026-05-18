@@ -296,44 +296,38 @@
 /* =====================================================
    HERO DECORATIVE BACKGROUND IMAGE — centre-out animation
    =====================================================
-   The bitmap is painted DIRECTLY on the `.hero` element via
-   `background-image` with `background-size: 100% 100%`. That single
-   declaration forces the bitmap to be exactly the hero's width and
-   the hero's height — no cropping, no letterbox bars, no overflow.
-   `--hero-bg` is set inline from Hero.jsx (it's the imported PNG URL).
-   The centre-out scale-in animation is handled by `.hero::before`,
-   which paints the same image and fades out after the pop so the
-   resting state is the static background on `.hero`. */
-.hero {
-  background-image: var(--hero-bg, none), linear-gradient(var(--color-bg-dark), var(--color-bg-dark));
-  background-size: 100% 100%, 100% 100%;
-  background-position: center center;
-  background-repeat: no-repeat;
-}
-
-/* Push the title + search card above the background so they remain
-   readable. */
-.hero__inner { position: relative; z-index: 2; }
-
-/* Centre-out reveal: a pseudo-element holds a second copy of the same
-   image, scales from 0.15 → 1 over 1.6s, then fades out. After the
-   animation the resting state is the static background on `.hero`. */
-.hero::before {
-  content: "";
-  position: absolute;
-  top: 0; right: 0; bottom: 0; left: 0;
-  background-image: var(--hero-bg, none);
-  background-size: 100% 100%;
-  background-position: center center;
-  background-repeat: no-repeat;
-  transform-origin: 50% 50%;
-  transform: scale(0.15);
-  opacity: 0;
+   The image's width/height in pixels is set inline by JS
+   (see useLayoutEffect in Hero.jsx + ResizeObserver). The CSS here
+   just positions it behind the content, runs the scale-in animation
+   and ensures it can't be shrunk by upstream rules. */
+.hero__bg-img {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  /* Belt-and-braces — JS sets explicit px, but if JS hasn't run yet
+     (initial paint), at least cover the hero via percentages. */
+  width: 100%;
+  height: 100%;
+  max-width: none !important;
+  max-height: none !important;
+  display: block;
+  object-fit: fill;
+  object-position: center center;
   pointer-events: none;
-  z-index: 1;
+  user-select: none;
+  z-index: 0;
+  transform-origin: 50% 50%;
+  opacity: 0;
   animation: hero-bg-pop 1.6s 0.05s cubic-bezier(0.22, 1.16, 0.36, 1) forwards;
   will-change: transform, opacity;
 }
+
+/* Push the title + search card above the image so they remain
+   readable. */
+.hero__inner { position: relative; z-index: 2; }
 
 @keyframes hero-bg-pop {
   0% {
@@ -341,17 +335,17 @@
     opacity: 0;
     filter: blur(8px) saturate(1.4);
   }
-  60% {
+  55% {
     opacity: 1;
     filter: blur(0) saturate(1.1);
   }
   100% {
     transform: scale(1);
-    opacity: 0;            /* fade out so resting state is the static bg */
+    opacity: 1;
     filter: blur(0) saturate(1);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero::before { animation: none; opacity: 0; }
+  .hero__bg-img { animation: none; opacity: 1; transform: scale(1); }
 }

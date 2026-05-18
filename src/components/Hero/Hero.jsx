@@ -1,16 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LocationSearch from '../LocationSearch/LocationSearch';
 import heroBg from '../../assets/hero-bg.png';
 import './Hero.css';
 
 /**
- * The hero background image is applied via CSS `background-image` on the
- * `.hero` element itself with `background-size: 100% 100%`. That is the
- * only CSS that GUARANTEES the bitmap matches the element's pixel
- * dimensions exactly (no cropping, no letterbox bands). We pass the
- * imported URL down as a CSS custom property so the rule in Hero.css can
- * pick it up.
+ * The hero background image is locked to the hero's exact pixel
+ * dimensions using a ResizeObserver in JS. CSS alone (background-size,
+ * object-fit, etc) was getting overridden by upstream rules; setting
+ * the <img>'s width/height inline in pixels overrides everything and
+ * is impossible for any CSS to defeat.
  */
 function Hero({ mode: modeProp, onModeChange }) {
   // Controlled mode if parent provides one, else manage internally
@@ -27,6 +26,40 @@ function Hero({ mode: modeProp, onModeChange }) {
   const [date, setDate] = useState('');
 
   const navigate = useNavigate();
+
+  // Refs for the hero <section> and its background <img>. We pin the
+  // image's pixel width and height to match the hero exactly using
+  // ResizeObserver — much more reliable than CSS background-size.
+  const heroRef = useRef(null);
+  const bgImgRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const heroEl = heroRef.current;
+    const imgEl  = bgImgRef.current;
+    if (!heroEl || !imgEl) return;
+
+    const sync = () => {
+      const r = heroEl.getBoundingClientRect();
+      imgEl.style.width  = `${Math.ceil(r.width)}px`;
+      imgEl.style.height = `${Math.ceil(r.height)}px`;
+    };
+
+    // Initial sync + sync on every size change of the hero
+    sync();
+    const ro = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(sync)
+      : null;
+    if (ro) ro.observe(heroEl);
+    window.addEventListener('resize', sync);
+    // Re-sync once the image loads in case its load delays painting
+    imgEl.addEventListener('load', sync);
+
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', sync);
+      imgEl.removeEventListener('load', sync);
+    };
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -57,12 +90,18 @@ function Hero({ mode: modeProp, onModeChange }) {
   };
 
   return (
-    <section className="hero" style={{ '--hero-bg': `url(${heroBg})` }}>
-      {/* The dark navy panel + pink icons live on the `.hero` element as
-          `background-image: var(--hero-bg)` with `background-size: 100% 100%`
-          — that pins the bitmap to the hero's exact width and height.
-          A `.hero::before` pseudo-element runs the centre-out scale-in
-          animation using the same image. */}
+    <section className="hero" ref={heroRef}>
+      {/* Background image sized to exactly match the hero in JS via
+          ResizeObserver — see useLayoutEffect above. Sits behind the
+          content (z-index:0) and is inert (pointer-events:none). */}
+      <img
+        ref={bgImgRef}
+        src={heroBg}
+        alt=""
+        aria-hidden="true"
+        className="hero__bg-img"
+        draggable="false"
+      />
 
       <div className="container hero__inner">
         <h1 className="hero__title">Travel Together. Save More.</h1>

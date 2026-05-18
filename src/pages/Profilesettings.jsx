@@ -119,82 +119,197 @@ function localTodayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/* ─── Posted Ride Card (Figma) ─── */
-const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => (
-  <div style={{
-    background: "#fff",
-    border: "1px solid #e5e7eb",
-    borderRadius: 14,
-    padding: "14px 16px",
-    marginBottom: 12,
-    display: "flex", gap: 14, alignItems: "flex-start",
-  }}>
-    {/* Avatar (pink to match Figma) */}
-    <Avatar name={driverName} size={36} bg="#ec4899" photo={driverPhoto} />
+/* ─── Posted Ride Card (Figma) ───
+   Now has a 3-state delete flow that doesn't rely on window.confirm
+   (which is occasionally auto-blocked / suppressed):
+     state = "idle"        → red trash icon
+     state = "confirming"  → "Delete?" + Yes/No pills
+     state = "deleting"    → spinner inside the red button
+   The parent owns no per-card state — each card manages its own UI
+   state and only calls onDelete (which returns a Promise) on Yes. */
+const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => {
+  const [delState, setDelState] = useState("idle"); // idle | confirming | deleting
+  const [delErr, setDelErr]     = useState("");
 
-    {/* Main content */}
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{driverName}</span>
-        <VerifiedBadge label={ride.vehicleModel || ride.vehicle || "Verified"} />
-      </div>
-      <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, marginBottom: 6 }}>★ 4.9</div>
+  const doDelete = async () => {
+    setDelErr("");
+    setDelState("deleting");
+    try {
+      // onDelete returns a Promise that resolves to { ok, error }
+      const res = await onDelete(ride._id);
+      if (res && res.ok === false) {
+        setDelErr(res.error || "Could not delete the ride.");
+        setDelState("idle");
+      }
+      // On success the card unmounts because the parent removed the
+      // ride from state — no further setState needed.
+    } catch (e) {
+      setDelErr(e?.message || "Could not delete the ride.");
+      setDelState("idle");
+    }
+  };
 
-      <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
-        <MapPin />
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{ride.from}</span>
-        <ArrowRight />
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{ride.to}</span>
-      </div>
+  return (
+    <div style={{
+      background: "#fff",
+      border: "1px solid #e5e7eb",
+      borderRadius: 14,
+      padding: "14px 16px",
+      marginBottom: 12,
+      display: "flex", gap: 14, alignItems: "flex-start",
+    }}>
+      {/* Avatar (pink to match Figma) */}
+      <Avatar name={driverName} size={36} bg="#ec4899" photo={driverPhoto} />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
-        <CalendarIcon />
-        <span style={{ fontSize: 11, color: "#9ca3af" }}>{fmtRideDate(ride.date, ride.time)}</span>
-      </div>
-
-      {/* Light-blue contact box */}
-      <div style={{
-        background: "#eff6ff",
-        border: "1px solid #bfdbfe",
-        borderRadius: 8,
-        padding: "8px 12px",
-      }}>
-        <div style={{ fontSize: 11, color: "#1d4ed8", fontWeight: 600, marginBottom: 2 }}>
-          Contact: <span style={{ color: "#1e40af", fontWeight: 700 }}>9876543210</span>
+      {/* Main content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{driverName}</span>
+          <VerifiedBadge label={ride.vehicleModel || ride.vehicle || "Verified"} />
         </div>
-        <div style={{ fontSize: 10, color: "#3b82f6", fontWeight: 600 }}>
-          You have access to contact details
-        </div>
-      </div>
-    </div>
+        <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, marginBottom: 6 }}>★ 4.9</div>
 
-    {/* Right column — edit + delete circular buttons */}
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
-      <button type="button" aria-label="Edit ride"
-        onClick={() => onEdit && onEdit(ride)}
-        title="Edit ride"
-        style={{
-          width: 30, height: 30, borderRadius: "50%",
-          border: "none", background: "#374151",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer",
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+          <MapPin />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{ride.from}</span>
+          <ArrowRight />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{ride.to}</span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
+          <CalendarIcon />
+          <span style={{ fontSize: 11, color: "#9ca3af" }}>{fmtRideDate(ride.date, ride.time)}</span>
+        </div>
+
+        {/* Light-blue contact box */}
+        <div style={{
+          background: "#eff6ff",
+          border: "1px solid #bfdbfe",
+          borderRadius: 8,
+          padding: "8px 12px",
         }}>
-        <EditCircleIcon />
-      </button>
-      <button type="button" aria-label="Delete ride"
-        onClick={() => onDelete && onDelete(ride._id)}
-        title="Delete ride"
-        style={{
-          width: 30, height: 30, borderRadius: "50%",
-          border: "none", background: "#ef4444",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer",
-        }}>
-        <TrashIcon />
-      </button>
+          <div style={{ fontSize: 11, color: "#1d4ed8", fontWeight: 600, marginBottom: 2 }}>
+            Contact: <span style={{ color: "#1e40af", fontWeight: 700 }}>9876543210</span>
+          </div>
+          <div style={{ fontSize: 10, color: "#3b82f6", fontWeight: 600 }}>
+            You have access to contact details
+          </div>
+        </div>
+
+        {/* Inline error message if delete failed (kept beside the card
+            so it's impossible to miss — window.alert was unreliable). */}
+        {delErr && (
+          <div style={{
+            marginTop: 8,
+            fontSize: 11, fontWeight: 600,
+            color: "#b91c1c",
+            background: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: 6,
+            padding: "6px 10px",
+          }}>
+            {delErr}
+          </div>
+        )}
+      </div>
+
+      {/* Right column — Edit button + Delete area
+          (confirmation UI is inline so it can't be auto-dismissed by
+          a browser the way window.confirm sometimes is). */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0, alignItems: "flex-end" }}>
+        <button type="button" aria-label="Edit ride"
+          onClick={() => onEdit && onEdit(ride)}
+          title="Edit ride"
+          disabled={delState !== "idle"}
+          style={{
+            width: 30, height: 30, borderRadius: "50%",
+            border: "none", background: "#374151",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: delState !== "idle" ? "default" : "pointer",
+            opacity: delState !== "idle" ? 0.5 : 1,
+          }}>
+          <EditCircleIcon />
+        </button>
+
+        {delState === "idle" && (
+          <button type="button" aria-label="Delete ride"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDelErr("");
+              setDelState("confirming");
+            }}
+            title="Delete ride"
+            style={{
+              width: 30, height: 30, borderRadius: "50%",
+              border: "none", background: "#ef4444",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer",
+            }}>
+            <TrashIcon />
+          </button>
+        )}
+
+        {delState === "confirming" && (
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end",
+            background: "#fef2f2", border: "1px solid #fecaca",
+            borderRadius: 8, padding: "6px 8px",
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>
+              Delete this ride?
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button type="button"
+                onClick={doDelete}
+                style={{
+                  background: "#dc2626", color: "#fff",
+                  border: "none", borderRadius: 6,
+                  padding: "5px 10px", fontSize: 11, fontWeight: 700,
+                  cursor: "pointer", fontFamily: "inherit",
+                }}>
+                Yes, delete
+              </button>
+              <button type="button"
+                onClick={() => setDelState("idle")}
+                style={{
+                  background: "#fff", color: "#374151",
+                  border: "1px solid #d1d5db", borderRadius: 6,
+                  padding: "5px 10px", fontSize: 11, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "inherit",
+                }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {delState === "deleting" && (
+          <button type="button" disabled
+            style={{
+              width: 30, height: 30, borderRadius: "50%",
+              border: "none", background: "#ef4444",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "default", opacity: 0.85,
+            }}>
+            {/* Tiny CSS spinner */}
+            <span style={{
+              width: 14, height: 14, borderRadius: "50%",
+              border: "2px solid rgba(255,255,255,0.4)",
+              borderTopColor: "#fff",
+              animation: "ps-spin 0.7s linear infinite",
+              display: "inline-block",
+            }} />
+          </button>
+        )}
+      </div>
+
+      {/* Spinner keyframes (one-time injection per card is harmless;
+          modern browsers dedupe identical rules). */}
+      <style>{`@keyframes ps-spin { to { transform: rotate(360deg); } }`}</style>
     </div>
-  </div>
-);
+  );
+};
 
 /* ─── Blocked User Row (2-up) ─── */
 const blockedColors = {
@@ -293,41 +408,44 @@ export default function ProfileSettings() {
     });
   };
 
+  // Called by PostedRideCard's Yes-delete button. Resolves to
+  // `{ ok: boolean, error?: string }` so the card can render inline
+  // feedback instead of relying on window.alert.
   const handleDelete = async (rideId) => {
-    if (!rideId) return;
-    if (!phone) {
-      window.alert("You need to be logged in to delete your rides.");
-      return;
-    }
-    // Cheap built-in confirm — keeps the surface tiny. Replace with a
-    // styled modal later if Figma calls for one.
-    const yes = window.confirm("Delete this ride? This can't be undone.");
-    if (!yes) return;
-    // Optimistic remove + rollback if the API call fails.
-    const before = data;
-    removeRideFromState(rideId);
+    console.log("[delete] start", { rideId, phone });
+    if (!rideId) return { ok: false, error: "Missing ride id" };
+    if (!phone)  return { ok: false, error: "You need to be logged in to delete rides." };
+
     try {
-      // IMPORTANT: send `phone` in the QUERY STRING, not just the body.
-      // Some hosting layers (and a number of CORS proxies) strip the
-      // request body off DELETE requests, which made the backend reply
-      // "phone is required" and the delete silently rolled back. The
-      // server route already accepts either source — query is just the
-      // reliable one. We keep `data` set too as a belt-and-braces fallback.
+      // IMPORTANT: send `phone` in BOTH query AND body. Some hosting
+      // layers / CORS proxies strip the body from DELETE requests, so
+      // the server replies "phone is required" and our optimistic
+      // remove gets silently rolled back. The route accepts either.
       const url = `${API_BASE}/api/rides/${rideId}?phone=${encodeURIComponent(phone)}`;
-      await axios.delete(url, {
+      console.log("[delete] DELETE", url);
+
+      const resp = await axios.delete(url, {
         data: { phone },
         headers: { "Content-Type": "application/json" },
-        timeout: 10000,
+        timeout: 15000,
       });
+
+      console.log("[delete] success", resp.status, resp.data);
+
+      // Real delete (no optimism this time — we wait for the server to
+      // confirm, then update state. Avoids the "rolled back" mystery
+      // where a ride briefly disappears and then comes back.)
+      removeRideFromState(rideId);
+      return { ok: true };
     } catch (e) {
-      console.error("Delete ride failed:", e?.response?.status, e?.response?.data || e);
-      setData(before); // rollback
-      window.alert(
+      const status = e?.response?.status;
+      const msg =
         e?.response?.data?.message ||
-          e?.response?.data?.error ||
-          e?.message ||
-          "Could not delete the ride. Please try again."
-      );
+        e?.response?.data?.error ||
+        e?.message ||
+        "Could not delete the ride.";
+      console.error("[delete] failed", { status, msg, error: e });
+      return { ok: false, error: `${msg}${status ? ` (HTTP ${status})` : ""}` };
     }
   };
 
