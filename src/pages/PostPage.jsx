@@ -1606,6 +1606,12 @@ export default function TravelMatePost({ embedded = false } = {}) {
         time: form.time,
         gender: form.gender || "Any",
         distance,
+        // `duration` is REQUIRED by the backend (POST /api/rides validates
+        // from, to, date, time, gender, distance AND duration). Without it
+        // the publish call after payment returns HTTP 400 and the ride is
+        // never saved — which is why posted rides weren't appearing in
+        // FindRide. Always send the duration computed by the route fetcher.
+        duration,
         fromLat: form.fromCoords?.lat ?? null,
         fromLon: form.fromCoords?.lon ?? null,
         toLat:   form.toCoords?.lat   ?? null,

@@ -17,10 +17,10 @@ const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzp
 async function publishPendingRide() {
   let raw;
   try { raw = localStorage.getItem("pendingRidePayload"); } catch { raw = null; }
-  if (!raw) return "";
+  if (!raw) return { ok: true, id: "" };
   let payload;
-  try { payload = JSON.parse(raw); } catch { return ""; }
-  if (!payload || !payload.from || !payload.to) return "";
+  try { payload = JSON.parse(raw); } catch { return { ok: true, id: "" }; }
+  if (!payload || !payload.from || !payload.to) return { ok: true, id: "" };
 
   // Re-stamp userPhone from the freshly-authenticated user.
   const phoneNow = (typeof localStorage !== "undefined" && localStorage.getItem("phone")) || "";
@@ -35,10 +35,17 @@ async function publishPendingRide() {
         localStorage.removeItem("pendingRidePayload");
       } catch {}
     }
-    return newId;
+    return { ok: true, id: newId };
   } catch (err) {
-    console.error("Failed to publish ride:", err);
-    return "";
+    // Surface the real backend reason so silent 400s (e.g. missing
+    // required field) become visible instead of "payment ok, ride gone".
+    const msg =
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.message ||
+      "Could not publish ride";
+    console.error("Failed to publish ride:", msg, err?.response?.data || err);
+    return { ok: false, id: "", error: msg };
   }
 }
 
@@ -215,7 +222,22 @@ export default function SecurePayment() {
             }).catch(() => {});
 
             setSuccessMsg("✅ Payment verified — publishing your ride…");
-            const publishedId = await publishPendingRide();
+            const publishResult = await publishPendingRide();
+            const publishedId = publishResult.id || "";
+
+            // If a publish was attempted (pendingPostRide flag is set) and
+            // the backend rejected it, surface the real reason so we don't
+            // silently lose the ride.
+            const pendingPostRideFlag = localStorage.getItem("pendingPostRide");
+            if (pendingPostRideFlag && !publishResult.ok) {
+              setPayErrMsg(
+                "Payment succeeded, but ride could not be published: " +
+                  (publishResult.error || "unknown error") +
+                  ". Please contact support — your subscription is still active."
+              );
+              setLoading(false);
+              return;
+            }
 
             // Fire ride-published notification (non-blocking)
             if (publishedId) {

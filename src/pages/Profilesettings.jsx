@@ -120,7 +120,7 @@ function localTodayISO() {
 }
 
 /* ─── Posted Ride Card (Figma) ─── */
-const PostedRideCard = ({ ride, driverName, driverPhoto, onDelete }) => (
+const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => (
   <div style={{
     background: "#fff",
     border: "1px solid #e5e7eb",
@@ -170,7 +170,9 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onDelete }) => (
 
     {/* Right column — edit + delete circular buttons */}
     <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
-      <button type="button" aria-label="Edit"
+      <button type="button" aria-label="Edit ride"
+        onClick={() => onEdit && onEdit(ride)}
+        title="Edit ride"
         style={{
           width: 30, height: 30, borderRadius: "50%",
           border: "none", background: "#374151",
@@ -179,8 +181,9 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onDelete }) => (
         }}>
         <EditCircleIcon />
       </button>
-      <button type="button" aria-label="Delete"
+      <button type="button" aria-label="Delete ride"
         onClick={() => onDelete && onDelete(ride._id)}
+        title="Delete ride"
         style={{
           width: 30, height: 30, borderRadius: "50%",
           border: "none", background: "#ef4444",
@@ -273,6 +276,102 @@ export default function ProfileSettings() {
       .finally(() => {});
     return () => { cancelled = true; };
   }, [phone]);
+
+  // ── Ride: delete + edit ──────────────────────────────────────
+  // Both buttons in the Posted Ride card route through these handlers.
+  // Delete  -> DELETE /api/rides/:id  (optimistic remove, rollback on fail)
+  // Edit    -> open modal, PATCH /api/rides/:id  on save
+  const [editingRide, setEditingRide] = useState(null); // ride object being edited
+  const [editForm, setEditForm] = useState({});         // local form state for the modal
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  const removeRideFromState = (id) => {
+    setData((d) => {
+      if (!d || !Array.isArray(d.rides)) return d;
+      return { ...d, rides: d.rides.filter((r) => r._id !== id) };
+    });
+  };
+
+  const handleDelete = async (rideId) => {
+    if (!rideId) return;
+    // Cheap built-in confirm — keeps the surface tiny. Replace with a
+    // styled modal later if Figma calls for one.
+    const yes = window.confirm("Delete this ride? This can't be undone.");
+    if (!yes) return;
+    // Optimistic remove + rollback if the API call fails.
+    const before = data;
+    removeRideFromState(rideId);
+    try {
+      await axios.delete(`${API_BASE}/api/rides/${rideId}`, {
+        data: { phone },
+        timeout: 10000,
+      });
+    } catch (e) {
+      console.error("Delete ride failed:", e);
+      setData(before); // rollback
+      window.alert(
+        e?.response?.data?.message ||
+          e?.response?.data?.error ||
+          "Could not delete the ride. Please try again."
+      );
+    }
+  };
+
+  const handleEdit = (ride) => {
+    if (!ride) return;
+    setEditingRide(ride);
+    setEditForm({
+      date: ride.date || "",
+      time: ride.time || "",
+      seatsAvailable: ride.seatsAvailable || 1,
+      vehicle: ride.vehicle || "Car",
+      vehicleModel: ride.vehicleModel || "",
+      vehicleColor: ride.vehicleColor || "",
+      additionalInfo: ride.additionalInfo || "",
+    });
+    setEditError("");
+  };
+
+  const handleEditSave = async () => {
+    if (!editingRide?._id) return;
+    setEditError("");
+    // Light client-side validation
+    const seats = Number(editForm.seatsAvailable) || 0;
+    if (seats < 1 || seats > 8) {
+      setEditError("Seats must be between 1 and 8.");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const { data: resp } = await axios.patch(
+        `${API_BASE}/api/rides/${editingRide._id}`,
+        { ...editForm, phone },
+        { timeout: 10000 }
+      );
+      const updated = resp?.data?.ride;
+      // Splice the updated ride back into the list
+      setData((d) => {
+        if (!d || !Array.isArray(d.rides)) return d;
+        return {
+          ...d,
+          rides: d.rides.map((r) =>
+            r._id === editingRide._id ? { ...r, ...editForm, ...(updated || {}) } : r
+          ),
+        };
+      });
+      setEditingRide(null);
+    } catch (e) {
+      console.error("Edit ride failed:", e);
+      setEditError(
+        e?.response?.data?.message ||
+          e?.response?.data?.error ||
+          "Could not save your changes."
+      );
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   const unblock = async (id) => {
     // Optimistic remove
@@ -748,6 +847,8 @@ export default function ProfileSettings() {
                       ride={r}
                       driverName={fullName}
                       driverPhoto={user?.photo}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
                     />
                   ));
                 })()}
@@ -775,6 +876,7 @@ export default function ProfileSettings() {
                   blockedPairs.map((pair, i) => (
                     <div key={i} style={{
                       display: "flex", alignItems: "center", gap: 14,
+                      padding: "12px 0",
                       borderBottom: i === blockedPairs.length - 1 ? "none" : "1px solid #f3f4f6",
                     }}>
                       <BlockedHalf user={pair[0]} onUnblock={unblock} />
@@ -813,6 +915,182 @@ export default function ProfileSettings() {
         )}
       </div>
 
+      {/* Edit ride modal */}
+      {editingRide && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => !editSaving && setEditingRide(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 50,
+            background: "rgba(15, 23, 42, 0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 14,
+              maxWidth: 460, width: "100%",
+              padding: "20px 22px 16px",
+              boxShadow: "0 20px 50px rgba(15, 23, 42, 0.25)",
+              maxHeight: "90vh", overflowY: "auto",
+              fontFamily: "inherit",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#111827" }}>Edit ride</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                  {editingRide.from} → {editingRide.to}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !editSaving && setEditingRide(null)}
+                aria-label="Close"
+                style={{
+                  background: "transparent", border: "none", cursor: "pointer",
+                  fontSize: 22, lineHeight: 1, color: "#6b7280", padding: 4,
+                }}
+              >×</button>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label style={editLabel}>Date</label>
+                <input
+                  type="date"
+                  value={editForm.date}
+                  min={localTodayISO()}
+                  onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
+                  style={editInput}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={editLabel}>Time</label>
+                <input
+                  type="time"
+                  value={editForm.time}
+                  onChange={(e) => setEditForm((f) => ({ ...f, time: e.target.value }))}
+                  style={editInput}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={editLabel}>Available seats</label>
+              <input
+                type="number"
+                min={1}
+                max={8}
+                value={editForm.seatsAvailable}
+                onChange={(e) => setEditForm((f) => ({ ...f, seatsAvailable: Number(e.target.value) || 1 }))}
+                style={editInput}
+              />
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={editLabel}>Vehicle type</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {["Car", "Bike"].map((v) => {
+                  const active = editForm.vehicle === v;
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setEditForm((f) => ({ ...f, vehicle: v }))}
+                      style={{
+                        flex: 1,
+                        border: active ? "2px solid #2563eb" : "1.5px solid #e5e7eb",
+                        background: active ? "#eff6ff" : "#fff",
+                        color: active ? "#1d4ed8" : "#374151",
+                        borderRadius: 10, padding: "10px 0",
+                        fontSize: 13, fontWeight: 700,
+                        cursor: "pointer", fontFamily: "inherit",
+                      }}
+                    >{v}</button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label style={editLabel}>Vehicle name</label>
+                <input
+                  type="text"
+                  value={editForm.vehicleModel}
+                  onChange={(e) => setEditForm((f) => ({ ...f, vehicleModel: e.target.value }))}
+                  style={editInput}
+                  placeholder="e.g. Swift"
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={editLabel}>Color</label>
+                <input
+                  type="text"
+                  value={editForm.vehicleColor}
+                  onChange={(e) => setEditForm((f) => ({ ...f, vehicleColor: e.target.value }))}
+                  style={editInput}
+                  placeholder="e.g. White"
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={editLabel}>Notes / preferences</label>
+              <textarea
+                value={editForm.additionalInfo}
+                onChange={(e) => setEditForm((f) => ({ ...f, additionalInfo: e.target.value }))}
+                style={{ ...editInput, height: 70, resize: "vertical", paddingTop: 10 }}
+                maxLength={500}
+                placeholder="e.g. No smoking, music lovers welcome"
+              />
+            </div>
+
+            {editError && (
+              <div style={{
+                background: "#fef2f2", border: "1px solid #fecaca",
+                color: "#b91c1c", borderRadius: 8, padding: "8px 12px",
+                fontSize: 12, marginBottom: 12,
+              }}>
+                {editError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => !editSaving && setEditingRide(null)}
+                disabled={editSaving}
+                style={{
+                  background: "#fff", color: "#374151",
+                  border: "1.5px solid #e5e7eb", borderRadius: 10,
+                  padding: "10px 18px", fontSize: 13, fontWeight: 700,
+                  cursor: editSaving ? "not-allowed" : "pointer",
+                  fontFamily: "inherit",
+                }}
+              >Cancel</button>
+              <button
+                type="button"
+                onClick={handleEditSave}
+                disabled={editSaving}
+                style={{
+                  background: editSaving ? "#93c5fd" : "#2563eb",
+                  color: "#fff", border: "none", borderRadius: 10,
+                  padding: "10px 20px", fontSize: 13, fontWeight: 700,
+                  cursor: editSaving ? "not-allowed" : "pointer",
+                  fontFamily: "inherit",
+                  boxShadow: "0 4px 14px rgba(37, 99, 235, 0.25)",
+                }}
+              >{editSaving ? "Saving..." : "Save changes"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );
@@ -826,4 +1104,25 @@ const editBtn = {
   display: "flex",
   alignItems: "center",
   flexShrink: 0,
+};
+
+const editLabel = {
+  display: "block",
+  fontSize: 11.5,
+  fontWeight: 700,
+  color: "#374151",
+  marginBottom: 4,
+};
+
+const editInput = {
+  width: "100%",
+  border: "1.5px solid #e5e7eb",
+  borderRadius: 10,
+  padding: "10px 12px",
+  fontSize: 13,
+  fontFamily: "inherit",
+  color: "#1a1a2e",
+  background: "#fff",
+  outline: "none",
+  boxSizing: "border-box",
 };
