@@ -313,30 +313,37 @@
    readable. */
 .hero__inner { position: relative; z-index: 2; }
 
-/* The image fills the hero. transform-origin: 50% 50% means
-   the scale animation grows it outward from the dead-centre of the
-   hero, so the icons appear to fan out from where the title sits.
-   After it lands, a slow bob keeps the scene alive. */
+/* The image must occupy the hero EXACTLY — same width, same height,
+   no cropping and no letterbox bands. We pin it to top:0 / left:0,
+   give it 100%/100% dimensions, and use object-fit:fill so the
+   bitmap stretches to fill the box edge-to-edge regardless of the
+   image's native aspect ratio.
+
+   The grow-from-centre animation is done with transform-origin:
+   50% 50%, scaling from 0.15 → 1 over 1.6s. We deliberately do NOT
+   add an idle bob here — a bob would translate or scale the image,
+   which would either reveal hero background behind the edges or push
+   pixels outside the hero (then get clipped by overflow:hidden).
+   Keeping the image still after the pop guarantees a perfect fit. */
 .hero__bg-img {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  display: block;
+  object-fit: fill;
   object-position: center;
-  transform: translate(-50%, -50%) scale(1);
+  transform: scale(1);
   transform-origin: 50% 50%;
   opacity: 0;
-  animation:
-    hero-bg-pop 1.6s 0.05s cubic-bezier(0.22, 1.16, 0.36, 1) forwards,
-    hero-bg-bob 8s 1.7s ease-in-out infinite;
+  animation: hero-bg-pop 1.6s 0.05s cubic-bezier(0.22, 1.16, 0.36, 1) forwards;
   will-change: transform, opacity;
 }
 
 @keyframes hero-bg-pop {
   0% {
-    transform: translate(-50%, -50%) scale(0.15);
+    transform: scale(0.15);
     opacity: 0;
     filter: blur(8px) saturate(1.4);
   }
@@ -345,21 +352,16 @@
     filter: blur(0) saturate(1.1);
   }
   100% {
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
     opacity: 1;
     filter: blur(0) saturate(1);
   }
-}
-
-@keyframes hero-bg-bob {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50%      { transform: translate(-50%, calc(-50% - 6px)) scale(1.015); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero__bg-img {
     animation: none;
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
   }
 }
