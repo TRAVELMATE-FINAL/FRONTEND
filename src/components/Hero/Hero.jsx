@@ -4,6 +4,14 @@ import LocationSearch from '../LocationSearch/LocationSearch';
 import heroBg from '../../assets/hero-bg.png';
 import './Hero.css';
 
+/**
+ * The hero background image is applied via CSS `background-image` on the
+ * `.hero` element itself with `background-size: 100% 100%`. That is the
+ * only CSS that GUARANTEES the bitmap matches the element's pixel
+ * dimensions exactly (no cropping, no letterbox bands). We pass the
+ * imported URL down as a CSS custom property so the rule in Hero.css can
+ * pick it up.
+ */
 function Hero({ mode: modeProp, onModeChange }) {
   // Controlled mode if parent provides one, else manage internally
   const [internalMode, setInternalMode] = useState('find');
@@ -49,15 +57,12 @@ function Hero({ mode: modeProp, onModeChange }) {
   };
 
   return (
-    <section className="hero">
-      {/* Decorative background image — the dark navy panel with scattered
-          pink icons (matches Figma). It sits BEHIND the title/search-card
-          (z-index:0) and is clipped to the hero box via overflow:hidden so
-          it can't leak onto adjacent sections. On mount it grows out from
-          centre (scale + fade) so the icons appear to burst into place. */}
-      <div className="hero__icons-bg" aria-hidden="true">
-        <img src={heroBg} alt="" className="hero__bg-img" />
-      </div>
+    <section className="hero" style={{ '--hero-bg': `url(${heroBg})` }}>
+      {/* The dark navy panel + pink icons live on the `.hero` element as
+          `background-image: var(--hero-bg)` with `background-size: 100% 100%`
+          — that pins the bitmap to the hero's exact width and height.
+          A `.hero::before` pseudo-element runs the centre-out scale-in
+          animation using the same image. */}
 
       <div className="container hero__inner">
         <h1 className="hero__title">Travel Together. Save More.</h1>
