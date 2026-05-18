@@ -946,3 +946,80 @@ img { max-width: 100%; height: auto; }
     max-width: 100% !important;
   }
 }
+
+/* =============================================================
+   ROUND 4 — most-recent additions
+   • .ff-hero   — dark-navy hero strip wrapping the Findfriend
+                  search bar (with <FloatingIconsBg /> behind it).
+                  Padding-heavy on desktop; must shrink on mobile
+                  so the search bar can reach the viewport edges.
+   • .hero__toggle / .hero__toggle-btn  — Find / Post pills on the
+                  home page hero. Narrow them on small phones so
+                  they never wrap onto two lines.
+   • .tm-navbar  — extra mobile padding clean-up that complements
+                   the Header.css media queries.
+   ============================================================= */
+
+/* TABLET ≤ 1024px */
+@media (max-width: 1024px) {
+  .ff-hero { padding: 32px 24px 40px !important; }
+}
+
+/* PHONE ≤ 640px */
+@media (max-width: 640px) {
+  .ff-hero { padding: 22px 12px 28px !important; }
+
+  .hero__toggle     { padding: 4px !important; }
+  .hero__toggle-btn {
+    padding: 0.6rem 1.4rem !important;
+    min-width: 88px !important;
+    font-size: 0.92rem !important;
+  }
+
+  /* Belt-and-braces: ensure the global header rule wins. */
+  .tm-navbar { padding: 0 !important; }
+}
+
+/* SMALL PHONE ≤ 420px */
+@media (max-width: 420px) {
+  .ff-hero { padding: 18px 10px 22px !important; }
+
+  .hero__toggle-btn {
+    padding: 0.55rem 1.1rem !important;
+    min-width: 72px !important;
+    font-size: 0.88rem !important;
+  }
+}
+
+/* The FloatingIconsBg layer sits behind everything via z-index:0 on
+   itself + z-index:2 on .hero__inner / .ff-hero search form. On phones
+   the icons can drift close to text; nudge their opacity down so they
+   don't compete with the hero copy. */
+@media (max-width: 640px) {
+  .floating-icons-bg__icon { opacity: 0.7 !important; }
+}
+
+/* =============================================================
+   ROUND 5 — ProfileSettings ride card "Delete?" confirmation
+   The new inline confirm pill (Yes, delete / Cancel) lives in the
+   right column of each posted-ride card. On phones the card is
+   tight and the pill can crowd out the trip details column. We
+   keep it on the right at desktop, but if there isn't room it
+   flow-wraps onto its own line under the card content.
+   ============================================================= */
+@media (max-width: 520px) {
+  /* The PostedRideCard outer container is the only flex+gap=14 row
+     under .ps-shell; wrap so the right column can drop below. */
+  .ps-shell div[style*="border-radius: 14px"][style*="display: flex"][style*="gap: 14px"] {
+    flex-wrap: wrap !important;
+  }
+  /* The right-column delete area becomes a full-width row when
+     wrapped; align its buttons to the right edge. */
+  .ps-shell div[style*="border-radius: 14px"][style*="display: flex"][style*="gap: 14px"] > div:last-of-type {
+    flex-direction: row !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    width: 100% !important;
+    margin-top: 6px;
+  }
+}

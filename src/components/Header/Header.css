@@ -121,15 +121,31 @@
   box-shadow: 0 6px 16px rgba(232, 184, 0, 0.35);
 }
 
-/* Responsive */
+/* Responsive
+   ──────────
+   On phones the navbar drops its horizontal padding entirely so the
+   white bar spans edge-to-edge of the viewport (matches the user's
+   request "in mobile, the navbar has padding left and right no need").
+   Brand and actions get their own breathing room via small internal
+   gutters so the logo / login button don't actually touch the screen
+   edge — that would look like a typo more than a deliberate design. */
 @media (max-width: 760px) {
-  .tm-navbar { padding: 0 20px; height: 60px; }
-  .tm-navbar__name { font-size: 16px; }
-  .tm-navbar__actions { gap: 10px; }
+  .tm-navbar {
+    padding: 0 !important;
+    height: 60px;
+  }
+  .tm-navbar__brand   { padding-left: 12px; }
+  .tm-navbar__actions { padding-right: 12px; gap: 10px; }
+  .tm-navbar__name    { font-size: 16px; }
 }
 
 @media (max-width: 480px) {
-  .tm-navbar { padding: 0 14px; height: 56px; }
+  .tm-navbar {
+    padding: 0 !important;
+    height: 56px;
+  }
+  .tm-navbar__brand   { padding-left: 10px; }
+  .tm-navbar__actions { padding-right: 10px; }
   .tm-navbar__logo,
   .tm-navbar__logo-img { width: 32px; height: 32px; border-radius: 9px; }
   .tm-navbar__name { font-size: 15px; letter-spacing: -0.3px; }
@@ -138,8 +154,11 @@
 }
 
 @media (max-width: 360px) {
-  .tm-navbar { padding: 0 10px; }
-  .tm-navbar__actions { gap: 6px; }
+  .tm-navbar {
+    padding: 0 !important;
+  }
+  .tm-navbar__brand   { padding-left: 8px; }
+  .tm-navbar__actions { padding-right: 8px; gap: 6px; }
   /* Hide the bell + settings on very small phones — login is the priority */
   .tm-navbar__icon-btn { display: none; }
   .tm-navbar__name { font-size: 14px; }
