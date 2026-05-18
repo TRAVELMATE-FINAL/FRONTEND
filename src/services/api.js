@@ -133,10 +133,14 @@ export const applyCoupon = async ({ code, plan }) => {
 };
 
 // Create a Razorpay order (server-side) — returns orderId + key + amount
-export const createPlanOrder = async ({ plan, couponCode = "" }) => {
+// `amount` is in paise (₹1 = 100 paise). When passed, the backend uses it
+// directly so the Razorpay popup always matches what the user sees on screen.
+export const createPlanOrder = async ({ plan, couponCode = "", method = "", amount }) => {
   const phone = localStorage.getItem("phone");
   if (!phone) throw new Error("Login required");
-  const res = await API.post("/plans/order", { phone, plan, couponCode });
+  const body = { phone, plan, couponCode, method };
+  if (amount && Number(amount) > 0) body.amount = Number(amount);
+  const res = await API.post("/plans/order", body);
   return res.data;
 };
 

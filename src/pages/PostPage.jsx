@@ -136,7 +136,7 @@ function Time12Picker({ value, onChange, min }) {
 /* ─────────────────────────────────────────
    PAGE 1 — Post (Figma redesign — vertical stack)
 ───────────────────────────────────────── */
-function PostPage({ form, setForm, route, distance, duration, routeLoading, error, onNext, onRouteCalculated }) {
+function PostPage({ form, setForm, route, distance, duration, routeLoading, error, onNext, onRouteCalculated, onRouteStopsCalculated, routeSuggestedStops }) {
   const [stopInput, setStopInput] = useState("");
 
   const addStop = (val) => {
@@ -150,12 +150,22 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
 
   const minTimeAttr = form.date === todayISO() ? nowHHMM() : "00:00";
 
-  // ── Suggested stops based on the user's From / To ────────
-  // Simple table of well-known intermediate cities for the most-
-  // travelled Tamil-Nadu / South-India routes. If we don't have a
-  // direct match, fall back to a couple of safe defaults so the chips
-  // are never empty when both From + To are picked.
+  // ── Suggested stops for the CURRENTLY SELECTED route ─────────
+  //
+  // RouteMap reverse-geocodes 3 points along the active route's polyline
+  // and pushes the resulting town names up via `onRouteStopsCalculated`
+  // (stored in the parent as `routeSuggestedStops`). That means switching
+  // between alternate routes on the map gives you a different set of
+  // suggested stops — the towns the user would actually pass through on
+  // THAT route, not a fixed table.
+  //
+  // We fall back to a small hardcoded table for the most popular TN
+  // corridors when the geocoder hasn't returned yet (or returned nothing).
   const suggestedStops = (() => {
+    if (Array.isArray(routeSuggestedStops) && routeSuggestedStops.length > 0) {
+      return routeSuggestedStops;
+    }
+
     const f = (form.from || "").toLowerCase();
     const t = (form.to   || "").toLowerCase();
     if (!f || !t) return [];
@@ -458,6 +468,7 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
               fromName={form.from}
               toName={form.to}
               onRouteCalculated={onRouteCalculated}
+              onRouteStopsCalculated={onRouteStopsCalculated}
             />
           </div>
 
@@ -571,19 +582,33 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
 
 /* Real Google Map with actual driving route from Google Directions API.
    Accepts the same props as the old Leaflet version — `coords` is now ignored
-   (Google computes the route from fromCoords/toCoords directly). */
-function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onRouteCalculated }) {
+   (Google computes the route from fromCoords/toCoords directly).
+
+   Shows ALL alternate routes returned by Google Directions. The currently
+   selected route is rendered in vivid blue, alternates are rendered in
+   faded grey and become click-targets so the user can swap to them. */
+function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onRouteCalculated, onRouteStopsCalculated }) {
   // Compact = small inline preview (used in step 1); default = large map card.
   const mapHeight = compact ? 140 : 260;
 
   const { isLoaded, loadError } = useGoogleMaps();
 
   const mapRef = useRef(null);
-  const directionsRendererRef = useRef(null);
+  // We render alternate routes ourselves as a set of Polylines so that we
+  // can style each one individually and let the user click to pick one.
+  const routePolylinesRef = useRef([]); // [{ line, routeIndex }]
   const fallbackPolylineRef = useRef(null);
   const markersRef = useRef([]);
+  const directionsResultRef = useRef(null);
+  // Reverse-geocoded town names along each route, keyed by route index.
+  // We compute on demand for whichever route the user picks (so each
+  // alternate has its own suggested stops) and cache the result so
+  // toggling back is instant.
+  const routeStopsCacheRef = useRef({}); // { 0: ["Vellore","Krishnagiri"], 1: [...] }
   const [routeError, setRouteError] = useState("");
   const [routeInfo, setRouteInfo] = useState({ distance: "", duration: "" });
+  const [routes, setRoutes] = useState([]); // [{ distance, duration, summary }]
+  const [selectedRouteIdx, setSelectedRouteIdx] = useState(0);
   // mapReady is a STATE (not just ref) so the route-drawing useEffect re-runs
   // once Google has actually mounted the <GoogleMap>. Otherwise the effect
   // can fire while mapRef.current is still null, bail out, and never retry.
@@ -601,16 +626,30 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
   }, []);
 
   const clearMapLayers = useCallback(() => {
-    if (directionsRendererRef.current) {
-      directionsRendererRef.current.setMap(null);
-      directionsRendererRef.current = null;
-    }
+    routePolylinesRef.current.forEach((entry) => {
+      if (entry?.line) entry.line.setMap(null);
+    });
+    routePolylinesRef.current = [];
     if (fallbackPolylineRef.current) {
       fallbackPolylineRef.current.setMap(null);
       fallbackPolylineRef.current = null;
     }
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
+  }, []);
+
+  // Re-style the polylines so the selected one pops and the alternates are dim.
+  const restyleRoutes = useCallback((selectedIdx) => {
+    routePolylinesRef.current.forEach((entry) => {
+      if (!entry?.line) return;
+      const isActive = entry.routeIndex === selectedIdx;
+      entry.line.setOptions({
+        strokeColor: isActive ? "#4f6ef7" : "#9ca3af",
+        strokeOpacity: isActive ? 0.95 : 0.55,
+        strokeWeight: isActive ? 5 : 4,
+        zIndex: isActive ? 10 : 1,
+      });
+    });
   }, []);
 
   // Render the route whenever from/to changes (or once the map is ready).
@@ -621,18 +660,13 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
     const g = window.google;
     const map = mapRef.current;
     clearMapLayers();
+    // Reset selection whenever the from/to changes so the new primary is shown.
+    setSelectedRouteIdx(0);
+    // Invalidate the per-route stop cache — these are tied to the previous
+    // origin/destination and no longer make sense for the new search.
+    routeStopsCacheRef.current = {};
 
     const directionsService = new g.maps.DirectionsService();
-    const renderer = new g.maps.DirectionsRenderer({
-      map,
-      suppressMarkers: true,
-      polylineOptions: {
-        strokeColor: "#4f6ef7",
-        strokeWeight: 4,
-        strokeOpacity: 0.9,
-      },
-      preserveViewport: false,
-    });
 
     const origin = { lat: Number(fromCoords.lat), lng: Number(fromCoords.lon) };
     const destination = { lat: Number(toCoords.lat), lng: Number(toCoords.lon) };
@@ -651,6 +685,7 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
           strokeWeight: 2,
         },
         title: fromName || "From",
+        zIndex: 50,
       });
       const to = new g.maps.Marker({
         position: destination,
@@ -665,6 +700,7 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
           strokeWeight: 2,
         },
         title: toName || "To",
+        zIndex: 50,
       });
       markersRef.current = [from, to];
     };
@@ -674,23 +710,57 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
         origin,
         destination,
         travelMode: g.maps.TravelMode.DRIVING,
+        // 🔑 Ask Google for alternate routes whenever they exist.
+        provideRouteAlternatives: true,
       },
       (result, status) => {
         if (status === "OK") {
-          renderer.setDirections(result);
-          directionsRendererRef.current = renderer;
+          directionsResultRef.current = result;
+          const allRoutes = result.routes || [];
+
+          // Draw each route as its own Polyline so we can style + click them
+          allRoutes.forEach((route, idx) => {
+            const path = route.overview_path || [];
+            const line = new g.maps.Polyline({
+              path,
+              map,
+              strokeColor: idx === 0 ? "#4f6ef7" : "#9ca3af",
+              strokeOpacity: idx === 0 ? 0.95 : 0.55,
+              strokeWeight: idx === 0 ? 5 : 4,
+              zIndex: idx === 0 ? 10 : 1,
+              clickable: true,
+            });
+            // Clicking a faded route promotes it to the "selected" route.
+            line.addListener("click", () => {
+              setSelectedRouteIdx(idx);
+            });
+            routePolylinesRef.current.push({ line, routeIndex: idx });
+          });
+
+          // Fit the map so all routes (or at least the primary one) are visible.
+          const bounds = new g.maps.LatLngBounds();
+          (allRoutes[0]?.overview_path || []).forEach((p) => bounds.extend(p));
+          if (!bounds.isEmpty()) map.fitBounds(bounds, 40);
+
           drawAB();
-          // Distance + duration from the Directions response (no extra call)
-          const leg = result.routes?.[0]?.legs?.[0];
+
+          // Build a small summary list to show under the map.
+          const summaries = allRoutes.map((r) => {
+            const leg = r.legs?.[0];
+            return {
+              distance: leg?.distance?.text || "",
+              duration: leg?.duration?.text || "",
+              summary: r.summary || "",
+            };
+          });
+          setRoutes(summaries);
+
+          // Primary distance / duration goes up to parent (selected = index 0)
           const next = {
-            distance: leg?.distance?.text || "",
-            duration: leg?.duration?.text || "",
+            distance: summaries[0]?.distance || "",
+            duration: summaries[0]?.duration || "",
           };
           setRouteInfo(next);
-          // ── Push the Google-computed values up to the parent so the
-          // "Confirm your route" card displays the SAME numbers as the
-          // map overlay (otherwise they were sourced from OSRM and could
-          // differ). This is the single source of truth for distance/time.
           if (typeof onRouteCalculated === "function") onRouteCalculated(next);
           setRouteError("");
         } else {
@@ -708,6 +778,7 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
           path.forEach((p) => bounds.extend(p));
           map.fitBounds(bounds, 40);
           drawAB();
+          setRoutes([]);
           // Fallback: use Distance Matrix to still surface km/min when Directions fails
           if (g.maps.DistanceMatrixService) {
             const dm = new g.maps.DistanceMatrixService();
@@ -753,6 +824,119 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
     toName,
     clearMapLayers,
   ]);
+
+  // Compute suggested stops for a given route by sampling 3 points along
+  // its polyline and asking the Google Geocoder for the locality at each
+  // point. Returns a Promise<string[]> of distinct town/city names
+  // (excluding origin + destination).
+  const computeStopsForRoute = useCallback((routeIdx) => {
+    const g = window.google;
+    if (!g || !directionsResultRef.current) return Promise.resolve([]);
+    const route = directionsResultRef.current.routes &&
+                  directionsResultRef.current.routes[routeIdx];
+    const path = (route && route.overview_path) || [];
+    if (path.length < 4) return Promise.resolve([]);
+
+    // Sample at 25%, 50%, 75% of the polyline — covers the route nicely
+    // without burning a geocode call on every coordinate.
+    const sampleIdxs = [
+      Math.floor(path.length / 4),
+      Math.floor(path.length / 2),
+      Math.floor((path.length * 3) / 4),
+    ];
+    const sampleLocs = sampleIdxs.map((i) => path[i]);
+    const geocoder = new g.maps.Geocoder();
+
+    // Names we want to exclude (origin + destination) so we don't suggest
+    // the user's own from/to as a "stop".
+    const exclude = new Set(
+      [fromName, toName]
+        .filter(Boolean)
+        .map((s) => String(s).toLowerCase())
+    );
+
+    const reverse = (loc) =>
+      new Promise((resolve) => {
+        geocoder.geocode({ location: loc }, (results, status) => {
+          if (status !== "OK" || !results || !results.length) {
+            resolve(null);
+            return;
+          }
+          // Walk results from most-specific to least-specific and grab
+          // the first locality / town / district name we find.
+          for (const r of results) {
+            const comps = r.address_components || [];
+            const wanted = ["locality", "postal_town",
+                            "administrative_area_level_3",
+                            "administrative_area_level_2"];
+            for (const type of wanted) {
+              const c = comps.find((cc) => (cc.types || []).indexOf(type) !== -1);
+              if (c && c.long_name) {
+                resolve(c.long_name);
+                return;
+              }
+            }
+          }
+          resolve(null);
+        });
+      });
+
+    return Promise.all(sampleLocs.map(reverse)).then((names) => {
+      const seen = new Set();
+      const out = [];
+      names.forEach((n) => {
+        if (!n) return;
+        const key = n.toLowerCase();
+        if (exclude.has(key)) return;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(n);
+      });
+      return out;
+    });
+  }, [fromName, toName]);
+
+  // Whenever the user picks a different alternate, re-style the polylines,
+  // push new distance/duration to the parent, refit bounds, AND compute
+  // per-route suggested stops (cached so repeat toggles are instant).
+  useEffect(() => {
+    restyleRoutes(selectedRouteIdx);
+    const r = routes[selectedRouteIdx];
+    if (r && (r.distance || r.duration)) {
+      const next = { distance: r.distance, duration: r.duration };
+      setRouteInfo(next);
+      if (typeof onRouteCalculated === "function") onRouteCalculated(next);
+    }
+    // Refit map bounds to the currently selected route
+    const g = window.google;
+    if (g && mapRef.current && directionsResultRef.current) {
+      const route = directionsResultRef.current.routes?.[selectedRouteIdx];
+      const path = route?.overview_path || [];
+      if (path.length) {
+        const bounds = new g.maps.LatLngBounds();
+        path.forEach((p) => bounds.extend(p));
+        mapRef.current.fitBounds(bounds, 40);
+      }
+    }
+
+    // Per-route suggested stops — use cache if we already computed this
+    // route's stops, otherwise reverse-geocode and cache the result.
+    if (typeof onRouteStopsCalculated !== "function") return;
+    if (!directionsResultRef.current) return;
+    const cached = routeStopsCacheRef.current[selectedRouteIdx];
+    if (cached) {
+      onRouteStopsCalculated(cached);
+      return;
+    }
+    let cancelled = false;
+    computeStopsForRoute(selectedRouteIdx).then((stops) => {
+      if (cancelled) return;
+      routeStopsCacheRef.current[selectedRouteIdx] = stops;
+      onRouteStopsCalculated(stops);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRouteIdx, routes]);
 
   // Empty placeholder while user is picking locations
   if (!haveCoords) {
@@ -907,6 +1091,70 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
               {routeInfo.duration}
             </span>
           )}
+        </div>
+      )}
+
+      {/* ── Alternate routes picker ─────────────────────────────────
+          When Google returns more than one option we surface them as
+          chips below the map so the poster can pick the route they
+          actually plan to take. Clicking a chip (or clicking the
+          faded grey line on the map itself) makes that route active. */}
+      {routes.length > 1 && !compact && (
+        <div
+          style={{
+            position: "absolute",
+            top: 8,
+            left: 8,
+            right: 8,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 6,
+            pointerEvents: "auto",
+          }}
+        >
+          {routes.map((r, idx) => {
+            const active = idx === selectedRouteIdx;
+            const label = r.summary
+              ? `via ${r.summary}`
+              : idx === 0
+              ? "Fastest route"
+              : `Alternate ${idx}`;
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setSelectedRouteIdx(idx)}
+                style={{
+                  background: active ? "#4f6ef7" : "rgba(255,255,255,0.95)",
+                  color: active ? "#fff" : "#1a1a2e",
+                  border: active ? "1px solid #4f6ef7" : "1px solid #cbd5e1",
+                  borderRadius: 999,
+                  padding: "5px 10px",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  lineHeight: 1.1,
+                  maxWidth: "100%",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={`${label} • ${r.distance || ""} • ${r.duration || ""}`}
+              >
+                <span>{label}</span>
+                {(r.distance || r.duration) && (
+                  <span style={{ opacity: 0.85, fontWeight: 600 }}>
+                    · {r.duration || r.distance}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1220,6 +1468,10 @@ export default function TravelMatePost({ embedded = false } = {}) {
   const [routeLoading, setRouteLoading] = useState(false);
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
+  // Suggested stops for whichever alternate route is currently selected
+  // on the map. RouteMap reverse-geocodes midpoints of the active route
+  // and pushes the resulting town names up here.
+  const [routeSuggestedStops, setRouteSuggestedStops] = useState([]);
 
   const lastReqRef = useRef("");
 
@@ -1227,8 +1479,11 @@ export default function TravelMatePost({ embedded = false } = {}) {
     const f = form.fromCoords, t = form.toCoords;
     if (!f || !t) {
       setRoute([]); setDistance(""); setDuration("");
+      setRouteSuggestedStops([]);
       return;
     }
+    // Different from/to → previous route's stops no longer apply.
+    setRouteSuggestedStops([]);
     const reqKey = `${f.lat},${f.lon}-${t.lat},${t.lon}`;
     if (reqKey === lastReqRef.current) return;
     lastReqRef.current = reqKey;
@@ -1351,7 +1606,6 @@ export default function TravelMatePost({ embedded = false } = {}) {
         time: form.time,
         gender: form.gender || "Any",
         distance,
-        duration,
         fromLat: form.fromCoords?.lat ?? null,
         fromLon: form.fromCoords?.lon ?? null,
         toLat:   form.toCoords?.lat   ?? null,
@@ -1365,7 +1619,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
         additionalInfo: form.notes || "",
       };
 
-      // Stash the payload first — the actual POST /api/rides happens
+      // Stash the payload first - the actual POST /api/rides happens
       // AFTER the user completes payment in SecurePayment. This way no
       // ride is published unless the plan payment succeeds.
       try {
@@ -1373,23 +1627,16 @@ export default function TravelMatePost({ embedded = false } = {}) {
       } catch (e) {
         console.warn("Could not stash pendingRidePayload:", e);
       }
-      // Clear any previous "lastPostedRideId" — it will be set freshly
+      // Clear any previous "lastPostedRideId" - it will be set freshly
       // once payment succeeds and the ride is actually persisted.
       try { localStorage.removeItem("lastPostedRideId"); } catch (e) {}
 
-      // ── Auth + profile gate before payment ────────────────────
-      // The poster must be:
-      //   1. Logged in  (localStorage.phone exists, looks like a phone)
-      //   2. Have a saved profile (fullName + city in /auth/profile)
-      // If either is missing, breadcrumb the post-ride intent and send
-      // them through the existing /login → /otp → /profile-setup →
-      // /plan chain. That chain reads `pendingPostRide` to deliver
-      // them back to the payment step automatically.
+      // Auth + profile gate before payment
       try { localStorage.setItem("pendingPostRide", "1"); } catch (e) {}
 
       const phoneLooksValid = /^\+?\d{10,13}$/.test(userPhone);
       if (!phoneLooksValid) {
-        console.log("📦 Stashed payload — user not logged in, sending to /login");
+        console.log("Stashed payload - user not logged in, sending to /login");
         navigate("/login");
         return;
       }
@@ -1400,22 +1647,20 @@ export default function TravelMatePost({ embedded = false } = {}) {
         const u = r?.data?.user || r?.data || {};
         const hasProfile = !!(u.fullName && u.city);
         if (!hasProfile) {
-          console.log("📦 Stashed payload — profile incomplete, sending to /profile-setup");
+          console.log("Stashed payload - profile incomplete, sending to /profile-setup");
           navigate("/profile-setup");
           return;
         }
       } catch (e) {
-        // If the profile endpoint fails, default to forcing setup
-        // rather than letting an unverified user post.
         console.warn("Profile check failed, routing through /login:", e?.message);
         navigate("/login");
         return;
       }
 
-      console.log("📦 Ride payload stashed — proceeding to payment");
+      console.log("Ride payload stashed - proceeding to payment");
       navigate("/plan");
     } catch (err) {
-      console.error("❌ Publish prep error:", err);
+      console.error("Publish prep error:", err);
       setError(err.message || "Could not prepare ride for publishing.");
     } finally {
       setPublishing(false);
@@ -1425,9 +1670,6 @@ export default function TravelMatePost({ embedded = false } = {}) {
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-      {/* Show the shared Header only when this page is rendered standalone
-          via the /post-ride route. When embedded inside FindRide the parent
-          already renders its own Header, so we suppress this one. */}
       {!embedded && <Header />}
       {step === 1 ? (
         <PostPage
@@ -1435,11 +1677,13 @@ export default function TravelMatePost({ embedded = false } = {}) {
           route={route} distance={distance} duration={duration}
           routeLoading={routeLoading} error={error}
           onNext={goToVehicle}
+          routeSuggestedStops={routeSuggestedStops}
           onRouteCalculated={({ distance: d, duration: t }) => {
-            // Google Directions API is the source of truth for the numbers
-            // shown both on the map and in the "Confirm your route" card.
             if (d) setDistance(d);
             if (t) setDuration(t);
+          }}
+          onRouteStopsCalculated={(stops) => {
+            setRouteSuggestedStops(Array.isArray(stops) ? stops : []);
           }}
         />
       ) : (
@@ -1451,10 +1695,6 @@ export default function TravelMatePost({ embedded = false } = {}) {
           onBack={() => setStep(1)}
         />
       )}
-
-      {/* Show Footer only when this page is rendered standalone via the
-          /post-ride route. When embedded inside FindRide (mode=post)
-          the parent already renders its own Footer. */}
       {!embedded && <Footer />}
     </>
   );

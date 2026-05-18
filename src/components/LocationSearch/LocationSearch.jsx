@@ -1,13 +1,21 @@
 // components/LocationSearch/LocationSearch.jsx
-// Tamil Nadu districts autocomplete: as the user types,
-// filter the 38 districts whose names start with the typed letters
-// and show them in a dropdown. On select, calls onSelect with
-// { display_name, lat, lon } so the parent can store coordinates.
+// Tamil Nadu (and wider India) locations autocomplete.
+//
+// Primary source: Google Places Autocomplete - so the dropdown surfaces
+// EVERY city, town, village, neighbourhood, landmark, temple, beach and
+// business POI within Tamil Nadu (not just the 38 district headquarters).
+// We run two parallel queries - one for geocodes (cities/towns/addresses)
+// and one for establishments (landmarks/temples/hotels) - then merge them
+// so anything you would see pinned on the state map can be picked.
+//
+// Fallback: if the Google Maps script hasn't loaded yet (or the API key
+// is missing) we drop back to the 38 hard-coded district centroids so the
+// component still works in degraded mode.
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useGoogleMaps } from "../../utils/googleMapsLoader";
 import "./LocationSearch.css";
 
-// All 38 Tamil Nadu districts with approximate centroid lat/lon.
 const TN_DISTRICTS = [
   { name: "Ariyalur",        lat: 11.1401, lon: 79.0786 },
   { name: "Chengalpattu",    lat: 12.6918, lon: 79.9747 },
@@ -49,6 +57,9 @@ const TN_DISTRICTS = [
   { name: "Virudhunagar",    lat:  9.5680, lon: 77.9624 },
 ];
 
+const TN_BOUNDS_SW = { lat: 8.0, lng: 76.2 };
+const TN_BOUNDS_NE = { lat: 13.6, lng: 80.4 };
+
 export default function LocationSearch({
   placeholder = "Search location",
   value = "",
@@ -57,20 +68,129 @@ export default function LocationSearch({
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  const [predictions, setPredictions] = useState([]);
   const wrapRef = useRef(null);
 
-  // Filter — case-insensitive "starts with" on the first letter typed,
-  // and "contains" once they've typed more (more forgiving).
-  const matches = useMemo(() => {
-    const q = (value || "").trim().toLowerCase();
-    if (!q) return [];
-    if (q.length === 1) {
-      return TN_DISTRICTS.filter((d) => d.name.toLowerCase().startsWith(q));
-    }
-    return TN_DISTRICTS.filter((d) => d.name.toLowerCase().includes(q));
-  }, [value]);
+  const { isLoaded } = useGoogleMaps();
+  const autocompleteServiceRef = useRef(null);
+  const placesServiceRef = useRef(null);
+  const sessionTokenRef = useRef(null);
 
-  // Close dropdown on outside click
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!window.google || !window.google.maps || !window.google.maps.places) return;
+    const g = window.google;
+    if (!autocompleteServiceRef.current) {
+      autocompleteServiceRef.current = new g.maps.places.AutocompleteService();
+    }
+    if (!placesServiceRef.current) {
+      const stub = document.createElement("div");
+      placesServiceRef.current = new g.maps.places.PlacesService(stub);
+    }
+    if (!sessionTokenRef.current) {
+      sessionTokenRef.current = new g.maps.places.AutocompleteSessionToken();
+    }
+  }, [isLoaded]);
+
+  useEffect(() => {
+    const q = (value || "").trim();
+    if (!q) {
+      setPredictions([]);
+      return;
+    }
+    if (!isLoaded || !autocompleteServiceRef.current) return;
+    if (!window.google || !window.google.maps || !window.google.maps.places) return;
+
+    const g = window.google;
+    const bounds = new g.maps.LatLngBounds(
+      new g.maps.LatLng(TN_BOUNDS_SW.lat, TN_BOUNDS_SW.lng),
+      new g.maps.LatLng(TN_BOUNDS_NE.lat, TN_BOUNDS_NE.lng)
+    );
+
+    let cancelled = false;
+    const queries = [{ types: ["geocode"] }, { types: ["establishment"] }];
+    const merged = [];
+    let pending = queries.length;
+    const seen = new Set();
+
+    const finalize = () => {
+      if (cancelled) return;
+      const out = [];
+      merged.forEach((p) => {
+        if (seen.has(p.place_id)) return;
+        seen.add(p.place_id);
+        out.push(p);
+      });
+      setPredictions(out);
+    };
+
+    queries.forEach((q2) => {
+      autocompleteServiceRef.current.getPlacePredictions(
+        {
+          input: q,
+          types: q2.types,
+          componentRestrictions: { country: "in" },
+          locationBias: bounds,
+          sessionToken: sessionTokenRef.current,
+        },
+        (results, status) => {
+          if (cancelled) return;
+          if (status === g.maps.places.PlacesServiceStatus.OK && results) {
+            results.forEach((p) => {
+              const sf = p.structured_formatting || {};
+              merged.push({
+                description: p.description,
+                place_id: p.place_id,
+                mainText: sf.main_text || p.description,
+                secondaryText: sf.secondary_text || "",
+              });
+            });
+          }
+          pending -= 1;
+          if (pending === 0) finalize();
+        }
+      );
+    });
+
+    return () => { cancelled = true; };
+  }, [value, isLoaded]);
+
+  const options = useMemo(() => {
+    const q = (value || "").trim().toLowerCase();
+    const googleReady = isLoaded && !!autocompleteServiceRef.current;
+
+    if (!q) {
+      return TN_DISTRICTS.map((d) => ({
+        kind: "local",
+        name: d.name,
+        sub: "Tamil Nadu",
+        lat: d.lat,
+        lon: d.lon,
+      }));
+    }
+
+    if (googleReady && predictions.length > 0) {
+      return predictions.map((p) => ({
+        kind: "google",
+        name: p.mainText,
+        sub: p.secondaryText || "India",
+        place_id: p.place_id,
+      }));
+    }
+
+    return TN_DISTRICTS.filter((d) =>
+      q.length === 1
+        ? d.name.toLowerCase().startsWith(q)
+        : d.name.toLowerCase().includes(q)
+    ).map((d) => ({
+      kind: "local",
+      name: d.name,
+      sub: "Tamil Nadu",
+      lat: d.lat,
+      lon: d.lon,
+    }));
+  }, [value, isLoaded, predictions]);
+
   useEffect(() => {
     const onDocClick = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) {
@@ -81,27 +201,57 @@ export default function LocationSearch({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  // Reset highlight whenever the list shrinks
   useEffect(() => {
     setHighlight(0);
-  }, [matches.length]);
+  }, [options.length]);
 
-  const pick = (d) => {
-    onSelect({ display_name: d.name, lat: d.lat, lon: d.lon });
-    setOpen(false);
+  const pick = (opt) => {
+    if (opt.kind === "local") {
+      onSelect({ display_name: opt.name, lat: opt.lat, lon: opt.lon });
+      setOpen(false);
+      return;
+    }
+    const svc = placesServiceRef.current;
+    if (!svc) {
+      onChange(opt.name);
+      setOpen(false);
+      return;
+    }
+    const g = window.google;
+    svc.getDetails(
+      {
+        placeId: opt.place_id,
+        fields: ["geometry", "name", "formatted_address"],
+        sessionToken: sessionTokenRef.current,
+      },
+      (place, status) => {
+        const loc = place && place.geometry && place.geometry.location;
+        if (status !== g.maps.places.PlacesServiceStatus.OK || !loc) {
+          onChange(opt.name);
+          setOpen(false);
+          return;
+        }
+        const lat = loc.lat();
+        const lon = loc.lng();
+        const display = place.formatted_address || place.name || opt.name;
+        onSelect({ display_name: display, lat, lon });
+        setOpen(false);
+        sessionTokenRef.current = new g.maps.places.AutocompleteSessionToken();
+      }
+    );
   };
 
   const handleKey = (e) => {
-    if (!open || matches.length === 0) return;
+    if (!open || options.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlight((h) => (h + 1) % matches.length);
+      setHighlight((h) => (h + 1) % options.length);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlight((h) => (h - 1 + matches.length) % matches.length);
+      setHighlight((h) => (h - 1 + options.length) % options.length);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      pick(matches[highlight]);
+      pick(options[highlight]);
     } else if (e.key === "Escape") {
       setOpen(false);
     }
@@ -123,41 +273,44 @@ export default function LocationSearch({
         autoComplete="off"
       />
 
-      {open && matches.length > 0 && (
+      {open && options.length > 0 && (
         <ul className="locsearch__dropdown" role="listbox">
-          {matches.map((d, i) => (
-            <li
-              key={d.name}
-              role="option"
-              aria-selected={i === highlight}
-              className={
-                "locsearch__option" +
-                (i === highlight ? " locsearch__option--active" : "")
-              }
-              onMouseEnter={() => setHighlight(i)}
-              // onMouseDown (not onClick) so it fires before input blur
-              onMouseDown={(e) => {
-                e.preventDefault();
-                pick(d);
-              }}
-            >
-              <span className="locsearch__pin" aria-hidden="true">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                     stroke="#7c3aed" strokeWidth="2.2"
-                     strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-              </span>
-              <span className="locsearch__name">{d.name}</span>
-              <span className="locsearch__sub">Tamil Nadu</span>
-            </li>
-          ))}
+          {options.map((opt, i) => {
+            const itemKey = (opt.place_id || opt.name) + "_" + i;
+            const isActive = i === highlight;
+            return (
+              <li
+                key={itemKey}
+                role="option"
+                aria-selected={isActive}
+                className={
+                  "locsearch__option" +
+                  (isActive ? " locsearch__option--active" : "")
+                }
+                onMouseEnter={() => setHighlight(i)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  pick(opt);
+                }}
+              >
+                <span className="locsearch__pin" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                       stroke="#7c3aed" strokeWidth="2.2"
+                       strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </span>
+                <span className="locsearch__name">{opt.name}</span>
+                {opt.sub && <span className="locsearch__sub">{opt.sub}</span>}
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      {open && value && matches.length === 0 && (
-        <div className="locsearch__empty">No matching Tamil Nadu district</div>
+      {open && value && options.length === 0 && (
+        <div className="locsearch__empty">No matching place</div>
       )}
     </div>
   );

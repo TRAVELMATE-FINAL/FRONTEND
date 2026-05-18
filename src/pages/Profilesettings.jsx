@@ -233,6 +233,11 @@ const BlockedHalf = ({ user, onUnblock }) => {
 export default function ProfileSettings() {
   const navigate = useNavigate();
   const phone = localStorage.getItem("phone") || "";
+  // True when no phone is stashed in localStorage — i.e. the user has
+  // never logged in on this device. We hide ALL personal cards in this
+  // state and replace the hero with a "Log in to see your profile" CTA
+  // so we don't leak fake placeholders like "Your Name" / "Male".
+  const notLoggedIn = !phone;
 
   const [activeTab, setActiveTab] = useState("post"); // "booked" | "post"
   const [data, setData] = useState(null);
@@ -285,21 +290,36 @@ export default function ProfileSettings() {
     }
   };
 
+  // Bumped each time the user clicks "Try again" to force a refetch.
+  const [reloadKey, setReloadKey] = useState(0);
+  // Flipped to true when the backend rejects us with 401/403 — i.e. the
+  // phone in localStorage no longer maps to a valid account. We then
+  // render the same big CTA the not-logged-in path uses, but with a
+  // headline that explains the session expired (instead of "never
+  // signed in"). The stale phone is cleared so the next reload won't
+  // immediately fall into the same trap.
+  const [sessionExpired, setSessionExpired] = useState(false);
+
   // Fetch the user's profile + their rides
   useEffect(() => {
     if (!phone) {
+      // Not signed in — no network call to make. We render a dedicated
+      // logged-out CTA (see below), so we DON'T set `error` here; that
+      // would just render a duplicate red banner on top of the CTA.
       setLoading(false);
-      setError("You're not signed in. Please log in to see your profile.");
+      setError("");
+      setData(null);
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError("");
+    setSessionExpired(false);
 
     axios
       .get(`${API_BASE}/api/rides/by-user`, {
         params: { phone },
-        timeout: 8000,
+        timeout: 12000,
       })
       .then(({ data: resp }) => {
         if (cancelled) return;
@@ -307,18 +327,66 @@ export default function ProfileSettings() {
       })
       .catch((err) => {
         if (cancelled) return;
-        const isNet = err?.code === "ERR_NETWORK" || err?.message === "Network Error";
-        setError(
-          isNet
-            ? `Could not reach the backend at ${API_BASE}. Make sure the server is running.`
-            : err?.response?.data?.message || "Could not load your profile."
-        );
-        console.error("[ProfileSettings] fetch failed:", err);
+
+        // Session has expired — backend rejects with 401 or 403, OR the
+        // server explicitly tells us the account is unknown. Clear the
+        // stale phone, flip the dedicated state, and bail out before the
+        // generic error banner runs.
+        const status = err?.response?.status;
+        const serverMsg =
+          err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          "";
+        if (
+          status === 401 ||
+          status === 403 ||
+          /session.*expired|not.*authoriz|invalid.*token|user.*not.*found/i.test(serverMsg)
+        ) {
+          try { localStorage.removeItem("phone"); } catch (e) { /* ignore */ }
+          setSessionExpired(true);
+          setData(null);
+          setError("");
+          return;
+        }
+        // Categorise the remaining (non-auth) failures so the banner is
+        // helpful rather than a one-liner. The user can act on each:
+        //   - timeout  → backend is asleep (Render free tier)
+        //   - network  → wrong VITE_APP_URL, offline, or CORS
+        //   - 404      → backend missing the /by-user route (old deploy)
+        //   - 5xx      → backend crashed; show server's own message
+        const isTimeout =
+          err?.code === "ECONNABORTED" ||
+          err?.code === "ETIMEDOUT" ||
+          /timeout/i.test(err?.message || "");
+        const isNet =
+          err?.code === "ERR_NETWORK" || err?.message === "Network Error";
+
+        let msg;
+        if (isTimeout) {
+          msg = `The backend at ${API_BASE} didn't respond in time. If it's on Render's free tier it may be waking up — try again in 20–30 seconds.`;
+        } else if (isNet) {
+          msg = `Could not reach the backend at ${API_BASE}. Make sure the server is running and reachable from this device.`;
+        } else if (status === 404) {
+          msg = `The backend at ${API_BASE} doesn't have the /api/rides/by-user route. The server needs to be redeployed with the latest code.`;
+        } else if (status && status >= 500) {
+          msg = `Server error (${status})${serverMsg ? ` — ${serverMsg}` : ""}. Please try again.`;
+        } else if (serverMsg) {
+          msg = serverMsg;
+        } else if (status) {
+          msg = `Could not load your profile (HTTP ${status}).`;
+        } else {
+          msg = "Could not load your profile.";
+        }
+
+        setError(msg);
+        console.error("[ProfileSettings] fetch failed:", {
+          code: err?.code, status, serverMsg, raw: err,
+        });
       })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [phone]);
+  }, [phone, reloadKey]);
 
   const user = data?.user;
   const rides = data?.rides || [];
@@ -375,8 +443,10 @@ export default function ProfileSettings() {
       <Header />
 
       {/* Hero gradient header — hidden while loading so the fallback
-          placeholders never flash on screen. */}
-      {!loading && (
+          placeholders never flash on screen. Also hidden when the user
+          isn't logged in OR their session has expired (we show a
+          dedicated CTA instead, further down). */}
+      {!loading && !notLoggedIn && !sessionExpired && (
       <div style={{
         background: "linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%)",
         textAlign: "center",
@@ -429,17 +499,131 @@ export default function ProfileSettings() {
           <Spinner label="Loading your profile…" sublabel="Fetching your rides" />
         )}
 
-        {!loading && error && (
+        {/* Logged-out / session-expired call-to-action — replaces the
+            hero + cards when there's either no phone in localStorage
+            OR the backend rejected us with 401/403. Both states render
+            the same card; only the headline + sub-text differ. */}
+        {!loading && (notLoggedIn || sessionExpired) && (
           <div style={{
-            background: "#fff5f5", border: "1px solid #fecaca",
-            color: "#dc2626", borderRadius: 12, padding: 16, textAlign: "center",
-            marginBottom: 16,
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: 18,
+            boxShadow: "0 2px 12px rgba(15, 15, 46, 0.05)",
+            padding: "40px 28px",
+            textAlign: "center",
+            marginTop: 24,
           }}>
-            {error}
+            {/* Generic person silhouette — no initial, no fake name.
+                For the session-expired state we tint it amber to nudge
+                the user that something changed (vs the neutral "never
+                signed in" grey). */}
+            <div style={{
+              width: 84, height: 84, borderRadius: "50%",
+              margin: "0 auto 18px",
+              background: sessionExpired
+                ? "linear-gradient(135deg,#fef3c7,#fde68a)"
+                : "linear-gradient(135deg,#e5e7eb,#f3f4f6)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: "3px solid #fff",
+              boxShadow: "0 4px 14px rgba(15,15,46,0.08)",
+            }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+                   stroke={sessionExpired ? "#b45309" : "#9ca3af"} strokeWidth="2"
+                   strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+
+            <div style={{
+              fontSize: 18, fontWeight: 800, color: "#111827",
+              marginBottom: 6, letterSpacing: "-0.3px",
+            }}>
+              {sessionExpired
+                ? "Your session has expired"
+                : "You're not signed in"}
+            </div>
+            <div style={{
+              fontSize: 13, color: "#6b7280", lineHeight: 1.5,
+              maxWidth: 360, margin: "0 auto 22px",
+            }}>
+              {sessionExpired
+                ? "For your security, you've been logged out. Please log in again to see your profile, your posted rides, and the people you've blocked."
+                : "Log in to see your profile, your posted rides, and the people you've blocked."}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              style={{
+                background: "#2563eb",
+                color: "#fff",
+                border: "none",
+                borderRadius: 10,
+                padding: "12px 28px",
+                fontSize: 14, fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                boxShadow: "0 4px 14px rgba(37, 99, 235, 0.25)",
+              }}
+            >
+              {sessionExpired ? "Log in again" : "Log in"}
+            </button>
           </div>
         )}
 
-        {!loading && !error && (
+        {!loading && !notLoggedIn && !sessionExpired && error && (
+          <div style={{
+            background: "#fff5f5", border: "1px solid #fecaca",
+            color: "#b91c1c", borderRadius: 12, padding: "16px 18px",
+            marginBottom: 16,
+          }}>
+            <div style={{
+              fontWeight: 700, fontSize: 14, marginBottom: 6, color: "#991b1b",
+            }}>
+              Could not load your profile
+            </div>
+            <div style={{ fontSize: 12.5, lineHeight: 1.55, marginBottom: 12 }}>
+              {error}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => setReloadKey((k) => k + 1)}
+                style={{
+                  background: "#dc2626", color: "#fff", border: "none",
+                  borderRadius: 8, padding: "8px 16px",
+                  fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Try again
+              </button>
+              {/* If the error suggests an auth problem, offer to clear
+                  the stashed phone and send the user back to /login. */}
+              {/expired|log in again/i.test(error) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    try { localStorage.removeItem("phone"); } catch (e) { /* ignore */ }
+                    navigate("/login");
+                  }}
+                  style={{
+                    background: "#fff", color: "#b91c1c",
+                    border: "1px solid #fecaca",
+                    borderRadius: 8, padding: "8px 16px",
+                    fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Log in again
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!loading && !notLoggedIn && !sessionExpired && !error && (
           <>
             {/* ── PERSONAL INFORMATION ── */}
             <div style={cardStyle}>
@@ -549,7 +733,6 @@ export default function ProfileSettings() {
                         <div style={{ marginTop: 10 }}>
                           <button onClick={() => navigate("/post-ride")} style={{
                             background: "#2563eb", color: "#fff",
-                            border: "none", borderRadius: 8,
                             padding: "8px 18px", fontWeight: 700, fontSize: 12,
                             cursor: "pointer", fontFamily: "inherit",
                           }}>
@@ -571,7 +754,7 @@ export default function ProfileSettings() {
               </div>
             </div>
 
-            {/* ── BLOCKED USERS ── */}
+            {/* BLOCKED USERS */}
             <div style={cardStyle}>
               <div style={{ padding: "16px 20px 8px" }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: "#111827", marginBottom: 6 }}>
@@ -592,7 +775,6 @@ export default function ProfileSettings() {
                   blockedPairs.map((pair, i) => (
                     <div key={i} style={{
                       display: "flex", alignItems: "center", gap: 14,
-                      padding: "12px 0",
                       borderBottom: i === blockedPairs.length - 1 ? "none" : "1px solid #f3f4f6",
                     }}>
                       <BlockedHalf user={pair[0]} onUnblock={unblock} />
@@ -607,7 +789,7 @@ export default function ProfileSettings() {
                 )}
               </div>
 
-              {/* Safety tip — blue alert at bottom of card */}
+              {/* Safety tip */}
               <div style={{
                 margin: "10px 20px 18px",
                 background: "#eff6ff",

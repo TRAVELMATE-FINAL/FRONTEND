@@ -13,6 +13,7 @@ const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzp
 const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY || "";
 
 // Razorpay checkout script loader (idempotent — safe to call many times)
+// Pre-loaded on mount for faster checkout startup.
 let rzpScriptPromise = null;
 const loadRazorpay = () => {
   if (rzpScriptPromise) return rzpScriptPromise;
@@ -64,14 +65,17 @@ export default function UnlockContact() {
   const [searchParams] = useSearchParams();
   const [coupon, setCoupon] = useState("");
   const [couponChecking, setCouponChecking] = useState(false);
+  // couponAttempted = true after any apply attempt (success or fail).
+  // Controls whether to show "Clear" button instead of "Apply".
+  const [couponAttempted, setCouponAttempted] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [paying, setPaying] = useState(false);
-  const [errMsg, setErrMsg] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
+  // Coupon-specific messages (shown only in coupon section at top)
+  const [couponMsg, setCouponMsg] = useState({ type: "", text: "" }); // type: "success" | "error" | ""
+  // Payment-level error (shown above Pay button)
+  const [payErrMsg, setPayErrMsg] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   // discountAmount = how many rupees the coupon knocks off the Unlock Fee.
-  // 0 means no coupon (or invalid). The render reads this and only shows
-  // the "Discount" row + reduced total when > 0.
   const [discountAmount, setDiscountAmount] = useState(0);
 
   // Dynamic totals — recomputed on every render based on the applied coupon.
@@ -85,22 +89,23 @@ export default function UnlockContact() {
   // rideId from URL takes priority; fallback to localStorage breadcrumb
   // set during the login → otp → profile-setup chain.
   const urlRideId = searchParams.get("rideId") || "";
-  // On mount, sync the URL rideId into localStorage so the post-payment
-  // handler can always read it from one consistent place.
+
+  // On mount: sync rideId + pre-load Razorpay script for faster checkout.
   useEffect(() => {
     if (urlRideId) {
       try { localStorage.setItem("pendingUnlockRideId", urlRideId); } catch (e) {}
     }
+    // Pre-load Razorpay in background so Pay button is instant
+    loadRazorpay().catch(() => {});
   }, [urlRideId]);
 
   // ── Pay Now → Razorpay → /ride-detail ──────────────────────────
   const handlePay = async () => {
-    setErrMsg("");
-    setSuccessMsg("");
+    setPayErrMsg("");
 
     // Must have selected UPI or Card
     if (!selectedMethod) {
-      setErrMsg("Please select a payment method.");
+      setPayErrMsg("Please select a payment method.");
       return;
     }
 
@@ -112,19 +117,26 @@ export default function UnlockContact() {
 
     try {
       setPaying(true);
+      // Razorpay was pre-loaded on mount — this resolves instantly if already loaded
       await loadRazorpay();
 
-      // Build the order on the backend (amount + Razorpay order id)
+      // Build the order on the backend.
+      // Pass the frontend-computed total (in paise) so the backend amount
+      // matches exactly what the user sees on screen after coupon discount.
       const order = await createPlanOrder({
         plan: planKey,
         couponCode: appliedCoupon?.code || "",
         method: selectedMethod,
+        // Send the final amount in paise so backend can cross-check/use it
+        amount: total * 100,
       });
 
       const rzp = new window.Razorpay({
         key: order.key || RAZORPAY_KEY,
+        // FIXED: always use the order amount from backend (which matches our total)
+        // The backend creates the Razorpay order with the discounted total.
         amount: order.amount,
-        currency: order.currency,
+        currency: order.currency || "INR",
         order_id: order.orderId,
         name: "TravelMate",
         description: `${planKey.charAt(0).toUpperCase() + planKey.slice(1)} Plan — Unlock Contact`,
@@ -142,49 +154,38 @@ export default function UnlockContact() {
             });
 
             // Persist subscription proof so RideDetail can unlock the
-            // contact INSTANTLY without waiting for /api/plans/me to
-            // catch up. RideDetail reads this from localStorage.
+            // contact INSTANTLY without waiting for /api/plans/me to catch up.
             try {
               if (v?.subscription?.endDate) {
                 localStorage.setItem("subEndDate", v.subscription.endDate);
               }
             } catch (_e) {}
 
-            // Drop a "Payment successful" notification so the user sees
-            // it on the Notifications page later.
-            try {
-              await axios.post(`${API_BASE}/api/notifications`, {
-                userPhone: phone,
-                type: "payment",
-                title: "Payment successful",
-                body: "Your contact unlock is now active.",
-              });
-            } catch (_e) { /* non-fatal */ }
+            // Fire notification (non-blocking — don't await)
+            axios.post(`${API_BASE}/api/notifications`, {
+              userPhone: phone,
+              type: "payment",
+              title: "Payment successful",
+              body: "Your contact unlock is now active.",
+            }).catch(() => {});
 
-            setSuccessMsg("✅ Payment verified — opening ride details…");
-
-            // Navigate to the ride's detail page after short delay
-            setTimeout(() => {
-              const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
-              const rideId = urlRideId || pendingUnlockRideId || "";
-              if (pendingUnlockRideId) {
-                try { localStorage.removeItem("pendingUnlockRideId"); } catch {}
-              }
-              try { localStorage.removeItem("chosenPlan"); } catch {}
-              navigate(rideId ? `/ride-detail?rideId=${rideId}` : "/ride-detail");
-            }, 1200);
+            // Navigate immediately — no artificial delay
+            const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
+            const rideId = urlRideId || pendingUnlockRideId || "";
+            try { localStorage.removeItem("pendingUnlockRideId"); } catch {}
+            try { localStorage.removeItem("chosenPlan"); } catch {}
+            navigate(rideId ? `/ride-detail?rideId=${rideId}` : "/ride-detail");
           } catch (e) {
-            setErrMsg(
+            setPayErrMsg(
               "Verification failed: " +
                 (e?.response?.data?.message || e.message)
             );
-          } finally {
             setPaying(false);
           }
         },
         modal: {
           ondismiss: () => {
-            setErrMsg("Payment cancelled.");
+            setPayErrMsg("Payment cancelled.");
             setPaying(false);
           },
         },
@@ -192,7 +193,7 @@ export default function UnlockContact() {
       rzp.open();
     } catch (err) {
       console.error("Razorpay init failed:", err);
-      setErrMsg(
+      setPayErrMsg(
         err?.response?.data?.message ||
           err?.message ||
           "Could not start checkout. Try again."
@@ -203,10 +204,9 @@ export default function UnlockContact() {
 
   // ── Apply coupon → backend validates code + computes discount ─
   const handleApplyCoupon = async () => {
-    setErrMsg("");
-    setSuccessMsg("");
+    setCouponMsg({ type: "", text: "" });
     if (!coupon.trim()) {
-      setErrMsg("Please enter a coupon code.");
+      setCouponMsg({ type: "error", text: "Please enter a coupon code." });
       return;
     }
     setCouponChecking(true);
@@ -221,30 +221,36 @@ export default function UnlockContact() {
       if (!amt || amt <= 0) {
         setAppliedCoupon(null);
         setDiscountAmount(0);
-        setErrMsg(res?.message || "Coupon has no value for this plan.");
+        setCouponMsg({ type: "error", text: "Coupon Code is Invalid" });
+        setCouponAttempted(true); // show Clear button
         return;
       }
-      // Cap discount at the unlock fee — you can't discount more than the
-      // base amount (we don't allow a negative price).
+      // Cap discount at the unlock fee — can't discount more than the base price.
       const safeAmt = Math.min(amt, UNLOCK_FEE);
       setAppliedCoupon({ code, ...res, discountAmount: safeAmt });
       setDiscountAmount(safeAmt);
-      setSuccessMsg(`Coupon applied — you save ₹${safeAmt}.`);
+      setCouponMsg({
+        type: "success",
+        text: `Coupon Applied — Discount Amount ₹${safeAmt}`,
+      });
+      setCouponAttempted(true); // show Clear button
     } catch (e) {
       setAppliedCoupon(null);
       setDiscountAmount(0);
-      setErrMsg(e?.response?.data?.message || "Invalid coupon code.");
+      setCouponMsg({ type: "error", text: "Coupon Code is Invalid" });
+      setCouponAttempted(true); // show Clear button
     } finally {
       setCouponChecking(false);
     }
   };
 
-  const removeCoupon = () => {
+  // Clear coupon — reset everything back to initial state
+  const handleClearCoupon = () => {
     setCoupon("");
     setAppliedCoupon(null);
     setDiscountAmount(0);
-    setSuccessMsg("");
-    setErrMsg("");
+    setCouponMsg({ type: "", text: "" });
+    setCouponAttempted(false); // revert to "Apply" button
   };
 
   return (
@@ -360,8 +366,8 @@ export default function UnlockContact() {
                 placeholder="Enter code"
                 value={coupon}
                 onChange={(e) => setCoupon(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === "Enter" && !appliedCoupon && handleApplyCoupon()}
-                disabled={!!appliedCoupon}
+                onKeyDown={(e) => e.key === "Enter" && !couponAttempted && handleApplyCoupon()}
+                disabled={couponAttempted}
                 style={{
                   flex: 1,
                   border: "1px solid #e0e0e0",
@@ -371,15 +377,16 @@ export default function UnlockContact() {
                   fontSize: 11,
                   color: "#6B7280",
                   outline: "none",
-                  background: appliedCoupon ? "#f0f1f3" : "#fff",
+                  background: couponAttempted ? "#f0f1f3" : "#fff",
                   fontFamily: "inter",
                   textTransform: "uppercase",
                 }}
               />
-              {appliedCoupon ? (
+              {/* Show "Clear" after any apply attempt; "Apply" initially */}
+              {couponAttempted ? (
                 <button
                   type="button"
-                  onClick={removeCoupon}
+                  onClick={handleClearCoupon}
                   style={{
                     background: "#fff",
                     color: "#dc2626",
@@ -390,9 +397,10 @@ export default function UnlockContact() {
                     fontSize: 14,
                     cursor: "pointer",
                     fontFamily: "inherit",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  Remove
+                  Clear
                 </button>
               ) : (
                 <button
@@ -411,6 +419,7 @@ export default function UnlockContact() {
                     fontFamily: "inherit",
                     transition: "background 0.15s",
                     opacity: couponChecking ? 0.7 : 1,
+                    whiteSpace: "nowrap",
                   }}
                   onMouseEnter={(e) => {
                     if (!couponChecking) e.currentTarget.style.background = "#1a2f45";
@@ -423,6 +432,25 @@ export default function UnlockContact() {
                 </button>
               )}
             </div>
+
+            {/* Coupon messages — shown ONLY here in the coupon section */}
+            {couponMsg.text && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  fontFamily: "inter",
+                  background: couponMsg.type === "success" ? "#ecfdf5" : "#fef2f2",
+                  border: `1px solid ${couponMsg.type === "success" ? "#a7f3d0" : "#fecaca"}`,
+                  color: couponMsg.type === "success" ? "#065f46" : "#dc2626",
+                }}
+              >
+                {couponMsg.type === "success" ? "✅ " : "❌ "}{couponMsg.text}
+              </div>
+            )}
           </div>
 
           {/* Payment Summary */}
@@ -554,23 +582,17 @@ export default function UnlockContact() {
                 display: "flex",
                 alignItems: "center",
                 gap: 14,
-                border: `1.5px solid ${
-                  selectedMethod === "upi" ? "#2ecc8e" : "#eee"
-                }`,
-                borderRadius: 12,
                 padding: "13px 16px",
                 marginBottom: 10,
                 cursor: "pointer",
-                background: selectedMethod === "upi" ? "#f4fdf9" : "#fff",
-                transition: "border-color 0.15s, background 0.15s",
               }}
             >
               <div
                 style={{
                   width: 40,
                   height: 40,
-                  borderRadius: 8,
-                  background: "#f0f3ff",
+                  borderRadius: 50,
+                  background: "#EBEEF0",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -579,21 +601,21 @@ export default function UnlockContact() {
               >
                 {/* QR / UPI icon */}
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="3" width="7" height="7" rx="1.2" stroke="#5b6ef5" strokeWidth="1.6" />
-                  <rect x="5" y="5" width="3" height="3" rx="0.5" fill="#5b6ef5" />
-                  <rect x="14" y="3" width="7" height="7" rx="1.2" stroke="#5b6ef5" strokeWidth="1.6" />
-                  <rect x="16" y="5" width="3" height="3" rx="0.5" fill="#5b6ef5" />
-                  <rect x="3" y="14" width="7" height="7" rx="1.2" stroke="#5b6ef5" strokeWidth="1.6" />
-                  <rect x="5" y="16" width="3" height="3" rx="0.5" fill="#5b6ef5" />
-                  <path d="M14 14h2v2h-2zM18 14h3M14 18h2M18 18v3M21 16v2" stroke="#5b6ef5" strokeWidth="1.5" strokeLinecap="round" />
+                  <rect x="3" y="3" width="7" height="7" rx="1.2" stroke="#434652" strokeWidth="1.6" />
+                  <rect x="5" y="5" width="3" height="3" rx="0.5" fill="#434652" />
+                  <rect x="14" y="3" width="7" height="7" rx="1.2" stroke="#434652" strokeWidth="1.6" />
+                  <rect x="16" y="5" width="3" height="3" rx="0.5" fill="#434652" />
+                  <rect x="3" y="14" width="7" height="7" rx="1.2" stroke="#434652" strokeWidth="1.6" />
+                  <rect x="5" y="16" width="3" height="3" rx="0.5" fill="#434652" />
+                  <path d="M14 14h2v2h-2zM18 14h3M14 18h2M18 18v3M21 16v2" stroke="#434652" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
               </div>
 
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: "#111" }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: "#4A4A4A", fontFamily:"inter" }}>
                   UPI
                 </div>
-                <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: "#4A4A4A", marginTop: 2 , fontFamily:"inter", fontWeight:500}}> 
                   Google Pay • PhonePe • Paytm
                 </div>
               </div>
@@ -605,7 +627,7 @@ export default function UnlockContact() {
                   height: 20,
                   borderRadius: "50%",
                   border: `2px solid ${
-                    selectedMethod === "upi" ? "#2ecc8e" : "#ccc"
+                    selectedMethod === "upi" ? "#020202" : "#ccc"
                   }`,
                   display: "flex",
                   alignItems: "center",
@@ -620,7 +642,8 @@ export default function UnlockContact() {
                       width: 10,
                       height: 10,
                       borderRadius: "50%",
-                      background: "#2ecc8e",
+                      background: "#020202",
+                     
                     }}
                   />
                 )}
@@ -634,22 +657,17 @@ export default function UnlockContact() {
                 display: "flex",
                 alignItems: "center",
                 gap: 14,
-                border: `1.5px solid ${
-                  selectedMethod === "card" ? "#2ecc8e" : "#eee"
-                }`,
                 borderRadius: 12,
                 padding: "13px 16px",
                 cursor: "pointer",
-                background: selectedMethod === "card" ? "#f4fdf9" : "#fff",
-                transition: "border-color 0.15s, background 0.15s",
               }}
             >
               <div
                 style={{
                   width: 40,
                   height: 40,
-                  borderRadius: 8,
-                  background: "#f0f3ff",
+                  borderRadius: 50,
+                  background: "#EBEEF0",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -663,19 +681,19 @@ export default function UnlockContact() {
                     width="20"
                     height="14"
                     rx="2.5"
-                    stroke="#5b6ef5"
+                    stroke="#434652"
                     strokeWidth="1.7"
                   />
-                  <rect x="2" y="9" width="20" height="3" fill="#5b6ef5" />
-                  <rect x="5" y="15" width="5" height="1.5" rx="0.7" fill="#5b6ef5" />
+                  <rect x="2" y="9" width="20" height="3" fill="#434652" />
+                  <rect x="5" y="15" width="5" height="1.5" rx="0.7" fill="#434652" />
                 </svg>
               </div>
 
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: "#111" }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: "#4A4A4A", fontFamily:"inter" }}>
                   Credit / Debit Card
                 </div>
-                <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>
+                <div style={{  fontSize: 11, color: "#4A4A4A", marginTop: 2 , fontFamily:"inter", fontWeight:500 }}>
                   Visa, Mastercard, RuPay
                 </div>
               </div>
@@ -687,7 +705,7 @@ export default function UnlockContact() {
                   height: 20,
                   borderRadius: "50%",
                   border: `2px solid ${
-                    selectedMethod === "card" ? "#2ecc8e" : "#ccc"
+                    selectedMethod === "card" ? "#000000" : "#ccc"
                   }`,
                   display: "flex",
                   alignItems: "center",
@@ -702,7 +720,8 @@ export default function UnlockContact() {
                       width: 10,
                       height: 10,
                       borderRadius: "50%",
-                      background: "#2ecc8e",
+                      background:"#000000",
+                     
                     }}
                   />
                 )}
@@ -710,66 +729,48 @@ export default function UnlockContact() {
             </div>
           </div>
 
-          {/* Inline status messages above Pay so the user can see why the
-              Razorpay popup was blocked or why verification failed. */}
-          {errMsg && (
+          {/* Payment error message — shown above Pay button only */}
+          {payErrMsg && (
             <div style={{
               background: "#fef2f2", border: "1px solid #fecaca",
               color: "#dc2626", borderRadius: 10, padding: "10px 14px",
               fontSize: 13, marginBottom: 12, fontWeight: 500,
+              fontFamily: "inter",
             }}>
-              {errMsg}
-            </div>
-          )}
-          {successMsg && (
-            <div style={{
-              background: "#ecfdf5", border: "1px solid #a7f3d0",
-              color: "#065f46", borderRadius: 10, padding: "10px 14px",
-              fontSize: 13, marginBottom: 12, fontWeight: 500,
-            }}>
-              {successMsg}
+              {payErrMsg}
             </div>
           )}
 
-          {/* Pay Button — wired to Razorpay → /ride-detail */}
-          {(() => {
-            const isDisabled = paying || !selectedMethod;
-            return (
-              <button
-                type="button"
-                onClick={handlePay}
-                disabled={isDisabled}
-                style={{
-                  width: "100%",
-                  background: isDisabled ? "#e6c958" : "#f5c518",
-                  color: "#111",
-                  border: "none",
-                  borderRadius: 12,
-                  padding: "16px",
-                  fontWeight: 700,
-                  fontSize: 16,
-                  cursor: isDisabled ? "not-allowed" : "pointer",
-                  marginBottom: 14,
-                  letterSpacing: "0.1px",
-                  fontFamily: "inherit",
-                  transition: "background 0.15s",
-                  opacity: isDisabled ? 0.6 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!isDisabled) e.currentTarget.style.background = "#e6b800";
-                }}
-                onMouseLeave={(e) => {
-                  if (!isDisabled) e.currentTarget.style.background = "#f5c518";
-                }}
-              >
-                {paying
-                  ? "Processing..."
-                  : !selectedMethod
-                    ? "Select a payment method"
-                    : `Pay ₹${total} & Unlock Contact`}
-              </button>
-            );
-          })()}
+          {/* Pay Button — ALWAYS yellow regardless of payment method selection */}
+          <button
+            type="button"
+            onClick={handlePay}
+            disabled={paying}
+            style={{
+              width: "100%",
+              background: "#f5c518",
+              color: "#111",
+              border: "none",
+              borderRadius: 12,
+              padding: "16px",
+              fontWeight: 700,
+              fontSize: 16,
+              cursor: paying ? "not-allowed" : "pointer",
+              marginBottom: 14,
+              letterSpacing: "0.1px",
+              fontFamily: "inherit",
+              transition: "background 0.15s",
+              opacity: paying ? 0.8 : 1,
+            }}
+            onMouseEnter={(e) => {
+              if (!paying) e.currentTarget.style.background = "#e6b800";
+            }}
+            onMouseLeave={(e) => {
+              if (!paying) e.currentTarget.style.background = "#f5c518";
+            }}
+          >
+            {paying ? "Processing..." : `Pay ₹${total} & Unlock Contact`}
+          </button>
 
           {/* Security badges */}
           <div

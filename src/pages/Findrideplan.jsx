@@ -284,17 +284,17 @@ export default function TravelMatePlanPage() {
 
         /* ── Offer Banner ── */
         .ps-offer {
-          background: #0d1b35;
+           background: #0d1b35;
           border-radius: 14px;
           padding: 24px 36px;
           display: flex;
           align-items: center;
           gap: 28px;
           width: 100%;
-          max-width: 1300px;
+          max-width: 1150px;
           height:300px;
+          margin: 0 auto;
           box-sizing: border-box;
-          margin-top:20px;
         }
         .ps-offer-images { flex-shrink: 0; }
         .ps-offer-img-stack {
@@ -393,78 +393,330 @@ export default function TravelMatePlanPage() {
         }
 
         /* ════════════════════════════════
-           RESPONSIVE — TABLET (≤1024px)
-        ════════════════════════════════ */
-        @media (max-width: 1024px) {
-          .ps-screen { padding: 0 20px 20px; }
-          .ps-heading { font-size: 40px; line-height: 1.3; letter-spacing: -0.5px; }
-          .ps-sub { font-size: 16px; line-height: 1.7; max-width: 620px; }
-          .ps-card { width: 100%; max-width: 100%; gap: 40px; padding: 26px 28px; }
-          .ps-price { font-size: 40px; }
-          .ps-feature { font-size: 13px; }
-          .ps-btn { padding: 14px 32px; font-size: 14px; }
-          .ps-offer { padding: 28px 24px; gap: 24px; }
-          .ps-offer-content { padding-left: 0; }
-          .ps-offer-title { font-size: 30px; }
-          .ps-offer-desc { font-size: 15px; max-width: 100%; }
-        }
+RESPONSIVE — TABLET (≤1024px)
+════════════════════════════════ */
+@media (max-width: 1024px) {
 
-        /* ════════════════════════════════
-           RESPONSIVE — MOBILE (≤768px)
-        ════════════════════════════════ */
-        @media (max-width: 768px) {
-          .ps-screen { padding: 0 16px 24px; gap: 18px; }
-          .ps-header { padding: 0; margin-bottom: 10px; }
-          .ps-heading { font-size: 30px; line-height: 1.3; letter-spacing: -0.4px; margin-bottom: 12px; }
-          .ps-sub { font-size: 14px; line-height: 1.7; max-width: 100%; }
-          .ps-card {
-            width: 100%; max-width: 100%;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 18px; padding: 22px 18px;
-            border-radius: 16px;
-          }
-          .ps-card-left { width: 100%; }
-          .ps-plan-name { font-size: 18px; }
-          .ps-plan-duration { font-size: 12px; }
-          .ps-card-mid { width: 100%; }
-          .ps-price { font-size: 38px; }
-          .ps-per { font-size: 14px; padding-bottom: 4px; }
-          .ps-card-right { width: 100%; align-items: flex-start; }
-          .ps-feature { align-items: flex-start; font-size: 13px; line-height: 1.6; }
-          .ps-tick { width: 20px; height: 20px; min-width: 20px; margin-top: 2px; }
-          .ps-btn { width: 100%; margin-left: 0; text-align: center; padding: 14px 20px; font-size: 14px; border-radius: 10px; }
-          .ps-offer { flex-direction: column; align-items: center; text-align: center; padding: 24px 18px; border-radius: 18px; gap: 22px; }
-          .ps-offer-images { width: 100%; }
-          .ps-offer-img-stack { justify-content: center; }
-          .ps-offer-img.ps-main { width: 100%; height: 180px; }
-          .ps-offer-img.ps-side { width: 70px; height: 100px; }
-          .ps-offer-content { align-items: center; padding-left: 0; }
-          .ps-offer-tag { font-size: 10px; letter-spacing: 1.5px; }
-          .ps-offer-title { font-size: 24px; line-height: 1.4; }
-          .ps-offer-desc { font-size: 14px; line-height: 1.7; margin-bottom: 18px; }
-          .ps-offer-btn { width: 100%; max-width: 240px; height: 50px; font-size: 15px; }
-          .ps-dots { margin-top: 10px; }
-          .ps-dot { width: 8px; height: 8px; }
-          .ps-dot-active { width: 10px; height: 10px; }
-        }
+.plan-page{
+width:100%;
+overflow-x:hidden;
+}
 
-        /* ════════════════════════════════
-           RESPONSIVE — SMALL MOBILE (≤480px)
-        ════════════════════════════════ */
-        @media (max-width: 480px) {
-          .ps-heading { font-size: 24px; }
-          .ps-sub { font-size: 13px; }
-          .ps-card { padding: 20px 16px; gap: 16px; }
-          .ps-plan-name { font-size: 17px; }
-          .ps-price { font-size: 32px; }
-          .ps-per { font-size: 13px; }
-          .ps-feature { font-size: 12px; }
-          .ps-btn { font-size: 13px; padding: 13px 18px; }
-          .ps-offer-title { font-size: 22px; }
-          .ps-offer-desc { font-size: 13px; }
-          .ps-offer-btn { font-size: 14px; height: 48px; }
-        }
+.ps-screen {
+width: 100%;
+max-width: 100%;
+padding: 0 20px 24px;
+box-sizing: border-box;
+overflow-x: hidden;
+}
+
+.ps-heading {
+font-size: 40px;
+line-height: 1.3;
+letter-spacing: -0.5px;
+}
+
+.ps-sub {
+font-size: 16px;
+line-height: 1.7;
+max-width: 100%;
+}
+
+.ps-card {
+width: 100%;
+max-width: 100%;
+gap: 28px;
+padding: 24px;
+flex-wrap: wrap;
+}
+
+.ps-price {
+font-size: 40px;
+}
+
+.ps-feature {
+font-size: 14px;
+}
+
+.ps-btn {
+padding: 14px 28px;
+font-size: 15px;
+}
+
+.ps-offer {
+width: 100%;
+max-width: 100%;
+height: auto;
+padding: 28px 24px;
+gap: 24px;
+}
+
+.ps-offer-title {
+font-size: 30px;
+}
+
+.ps-offer-desc {
+font-size: 15px;
+max-width: 100%;
+}
+
+.ps-offer-img.ps-main {
+width: 320px;
+height: 180px;
+}
+}
+
+/* ════════════════════════════════
+RESPONSIVE — MOBILE (≤768px)
+════════════════════════════════ */
+@media (max-width: 768px) {
+
+.plan-page{
+width:100%;
+overflow-x:hidden;
+}
+
+.ps-screen {
+width: 100%;
+max-width: 100%;
+padding: 0 16px 24px;
+gap: 18px;
+overflow-x: hidden;
+}
+
+.ps-header {
+padding: 0;
+margin-bottom: 10px;
+}
+
+.ps-heading {
+font-size: 30px;
+line-height: 1.3;
+letter-spacing: -0.4px;
+margin-bottom: 12px;
+}
+
+.ps-sub {
+font-size: 14px;
+line-height: 1.7;
+max-width: 100%;
+}
+
+.ps-card {
+width: 100%;
+max-width: 100%;
+flex-direction: column;
+align-items: flex-start;
+gap: 18px;
+padding: 22px 18px;
+border-radius: 16px;
+}
+
+.ps-card-left {
+width: 100%;
+}
+
+.ps-plan-name {
+font-size: 18px;
+}
+
+.ps-plan-duration {
+font-size: 12px;
+}
+
+.ps-card-mid {
+width: 100%;
+}
+
+.ps-price {
+font-size: 36px;
+}
+
+.ps-per {
+font-size: 14px;
+padding-bottom: 4px;
+}
+
+.ps-card-right {
+width: 100%;
+align-items: flex-start;
+}
+
+.ps-feature {
+align-items: flex-start;
+font-size: 13px;
+line-height: 1.6;
+word-break: break-word;
+}
+
+.ps-tick {
+width: 20px;
+height: 20px;
+min-width: 20px;
+margin-top: 2px;
+}
+
+.ps-btn {
+width: 100%;
+margin-left: 0;
+text-align: center;
+padding: 14px 20px;
+font-size: 14px;
+border-radius: 10px;
+}
+
+.ps-offer {
+width: 100%;
+max-width: 100%;
+height: auto;
+flex-direction: column;
+align-items: center;
+text-align: center;
+padding: 24px 18px;
+border-radius: 18px;
+gap: 22px;
+}
+
+.ps-offer-images {
+width: 100%;
+}
+
+.ps-offer-img-stack {
+justify-content: center;
+width: 100%;
+}
+
+.ps-offer-img.ps-main {
+width: 100%;
+max-width: 100%;
+height: 190px;
+}
+
+.ps-offer-img.ps-main img {
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+
+.ps-offer-content {
+width: 100%;
+align-items: center;
+padding-left: 0;
+}
+
+.ps-offer-tag {
+font-size: 10px;
+letter-spacing: 1.5px;
+}
+
+.ps-offer-title {
+font-size: 24px;
+line-height: 1.4;
+}
+
+.ps-offer-desc {
+font-size: 14px;
+line-height: 1.7;
+margin-bottom: 18px;
+max-width: 100%;
+}
+
+.ps-offer-btn {
+width: 100%;
+max-width: 240px;
+height: 50px;
+font-size: 15px;
+}
+
+.ps-dots {
+margin-top: 10px;
+}
+
+.ps-dot {
+width: 8px;
+height: 8px;
+}
+
+.ps-dot-active {
+width: 10px;
+height: 10px;
+}
+}
+
+/* ════════════════════════════════
+RESPONSIVE — SMALL MOBILE (≤480px)
+════════════════════════════════ */
+@media (max-width: 480px) {
+
+.ps-screen{
+padding:0 12px 20px;
+}
+
+.ps-heading {
+font-size: 24px;
+line-height: 1.4;
+}
+
+.ps-sub {
+font-size: 13px;
+line-height: 1.7;
+}
+
+.ps-card {
+padding: 18px 14px;
+gap: 16px;
+}
+
+.ps-plan-name {
+font-size: 17px;
+}
+
+.ps-price {
+font-size: 32px;
+}
+
+.ps-per {
+font-size: 13px;
+}
+
+.ps-feature {
+font-size: 12px;
+line-height: 1.6;
+}
+
+.ps-btn {
+font-size: 13px;
+padding: 13px 18px;
+}
+
+.ps-offer {
+padding: 20px 14px;
+gap: 18px;
+}
+
+.ps-offer-img.ps-main {
+height: 170px;
+}
+
+.ps-offer-title {
+font-size: 22px;
+line-height: 1.4;
+}
+
+.ps-offer-desc {
+font-size: 13px;
+line-height: 1.7;
+}
+
+.ps-offer-btn {
+width: 100%;
+height: 48px;
+font-size: 14px;
+}
+}
+
+
+       
       `}</style>
     </div>
   );

@@ -42,6 +42,7 @@ async function publishPendingRide() {
   }
 }
 
+// Razorpay script loader — idempotent, pre-loaded on mount for speed.
 let rzpScriptPromise = null;
 const loadRazorpay = () => {
   if (rzpScriptPromise) return rzpScriptPromise;
@@ -68,19 +69,25 @@ export default function SecurePayment() {
   const [planKey]  = useState(() => localStorage.getItem("chosenPlan") || "daily");
   const [planMeta, setPlanMeta] = useState(null);
 
-  // Coupon states — mirrors PostRidePayment exactly
-  const [coupon,         setCoupon]         = useState("");
-  const [couponChecking, setCouponChecking] = useState(false); // ← ADDED: loading state for Apply btn
-  const [couponMsg,      setCouponMsg]      = useState({ text: "", type: "" }); // ← CHANGED: object {text,type}
-  const [discountAmt,    setDiscountAmt]    = useState(0);     // ← ADDED: separate discount tracking
-  const [discountedAmt,  setDiscountedAmt]  = useState(null);  // ← ADDED: plan price after discount
+  // Coupon states
+  const [coupon,          setCoupon]          = useState("");
+  const [couponChecking,  setCouponChecking]  = useState(false);
+  // couponAttempted = true after any apply attempt (success or fail)
+  // Controls whether to show "Clear" button instead of "Apply"
+  const [couponAttempted, setCouponAttempted] = useState(false);
+  // Coupon-specific messages shown ONLY inside the coupon section
+  const [couponMsg,       setCouponMsg]       = useState({ type: "", text: "" });
+  const [discountAmt,     setDiscountAmt]     = useState(0);
+  const [discountedAmt,   setDiscountedAmt]   = useState(null);
 
   // Payment
-  const [selectedMethod, setSelectedMethod] = useState(""); // no default
-  const [loading, setLoading]               = useState(false);
-  const [errMsg, setErrMsg]                 = useState("");
-  const [successMsg, setSuccessMsg]         = useState("");
+  const [selectedMethod, setSelectedMethod] = useState("");
+  const [loading,        setLoading]        = useState(false);
+  // Payment-level error shown above Pay button only
+  const [payErrMsg,      setPayErrMsg]      = useState("");
+  const [successMsg,     setSuccessMsg]     = useState("");
 
+  // Load plan details + pre-load Razorpay on mount for speed
   useEffect(() => {
     (async () => {
       try {
@@ -88,74 +95,83 @@ export default function SecurePayment() {
         const found = (r.plans || []).find((p) => p.key === planKey);
         if (found) {
           setPlanMeta(found);
-          setDiscountedAmt(found.price); // init discountedAmt to full plan price
+          setDiscountedAmt(found.price);
         }
       } catch {
-        setErrMsg("Could not load plan details");
+        setPayErrMsg("Could not load plan details");
       }
     })();
+    // Pre-load Razorpay in background so Pay button is instant
+    loadRazorpay().catch(() => {});
   }, [planKey]);
 
-  useEffect(() => { loadRazorpay().catch(() => {}); }, []);
-
-  // Pricing — mirrors PostRidePayment: total = discountedAmt (PROCESSING_FEE = 0)
+  // Pricing
   const baseFee = planMeta?.price ?? 0;
-  const total   = Math.max(0, (discountedAmt ?? baseFee));
+  const total   = Math.max(0, discountedAmt ?? baseFee);
 
-  // ── Coupon apply — mirrors PostRidePayment.validateCoupon ──
+  // ── Apply coupon ──
   const handleApplyCoupon = async () => {
+    setCouponMsg({ type: "", text: "" });
     const c = coupon.trim();
-    if (!c) { setCouponMsg({ text: "Please enter a coupon code.", type: "error" }); return; }
+    if (!c) {
+      setCouponMsg({ type: "error", text: "Please enter a coupon code." });
+      return;
+    }
     setCouponChecking(true);
-    setCouponMsg({ text: "", type: "" });
     try {
       const r = await applyCoupon({ code: c.toUpperCase(), plan: planKey });
-      if (r.isActive !== false) {
-        // Coupon valid
-        setDiscountAmt(r.discountAmount ?? r.cashback ?? 0);
-        setDiscountedAmt(Math.max(0, baseFee - (r.discountAmount ?? r.cashback ?? 0)));
+      const amt = Number(r.discountAmount ?? r.cashback ?? r.amount ?? 0);
+      if (r.isActive !== false && amt > 0) {
+        // Valid coupon
+        setDiscountAmt(amt);
+        setDiscountedAmt(Math.max(0, baseFee - amt));
         setCouponMsg({
-          text: `Coupon applied! You save ₹${r.discountAmount ?? r.cashback ?? 0}`,
           type: "success",
+          text: `Coupon Applied — Discount Amount ₹${amt}`,
         });
       } else {
         setDiscountAmt(0);
         setDiscountedAmt(baseFee);
-        setCouponMsg({ text: r.message || "Invalid coupon.", type: "error" });
+        setCouponMsg({ type: "error", text: "Coupon Code is Invalid" });
       }
+      setCouponAttempted(true); // show Clear button after any attempt
     } catch (err) {
       setDiscountAmt(0);
       setDiscountedAmt(baseFee);
-      setCouponMsg({
-        text: err?.response?.data?.message || err.message || "Could not validate. Try again.",
-        type: "error",
-      });
+      setCouponMsg({ type: "error", text: "Coupon Code is Invalid" });
+      setCouponAttempted(true); // show Clear button after any attempt
     } finally {
       setCouponChecking(false);
     }
   };
 
-  const removeCoupon = () => {
+  // Clear coupon — reset everything back to initial state
+  const handleClearCoupon = () => {
     setCoupon("");
     setDiscountAmt(0);
     setDiscountedAmt(baseFee);
-    setCouponMsg({ text: "", type: "" });
+    setCouponMsg({ type: "", text: "" });
+    setCouponAttempted(false); // revert to "Apply" button
   };
 
   // ── Pay ──
   const handlePay = async () => {
-    setErrMsg(""); setSuccessMsg("");
-    if (!planKey || !planMeta) { setErrMsg("Plan not selected"); return; }
-    if (!selectedMethod) { setErrMsg("Please select a payment method."); return; }
+    setPayErrMsg("");
+    setSuccessMsg("");
+    if (!planKey || !planMeta) { setPayErrMsg("Plan not selected"); return; }
+    if (!selectedMethod) { setPayErrMsg("Please select a payment method."); return; }
     setLoading(true);
-    let orderId = null; // track for cancel-on-dismiss
+    let orderId = null;
     try {
+      // Pass frontend-computed total (in paise) so backend amount matches screen
       const order = await createPlanOrder({
         plan:       planKey,
         couponCode: discountAmt > 0 ? coupon.trim().toUpperCase() : "",
         method:     selectedMethod,
+        amount:     total * 100,
       });
       orderId = order.orderId;
+      // Razorpay was pre-loaded on mount — resolves instantly
       await loadRazorpay();
       const phone = localStorage.getItem("phone") || "";
       const email = localStorage.getItem("email") || "";
@@ -163,7 +179,7 @@ export default function SecurePayment() {
       const rzp = new window.Razorpay({
         key:      order.key,
         amount:   order.amount,
-        currency: order.currency,
+        currency: order.currency || "INR",
         order_id: order.orderId,
         name:     "TravelMate",
         description: planMeta.name + " — " + (planMeta.feature || ""),
@@ -182,39 +198,34 @@ export default function SecurePayment() {
             });
 
             // Persist subscription proof so RideDetail can reveal the
-            // contact instantly on the next page without waiting for
-            // /api/plans/me to commit.
+            // contact instantly without waiting for /api/plans/me to commit.
             try {
               if (v?.subscription?.endDate) {
                 localStorage.setItem("subEndDate", v.subscription.endDate);
               }
             } catch (_e) {}
 
-            // Notification #1 — payment success
+            // Fire payment notification (non-blocking)
             const userPhone = localStorage.getItem("phone") || "";
-            try {
-              await axios.post(`${API_BASE}/api/notifications`, {
-                userPhone,
-                type: "payment",
-                title: "Payment successful",
-                body: `Your ${planMeta?.name || "plan"} subscription is now active.`,
-              });
-            } catch (_e) { /* non-fatal */ }
+            axios.post(`${API_BASE}/api/notifications`, {
+              userPhone,
+              type: "payment",
+              title: "Payment successful",
+              body: `Your ${planMeta?.name || "plan"} subscription is now active.`,
+            }).catch(() => {});
 
             setSuccessMsg("✅ Payment verified — publishing your ride…");
             const publishedId = await publishPendingRide();
 
-            // Notification #2 — ride published (only if there was a ride)
+            // Fire ride-published notification (non-blocking)
             if (publishedId) {
-              try {
-                await axios.post(`${API_BASE}/api/notifications`, {
-                  userPhone,
-                  type: "ride",
-                  title: "Ride published successfully",
-                  body: "Your ride is now live and visible to other travellers.",
-                  action: { to: `/ride-detail?rideId=${publishedId}` },
-                });
-              } catch (_e) { /* non-fatal */ }
+              axios.post(`${API_BASE}/api/notifications`, {
+                userPhone,
+                type: "ride",
+                title: "Ride published successfully",
+                body: "Your ride is now live and visible to other travellers.",
+                action: { to: `/ride-detail?rideId=${publishedId}` },
+              }).catch(() => {});
             }
 
             setSuccessMsg(
@@ -225,50 +236,46 @@ export default function SecurePayment() {
                     new Date(v.subscription.endDate).toLocaleDateString() + "."
             );
             localStorage.removeItem("chosenPlan");
-            setTimeout(() => {
-              const pendingPostRide     = localStorage.getItem("pendingPostRide");
-              const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
-              const lastPostedRideId    = localStorage.getItem("lastPostedRideId");
-              const rideId = publishedId || pendingUnlockRideId || lastPostedRideId || "";
-              if (pendingUnlockRideId) localStorage.removeItem("pendingUnlockRideId");
-              if (pendingPostRide)     localStorage.removeItem("pendingPostRide");
-              // After posting a ride → always go to RideLive so user
-              // can see their published ride details and use "View Ride"
-              if (pendingPostRide) {
-                if (rideId) navigate("/ride-live?rideId=" + rideId);
-                else        navigate("/ride-live");
-              } else if (rideId) {
-                navigate("/ride-detail?rideId=" + rideId);
-              } else {
-                navigate("/ride-live");
-              }
-            }, 1500);
+
+            // Navigate — no artificial delay
+            const pendingPostRide     = localStorage.getItem("pendingPostRide");
+            const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
+            const lastPostedRideId    = localStorage.getItem("lastPostedRideId");
+            const rideId = publishedId || pendingUnlockRideId || lastPostedRideId || "";
+            if (pendingUnlockRideId) localStorage.removeItem("pendingUnlockRideId");
+            if (pendingPostRide)     localStorage.removeItem("pendingPostRide");
+            if (pendingPostRide) {
+              navigate(rideId ? "/ride-live?rideId=" + rideId : "/ride-live");
+            } else if (rideId) {
+              navigate("/ride-detail?rideId=" + rideId);
+            } else {
+              navigate("/ride-live");
+            }
           } catch (e) {
-            setErrMsg("Verification failed: " + (e?.response?.data?.message || e.message));
+            setPayErrMsg("Verification failed: " + (e?.response?.data?.message || e.message));
             setLoading(false);
           }
         },
 
         modal: {
-          // ← ADDED: cancel order server-side when modal is dismissed (mirrors PostRidePayment)
           ondismiss: async () => {
             if (orderId) {
-              await axios.post(`${API_BASE}/api/payment/cancel-order`, { orderId }).catch(() => {});
+              axios.post(`${API_BASE}/api/payment/cancel-order`, { orderId }).catch(() => {});
             }
-            setErrMsg("Payment cancelled.");
+            setPayErrMsg("Payment cancelled.");
             setLoading(false);
           },
         },
       });
 
       rzp.on("payment.failed", (resp) => {
-        setErrMsg("Payment failed: " + (resp.error?.description || "Try again"));
+        setPayErrMsg("Payment failed: " + (resp.error?.description || "Try again"));
         setLoading(false);
       });
 
       rzp.open();
     } catch (err) {
-      setErrMsg(err?.response?.data?.message || err.message || "Could not start payment");
+      setPayErrMsg(err?.response?.data?.message || err.message || "Could not start payment");
       setLoading(false);
     }
   };
@@ -288,90 +295,116 @@ export default function SecurePayment() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "36px 16px",
-        
+        padding: "32px 16px",
       }}>
-        {/* Card — no shadow */}
         <div style={{
           width: "100%",
           maxWidth: 500,
-          borderRadius: 16,
+          borderRadius: 20,
           overflow: "hidden",
-          background: "#ffffff",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+          background: "#fff",
         }}>
 
-          {/* Dark Header */}
+          {/* ── Dark Header — matches UnlockContact exactly ── */}
           <div style={{
-            background: "#080838",
-            padding: "24px 28px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            height:115,
+            background: "linear-gradient(135deg, #0d1b2a 0%, #161f35 100%)",
+            padding: "30px 28px 26px",
+            textAlign: "center",
           }}>
-            
-            <h2 style={{
-              color: "#ffffff", fontSize: 20, fontWeight: 500,
-              margin: 0, letterSpacing: "0.1px",fontFamily:"inter",
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+              marginBottom: 8,
             }}>
-              Secure payment
-            </h2>
+              {/* Lock icon */}
+              {/* <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <rect x="4" y="10" width="16" height="12" rx="2.5" stroke="#fff" strokeWidth="1.8" />
+                <path d="M8 10V7a4 4 0 018 0v3" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+                <circle cx="12" cy="16" r="1.5" fill="#fff" />
+              </svg> */}
+              <h2 style={{
+                color: "#fff",
+                fontSize: 24,
+                fontWeight: 600,
+                margin: 0,
+                letterSpacing: "-0.3px",
+              }}>
+                Secure Payment
+              </h2>
+            </div>
+            {/* <p style={{ color: "#FFFFFF", fontSize: 13, margin: 0, fontWeight: 400, fontFamily: "inter" }}>
+              Secure payment to access driver contact details
+            </p> */}
           </div>
 
-          {/* Body */}
-          <div style={{ padding: "24px 28px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* ── Body ── */}
+          <div style={{ padding: "24px 24px 28px" }}>
 
-            {/* ── Coupon — dashed border container matching Image 2 ── */}
+            {/* Coupon Code */}
             <div style={{
-              border: "1.5px dashed #d0d7e2",
+              background: "#f9fafc",
+              border: "1px solid #e8eaf0",
               borderRadius: 12,
-              padding: "14px 16px",
-              background: "#fafbfc",
+              padding: "16px 16px 14px",
+              marginBottom: 22,
             }}>
-              {/* Label inside container */}
-              <div style={{
-                fontSize: 12.5,
-                fontWeight: 500,
+              <label style={{
+                fontSize: 11,
                 color: "#131313",
+                fontWeight: 500,
+                display: "block",
                 marginBottom: 10,
-                fontFamily:"inter",
               }}>
                 Enter coupon code
-              </div>
-
-              {/* Input + Button row */}
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
                 <input
                   type="text"
                   placeholder="Enter code"
                   value={coupon}
                   onChange={(e) => setCoupon(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
-                  disabled={discountAmt > 0}
+                  onKeyDown={(e) => e.key === "Enter" && !couponAttempted && handleApplyCoupon()}
+                  disabled={couponAttempted}
                   style={{
                     flex: 1,
-                    border: "1.5px solid #e5e7eb",
+                    border: "1px solid #e0e0e0",
                     borderRadius: 8,
                     padding: "10px 14px",
+                    fontWeight: 400,
                     fontSize: 11,
-                    fontWeight:400,
                     color: "#6B7280",
                     outline: "none",
+                    background: couponAttempted ? "#f0f1f3" : "#fff",
                     fontFamily: "inter",
-                    background: discountAmt > 0 ? "#f0f1f3" : "#ffffff",
                     textTransform: "uppercase",
                   }}
                 />
-                {discountAmt > 0 ? (
-                  <button onClick={removeCoupon} style={{
-                    background: "#fff", color: "#dc2626",
-                    border: "1px solid #dc2626", borderRadius: 8,
-                    padding: "10px 18px", fontWeight: 600, fontSize: 13,
-                    cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit",
-                  }}>Remove</button>
+                {/* Show "Clear" after any apply attempt; "Apply" initially */}
+                {couponAttempted ? (
+                  <button
+                    type="button"
+                    onClick={handleClearCoupon}
+                    style={{
+                      background: "#fff",
+                      color: "#dc2626",
+                      border: "1.5px solid #dc2626",
+                      borderRadius: 8,
+                      padding: "10px 18px",
+                      fontWeight: 600,
+                      fontSize: 14,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Clear
+                  </button>
                 ) : (
                   <button
+                    type="button"
                     onClick={handleApplyCoupon}
                     disabled={couponChecking}
                     style={{
@@ -379,13 +412,20 @@ export default function SecurePayment() {
                       color: "#fff",
                       border: "none",
                       borderRadius: 8,
-                      padding: "10px 22px",
+                      padding: "10px 20px",
                       fontWeight: 600,
-                      fontSize: 13,
+                      fontSize: 14,
                       cursor: couponChecking ? "not-allowed" : "pointer",
-                      whiteSpace: "nowrap",
                       fontFamily: "inherit",
+                      transition: "background 0.15s",
                       opacity: couponChecking ? 0.7 : 1,
+                      whiteSpace: "nowrap",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!couponChecking) e.currentTarget.style.background = "#1a2f45";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!couponChecking) e.currentTarget.style.background = "#0d1b2a";
                     }}
                   >
                     {couponChecking ? "..." : "Apply"}
@@ -393,125 +433,225 @@ export default function SecurePayment() {
                 )}
               </div>
 
-              {/* Coupon message */}
+              {/* Coupon messages — shown ONLY here in the coupon section */}
               {couponMsg.text && (
                 <div style={{
+                  marginTop: 10,
+                  padding: "8px 12px",
+                  borderRadius: 8,
                   fontSize: 12,
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  marginTop: 8,
-                  wordBreak: "break-word",
+                  fontWeight: 500,
+                  fontFamily: "inter",
                   background: couponMsg.type === "success" ? "#ecfdf5" : "#fef2f2",
-                  color:      couponMsg.type === "success" ? "#059669"  : "#dc2626",
+                  border: `1px solid ${couponMsg.type === "success" ? "#a7f3d0" : "#fecaca"}`,
+                  color: couponMsg.type === "success" ? "#065f46" : "#dc2626",
                 }}>
-                  {couponMsg.text}
+                  {couponMsg.type === "success" ? "✅ " : "❌ "}{couponMsg.text}
                 </div>
               )}
             </div>
 
-            {/* Thin divider */}
-            <hr style={{ border: "none", borderTop: "1px solid #f0f2f5", margin: 0 }} />
-
-            {/* ── Payment Summary ── */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontWeight: 600, fontSize: 16, color: "#131313" , fontFamily:"inter",}}>
+            {/* Payment Summary */}
+            <div style={{ marginBottom: 22 }}>
+              <div style={{
+                fontWeight: 600,
+                fontSize: 16,
+                color: "#131313",
+                marginBottom: 14,
+                fontFamily: "inter",
+              }}>
                 Payment Summary
               </div>
 
-              {/* Plan fee — strikethrough when discount applied ← ADDED */}
-              <SummaryRow
-                label={planMeta?.name || "Unlock Fee" }
-                value={"₹" + baseFee}
-                strikeValue={discountAmt > 0} // strike the original price
-              />
-
-              {/* Discount row — only when coupon applied ← ADDED */}
-              {discountAmt > 0 && (
-                <SummaryRow
-                  label="Discount"
-                  value={"− ₹" + discountAmt}
-                  valueColor="#059669"
-                />
-              )}
-
-              {/* Processing Fee — ₹0, shown for transparency */}
-              <SummaryRow label="Processing Fee" value={"₹" + PROCESSING_FEE} />
-
-              {/* Dashed line above Total */}
-              <div style={{ borderTop: "1.5px dashed #d0d7e2", marginTop: 2 }} />
-
-              {/* Total */}
+              {/* Plan fee — struck through when discount applied */}
               <div style={{
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                padding: "4px 0",
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: 14,
+                color: "#555",
+                marginBottom: 10,
+                fontFamily: "inter",
               }}>
-                <span style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>Total</span>
-                <span style={{ fontWeight: 700, fontSize: 16, color: "#16a34a" }}>
-                  ₹{total}
+                <span>{planMeta?.name || "Plan Fee"}</span>
+                <span style={{
+                  fontWeight: 500,
+                  color: discountAmt > 0 ? "#9ca3af" : "#4A4A4A",
+                  textDecoration: discountAmt > 0 ? "line-through" : "none",
+                  fontFamily: "inter",
+                  fontSize: 13,
+                }}>
+                  ₹{baseFee}
                 </span>
               </div>
 
-              {/* Dashed line below Total */}
-              <div style={{ borderTop: "1.5px dashed #d0d7e2" }} />
+              {/* Discount row — only when coupon applied */}
+              {discountAmt > 0 && (
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: 14,
+                  color: "#059669",
+                  marginBottom: 10,
+                  fontFamily: "inter",
+                }}>
+                  <span>Discount{coupon ? ` (${coupon.trim().toUpperCase()})` : ""}</span>
+                  <span style={{ fontWeight: 600, color: "#059669", fontFamily: "inter", fontSize: 13 }}>
+                    − ₹{discountAmt}
+                  </span>
+                </div>
+              )}
+
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: 14,
+                color: "#555",
+                paddingBottom: 14,
+                borderBottom: "1px solid #f0f0f0",
+                marginBottom: 14,
+              }}>
+                <span>Processing Fee</span>
+                <span style={{ fontWeight: 500, color: "#4A4A4A", fontFamily: "inter", fontSize: 13 }}>
+                  ₹{PROCESSING_FEE}
+                </span>
+              </div>
+
+              {/* Total — dynamic */}
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}>
+                <span style={{ fontWeight: 600, fontSize: 15, color: "#131313", fontFamily: "inter" }}>
+                  Total
+                </span>
+                <span style={{
+                  fontWeight: 800,
+                  fontSize: 24,
+                  color: "#2ecc8e",
+                  letterSpacing: "-0.5px",
+                }}>
+                  ₹{total}
+                </span>
+              </div>
             </div>
 
-            {/* ── Select Payment Method ── */}
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 16, color: "#131313", marginBottom: 12 }}>
+            {/* Divider */}
+            <hr style={{ border: "none", borderTop: "1px solid #f0f0f0", margin: "0 0 20px" }} />
+
+            {/* Select Payment Method */}
+            <div style={{ marginBottom: 22 }}>
+              <div style={{
+                fontWeight: 600,
+                fontSize: 16,
+                color: "#131313",
+                marginBottom: 14,
+                fontFamily: "inter",
+              }}>
                 Select Payment Method
               </div>
 
               {/* UPI */}
-              <PayMethod
-                active={selectedMethod === "upi"}
+              <div
                 onClick={() => setSelectedMethod(selectedMethod === "upi" ? "" : "upi")}
-                icon={
-                  /* QR/UPI icon — grey circle bg, dark navy QR svg */
-                  <svg viewBox="0 0 40 40" width="40" height="40" fill="none">
-                    <rect width="40" height="40" rx="20" fill="#f3f4f6"/>
-                    {/* QR code simplified icon */}
-                    <rect x="10" y="10" width="8" height="8" rx="1" stroke="#1e2d4a" strokeWidth="1.5" fill="none"/>
-                    <rect x="12" y="12" width="4" height="4" rx="0.5" fill="#1e2d4a"/>
-                    <rect x="22" y="10" width="8" height="8" rx="1" stroke="#1e2d4a" strokeWidth="1.5" fill="none"/>
-                    <rect x="24" y="12" width="4" height="4" rx="0.5" fill="#1e2d4a"/>
-                    <rect x="10" y="22" width="8" height="8" rx="1" stroke="#1e2d4a" strokeWidth="1.5" fill="none"/>
-                    <rect x="12" y="24" width="4" height="4" rx="0.5" fill="#1e2d4a"/>
-                    <rect x="22" y="22" width="2" height="2" fill="#1e2d4a"/>
-                    <rect x="26" y="22" width="2" height="2" fill="#1e2d4a"/>
-                    <rect x="22" y="26" width="2" height="2" fill="#1e2d4a"/>
-                    <rect x="26" y="26" width="4" height="4" rx="0.5" fill="#1e2d4a"/>
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "13px 16px",
+                  marginBottom: 10,
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{
+                  width: 40, height: 40, borderRadius: 50,
+                  background: "#EBEEF0",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="3" width="7" height="7" rx="1.2" stroke="#434652" strokeWidth="1.6" />
+                    <rect x="5" y="5" width="3" height="3" rx="0.5" fill="#434652" />
+                    <rect x="14" y="3" width="7" height="7" rx="1.2" stroke="#434652" strokeWidth="1.6" />
+                    <rect x="16" y="5" width="3" height="3" rx="0.5" fill="#434652" />
+                    <rect x="3" y="14" width="7" height="7" rx="1.2" stroke="#434652" strokeWidth="1.6" />
+                    <rect x="5" y="16" width="3" height="3" rx="0.5" fill="#434652" />
+                    <path d="M14 14h2v2h-2zM18 14h3M14 18h2M18 18v3M21 16v2" stroke="#434652" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
-                }
-                title="UPI"
-                sub="Google Pay • PhonePe • Paytm"
-              />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: "#4A4A4A", fontFamily: "inter" }}>
+                    UPI
+                  </div>
+                  <div style={{ fontSize: 11, color: "#4A4A4A", marginTop: 2, fontFamily: "inter", fontWeight: 500 }}>
+                    Google Pay • PhonePe • Paytm
+                  </div>
+                </div>
+                {/* Radio */}
+                <div style={{
+                  width: 20, height: 20, borderRadius: "50%",
+                  border: `2px solid ${selectedMethod === "upi" ? "#020202" : "#ccc"}`,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                  transition: "border-color 0.15s",
+                }}>
+                  {selectedMethod === "upi" && (
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#020202" }} />
+                  )}
+                </div>
+              </div>
 
               {/* Credit / Debit Card */}
-              <PayMethod
-                active={selectedMethod === "card"}
+              <div
                 onClick={() => setSelectedMethod(selectedMethod === "card" ? "" : "card")}
-                icon={
-                  /* Card icon — grey circle bg, dark navy card svg */
-                  <svg viewBox="0 0 40 40" width="40" height="40" fill="none">
-                    <rect width="40" height="40" rx="20" fill="#f3f4f6"/>
-                    <rect x="9" y="14" width="22" height="14" rx="2.5" stroke="#1e2d4a" strokeWidth="1.5" fill="none"/>
-                    <rect x="9" y="18" width="22" height="3" fill="#1e2d4a"/>
-                    <rect x="11" y="24" width="6" height="2" rx="0.8" fill="#1e2d4a"/>
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  borderRadius: 12,
+                  padding: "13px 16px",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{
+                  width: 40, height: 40, borderRadius: 50,
+                  background: "#EBEEF0",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <rect x="2" y="5" width="20" height="14" rx="2.5" stroke="#434652" strokeWidth="1.7" />
+                    <rect x="2" y="9" width="20" height="3" fill="#434652" />
+                    <rect x="5" y="15" width="5" height="1.5" rx="0.7" fill="#434652" />
                   </svg>
-                }
-                title="Credit / Debit Card"
-                sub="Visa, Mastercard, RuPay"
-              />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: "#4A4A4A", fontFamily: "inter" }}>
+                    Credit / Debit Card
+                  </div>
+                  <div style={{ fontSize: 11, color: "#4A4A4A", marginTop: 2, fontFamily: "inter", fontWeight: 500 }}>
+                    Visa, Mastercard, RuPay
+                  </div>
+                </div>
+                {/* Radio */}
+                <div style={{
+                  width: 20, height: 20, borderRadius: "50%",
+                  border: `2px solid ${selectedMethod === "card" ? "#000000" : "#ccc"}`,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                  transition: "border-color 0.15s",
+                }}>
+                  {selectedMethod === "card" && (
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#000000" }} />
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Error banner */}
-            {errMsg && (
+            {/* Payment error message — shown above Pay button only */}
+            {payErrMsg && (
               <div style={{
                 background: "#fef2f2", border: "1px solid #fecaca",
-                color: "#b91c1c", padding: "8px 12px", borderRadius: 6,
-                fontSize: 12, fontWeight: 500,
+                color: "#dc2626", borderRadius: 10, padding: "10px 14px",
+                fontSize: 13, marginBottom: 12, fontWeight: 500, fontFamily: "inter",
               }}>
-                {errMsg}
+                {payErrMsg}
               </div>
             )}
 
@@ -519,58 +659,66 @@ export default function SecurePayment() {
             {successMsg && (
               <div style={{
                 background: "#ecfdf5", border: "1px solid #a7f3d0",
-                color: "#065f46", padding: "8px 12px", borderRadius: 6,
-                fontSize: 12, fontWeight: 600,
+                color: "#065f46", borderRadius: 10, padding: "10px 14px",
+                fontSize: 13, marginBottom: 12, fontWeight: 500, fontFamily: "inter",
               }}>
                 {successMsg}
               </div>
             )}
 
-            {/* CTA Button — disabled until method is selected */}
-            {(() => {
-              const isDisabled = loading || !planMeta || !selectedMethod;
-              return (
-                <button
-                  onClick={handlePay}
-                  disabled={isDisabled}
-                  style={{
-                    width: "100%",
-                    background: "#E8CA2C",
-                    color: "#1a1a1a",
-                    border: "none",
-                    borderRadius: 10,
-                    padding: "15px 0",
-                    fontWeight: 700,
-                    fontSize: 15,
-                    cursor: isDisabled ? "not-allowed" : "pointer",
-                    letterSpacing: "0.2px",
-                    fontFamily: "inherit",
-                    transition: "background 0.2s, opacity 0.2s",
-                    opacity: isDisabled ? 0.5 : 1,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isDisabled) e.currentTarget.style.background = "#ca8a04";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isDisabled) e.currentTarget.style.background = "#eab308";
-                  }}
-                >
-                  {loading
-                    ? "Processing..."
-                    : !selectedMethod
-                      ? "Select a payment method"
-                      : `Pay ₹${total} & Unlock Contact`}
-                </button>
-              );
-            })()}
+            {/* Pay Button — ALWAYS yellow regardless of payment method selection */}
+            <button
+              type="button"
+              onClick={handlePay}
+              disabled={loading}
+              style={{
+                width: "100%",
+                background: "#f5c518",
+                color: "#111",
+                border: "none",
+                borderRadius: 12,
+                padding: "16px",
+                fontWeight: 700,
+                fontSize: 16,
+                cursor: loading ? "not-allowed" : "pointer",
+                marginBottom: 14,
+                letterSpacing: "0.1px",
+                fontFamily: "inherit",
+                transition: "background 0.15s",
+                opacity: loading ? 0.8 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) e.currentTarget.style.background = "#e6b800";
+              }}
+              onMouseLeave={(e) => {
+                if (!loading) e.currentTarget.style.background = "#f5c518";
+              }}
+            >
+              {loading ? "Processing..." : `Pay ₹${total} & Unlock Contact`}
+            </button>
 
-            {/* Trust badges */}
+            {/* Security badges */}
             <div style={{
               display: "flex", justifyContent: "center",
-              gap: 20, fontSize: 11.5, color: "#9ca3af",
+              alignItems: "center", gap: 20,
             }}>
-              <span>🔒 Secure Payment</span>
-              <span>🔑 Encrypted</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#999" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 2L4 6v6c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V6L12 2z"
+                    stroke="#aaa" strokeWidth="1.7" fill="none"
+                  />
+                  <path d="M9 12l2 2 4-4" stroke="#aaa" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Secure Payment
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#999" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <rect x="5" y="11" width="14" height="10" rx="2" stroke="#aaa" strokeWidth="1.7" />
+                  <path d="M8 11V7a4 4 0 018 0v4" stroke="#aaa" strokeWidth="1.7" strokeLinecap="round" fill="none" />
+                </svg>
+                Encrypted
+              </span>
             </div>
 
           </div>
@@ -578,82 +726,6 @@ export default function SecurePayment() {
       </div>
 
       <Footer />
-    </div>
-  );
-}
-
-// ── Payment method row ──
-function PayMethod({ active, onClick, icon, title, sub }) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        padding: "14px 4px",
-        border: "none",          /* NO border — matches Image 1 exactly */
-        borderRadius: 0,
-        cursor: "pointer",
-        marginBottom: 6,
-        background: "transparent",
-        transition: "opacity 0.15s",
-      }}
-    >
-      {/* Icon — already has grey circle baked into SVG */}
-      <div style={{
-        width: 40, height: 40,
-        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-      }}>
-        {icon}
-      </div>
-
-      {/* Labels */}
-      <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>{title}</div>
-        <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{sub}</div>
-      </div>
-
-      {/* Radio — large dark navy ring, filled dot when active */}
-<div style={{
-        width: 22,
-        height: 22,
-        borderRadius: "50%",
-        flexShrink: 0,
-        border: "2.5px solid " + (active ? "#0d1b2a" : "#0d1b2a"),
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        transition: "all 0.2s",
-      }}>
-        {active && (
-          <div style={{
-            width: 11,
-            height: 11,
-            borderRadius: "50%",
-            background: "#0d1b2a",
-          }} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Summary row ──
-function SummaryRow({ label, value, valueColor = "#6b7280", strikeValue = false }) {
-  return (
-    <div style={{
-      display: "flex", justifyContent: "space-between", alignItems: "center",
-      fontSize: 13, color: "#6b7280",
-    }}>
-      <span>{label}</span>
-      <span style={{
-        fontWeight: 500,
-        color: strikeValue ? "#9ca3af" : valueColor,
-        textDecoration: strikeValue ? "line-through" : "none",
-      }}>
-        {value}
-      </span>
     </div>
   );
 }

@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Environment files - keep secrets out of Git.
+# Commit .env.example only; supply real values via Vercel dashboard
+# (Settings -> Environment Variables) and a local .env on the dev box.
+.env
+.env.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

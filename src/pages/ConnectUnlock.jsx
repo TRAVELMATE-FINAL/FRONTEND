@@ -493,5 +493,4 @@ export default function ConnectUnlock() {
   );
 }
 
-  );
-}
+
