@@ -6,6 +6,7 @@ import LocationSearch from "../components/LocationSearch/LocationSearch";
 import Spinner from "../components/Spinner/Spinner.jsx";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
+import FloatingIconsBg from "../components/FloatingIconsBg/FloatingIconsBg.jsx";
 import { formatTime12h } from "../utils/time.js";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
@@ -783,24 +784,42 @@ export default function TravelMate() {
       {/* Shared Header — same navbar across the whole app */}
       <Header />
 
-      {/* ── Search Bar ── */}
-      {/* Override LocationSearch's chunky default styling so From/To match Date + Find Ride */}
-      <style>{`
-        .ff-search-bar .locsearch__input {
-          border: none !important;
-          padding: 0 !important;
-          background: transparent !important;
-          font-size: 14px !important;
-          color: #333 !important;
-          height: auto !important;
-        }
-        .ff-search-bar .locsearch__input:focus {
-          box-shadow: none !important;
-        }
-      `}</style>
-      <form className="ff-search-bar" onSubmit={handleSearch} style={{ padding: "28px 48px 0", display: "flex", justifyContent: "center" }}>
+      {/* ── Hero strip ──
+          Dark navy section behind the search bar with the same
+          floating pink icons as the FindRide hero. Position:relative
+          + overflow:hidden are required so the FloatingIconsBg layer
+          can clip its icons to this section. */}
+      <section
+        className="ff-hero"
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          background: "linear-gradient(180deg, #0d1b3a 0%, #142048 100%)",
+          padding: "40px 48px 56px",
+        }}
+      >
+        <FloatingIconsBg />
+
+        {/* ── Search Bar ── */}
+        {/* Override LocationSearch's chunky default styling so From/To match Date + Find Ride */}
+        <style>{`
+          .ff-search-bar .locsearch__input {
+            border: none !important;
+            padding: 0 !important;
+            background: transparent !important;
+            font-size: 14px !important;
+            color: #333 !important;
+            height: auto !important;
+          }
+          .ff-search-bar .locsearch__input:focus {
+            box-shadow: none !important;
+          }
+          /* keep the search bar above the floating icons */
+          .ff-hero .ff-search-bar { position: relative; z-index: 2; }
+        `}</style>
+        <form className="ff-search-bar" onSubmit={handleSearch} style={{ display: "flex", justifyContent: "center" }}>
         <div style={{
-          background: "#dde1e9",
+          background: "#ffffff",
           borderRadius: "22px",
           padding: "18px 18px",
           display: "flex",
@@ -808,7 +827,7 @@ export default function TravelMate() {
           gap: "14px",
           width: "100%",
           maxWidth: "1180px",
-          boxShadow: "0 6px 22px rgba(15, 15, 46, 0.06)",
+          boxShadow: "0 12px 36px rgba(0, 0, 0, 0.18)",
         }}>
           {/* From — Tamil Nadu district autocomplete */}
           <div style={{
@@ -930,6 +949,7 @@ export default function TravelMate() {
           </button>
         </div>
       </form>
+      </section>
 
       {/* Active filter chip — shows whatever combination is active
           (From-only, To-only, Date-only, or any mix) */}
