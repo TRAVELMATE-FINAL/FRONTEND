@@ -1,16 +1,102 @@
-import { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LocationSearch from '../LocationSearch/LocationSearch';
-import heroBg from '../../assets/hero-bg.png';
 import './Hero.css';
 
-/**
- * The hero background image is locked to the hero's exact pixel
- * dimensions using a ResizeObserver in JS. CSS alone (background-size,
- * object-fit, etc) was getting overridden by upstream rules; setting
- * the <img>'s width/height inline in pixels overrides everything and
- * is impossible for any CSS to defeat.
- */
+/* ─────────────────────────────────────────────────────────────────
+   Decorative pink icons scattered across the hero — positions
+   match the Figma reference. Each entry's `x` / `y` is the resting
+   offset (in px) from the hero's centre. On mount they explode
+   outward from dead-centre to their resting spot with a staggered
+   cubic-bezier easing. Offsets scale down on smaller viewports via
+   the --spread variable in Hero.css.
+   ───────────────────────────────────────────────────────────────── */
+const FLOATING_ICONS = [
+  // ─── LEFT cluster ──────────────────────────────
+  { type: 'bike',   x: -620, y: -200, size: 50, delay: 0.06 },  // upper-left bike
+  { type: 'pop',    x: -700, y:  100, size: 52, delay: 0.10 },  // mid-left popper
+  { type: 'car',    x: -500, y:  -40, size: 42, delay: 0.14 },  // left car
+  { type: 'heart',  x: -540, y:  220, size: 44, delay: 0.18 },  // lower-left heart-C
+  { type: 'people', x: -340, y:  120, size: 40, delay: 0.22 },  // centre-left people
+  // ─── RIGHT cluster ─────────────────────────────
+  { type: 'pop',    x:  680, y: -200, size: 52, delay: 0.08 },  // upper-right popper
+  { type: 'heart',  x:  540, y: -100, size: 44, delay: 0.12 },  // right heart-C
+  { type: 'bike',   x:  300, y:   40, size: 50, delay: 0.16 },  // centre-right bike
+  { type: 'car',    x:  430, y:  150, size: 42, delay: 0.20 },  // mid-right car
+  { type: 'people', x:  560, y:  240, size: 40, delay: 0.24 },  // lower-right people
+];
+
+/* Inline SVG icons — pink/magenta to match Figma. The colours and
+   stroke widths are tuned to look like the floating decorations in
+   the Figma file. */
+function FloatIcon({ type, size }) {
+  const fill   = '#e879c4';
+  const stroke = '#ec4899';
+  switch (type) {
+    case 'bike':
+      return (
+        <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true">
+          <g stroke={stroke} strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="22" cy="9" r="2.6" fill={fill} />
+            <path d="M19 12 L20 19 L26 17 L28 23" />
+            <path d="M22 12 L28 10" />
+            <path d="M9 28 L 16 24 L 22 28 L 29 24" />
+            <circle cx="9"  cy="29" r="4.4" />
+            <circle cx="29" cy="29" r="4.4" />
+          </g>
+        </svg>
+      );
+    case 'car':
+      return (
+        <svg viewBox="0 0 40 32" width={size} height={size * 0.8} aria-hidden="true">
+          <g stroke={stroke} strokeWidth="2.2" fill="none" strokeLinejoin="round" strokeLinecap="round">
+            <path d="M4 22 L 6 14 Q 8 11 12 11 L 28 11 Q 32 11 34 14 L 36 22 L 36 25 L 4 25 Z" />
+            <line x1="10" y1="14" x2="30" y2="14" />
+            <circle cx="12" cy="26" r="2.8" fill={fill} />
+            <circle cx="28" cy="26" r="2.8" fill={fill} />
+          </g>
+        </svg>
+      );
+    case 'people':
+      return (
+        <svg viewBox="0 0 36 36" width={size} height={size} aria-hidden="true">
+          <g stroke={stroke} strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="11" r="3.6" fill={fill} />
+            <circle cx="24" cy="11" r="3.6" fill={fill} />
+            <path d="M5 30 Q 5 19 12 19 Q 18 19 18 30" />
+            <path d="M18 30 Q 18 19 24 19 Q 31 19 31 30" />
+          </g>
+        </svg>
+      );
+    case 'pop':
+      return (
+        <svg viewBox="0 0 36 36" width={size} height={size} aria-hidden="true">
+          <g fill={fill} stroke={stroke} strokeWidth="1.8" strokeLinecap="round">
+            <path d="M3 32 L 13 23 L 17 27 Z" />
+            <path d="M13 23 L 22 13" stroke={stroke} strokeWidth="2.2" fill="none" />
+            <circle cx="24" cy="8"  r="1.8" />
+            <circle cx="30" cy="12" r="1.5" />
+            <circle cx="20" cy="4"  r="1.4" />
+            <circle cx="32" cy="20" r="1.6" />
+            <path d="M27 16 L 29 14" stroke={stroke} strokeWidth="2.2" fill="none" />
+            <path d="M25 22 L 27 20" stroke={stroke} strokeWidth="2.2" fill="none" />
+          </g>
+        </svg>
+      );
+    case 'heart':
+      return (
+        <svg viewBox="0 0 36 36" width={size} height={size} aria-hidden="true">
+          <g stroke={stroke} strokeWidth="2.6" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M28 7 Q 12 7 12 18 Q 12 30 28 30" />
+            <path d="M18 17 Q 17 14.6 14.5 14.6 Q 12 14.6 12 17.4 Q 12 20.5 18 23.5 Q 24 20.5 24 17.4 Q 24 14.6 21.5 14.6 Q 19 14.6 18 17 Z" fill={fill} />
+          </g>
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 function Hero({ mode: modeProp, onModeChange }) {
   // Controlled mode if parent provides one, else manage internally
   const [internalMode, setInternalMode] = useState('find');
@@ -26,40 +112,6 @@ function Hero({ mode: modeProp, onModeChange }) {
   const [date, setDate] = useState('');
 
   const navigate = useNavigate();
-
-  // Refs for the hero <section> and its background <img>. We pin the
-  // image's pixel width and height to match the hero exactly using
-  // ResizeObserver — much more reliable than CSS background-size.
-  const heroRef = useRef(null);
-  const bgImgRef = useRef(null);
-
-  useLayoutEffect(() => {
-    const heroEl = heroRef.current;
-    const imgEl  = bgImgRef.current;
-    if (!heroEl || !imgEl) return;
-
-    const sync = () => {
-      const r = heroEl.getBoundingClientRect();
-      imgEl.style.width  = `${Math.ceil(r.width)}px`;
-      imgEl.style.height = `${Math.ceil(r.height)}px`;
-    };
-
-    // Initial sync + sync on every size change of the hero
-    sync();
-    const ro = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(sync)
-      : null;
-    if (ro) ro.observe(heroEl);
-    window.addEventListener('resize', sync);
-    // Re-sync once the image loads in case its load delays painting
-    imgEl.addEventListener('load', sync);
-
-    return () => {
-      if (ro) ro.disconnect();
-      window.removeEventListener('resize', sync);
-      imgEl.removeEventListener('load', sync);
-    };
-  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -90,18 +142,31 @@ function Hero({ mode: modeProp, onModeChange }) {
   };
 
   return (
-    <section className="hero" ref={heroRef}>
-      {/* Background image sized to exactly match the hero in JS via
-          ResizeObserver — see useLayoutEffect above. Sits behind the
-          content (z-index:0) and is inert (pointer-events:none). */}
-      <img
-        ref={bgImgRef}
-        src={heroBg}
-        alt=""
-        aria-hidden="true"
-        className="hero__bg-img"
-        draggable="false"
-      />
+    <section className="hero">
+      {/* Decorative pink icons that fan out from centre on mount.
+          Each icon is a tiny inline SVG positioned by px-offset from
+          centre — see FLOATING_ICONS at the top of this file. Lives
+          BEHIND the title/search-card (z-index:0) and is clipped to
+          the hero box via overflow:hidden so icons can't spill onto
+          adjacent sections. pointer-events:none means clicks pass
+          straight through to the search card. */}
+      <div className="hero__icons-bg" aria-hidden="true">
+        {FLOATING_ICONS.map((it, i) => (
+          <span
+            key={i}
+            className={`hero__icon-wrap hero__icon-wrap--${it.type}`}
+            style={{
+              '--x': `${it.x}px`,
+              '--y': `${it.y}px`,
+              '--delay': `${it.delay}s`,
+            }}
+          >
+            <span className="hero__icon">
+              <FloatIcon type={it.type} size={it.size} />
+            </span>
+          </span>
+        ))}
+      </div>
 
       <div className="container hero__inner">
         <h1 className="hero__title">Travel Together. Save More.</h1>
