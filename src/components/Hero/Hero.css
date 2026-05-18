@@ -6,7 +6,10 @@
   color: var(--color-text-on-dark);
   padding: var(--space-16) 0 var(--space-20);
   position: relative;
-  overflow: hidden;
+  /* overflow MUST be visible so the LocationSearch dropdown (rendered
+     under From/To inputs) can spill below the hero. With overflow:hidden
+     the dropdown was being clipped — no amount of z-index fixes that. */
+  overflow: visible;
 }
 
 .hero__inner {
@@ -281,8 +284,114 @@
   text-overflow: ellipsis;
 }
 
-/* The .hero is overflow:hidden, which would clip the dropdown.
-   Promote .search-card and its fields so the dropdown is allowed
-   to escape the search card and stack above everything. */
-.search-card { position: relative; z-index: 5; overflow: visible; }
-.search-card__fields { position: relative; overflow: visible; }
+/* Promote .search-card and its fields so the dropdown is allowed to
+   escape the search card and stack above the next section (HowItWorks,
+   WhyChoose, the cards list on /find-friend, etc.). */
+.search-card { position: relative; z-index: 1000; overflow: visible; }
+.search-card__fields { position: relative; overflow: visible; z-index: 1000; }
+.field--locsearch { z-index: 1001; }
+.field--locsearch .locsearch__dropdown,
+.field--locsearch .locsearch__empty { z-index: 99999; }
+
+/* =====================================================
+   FLOATING DECORATIVE ICONS — fan-out animation
+   ===================================================== */
+
+/* --spread scales the icon offsets down on smaller screens so they
+   never overlap the title or push past the hero edges. */
+.hero { --spread: 1; }
+@media (max-width: 1200px) { .hero { --spread: 0.78; } }
+@media (max-width: 1000px) { .hero { --spread: 0.6;  } }
+@media (max-width: 820px)  { .hero { --spread: 0.48; } }
+@media (max-width: 680px)  { .hero { --spread: 0.36; } }
+@media (max-width: 520px)  { .hero { --spread: 0.28; } }
+
+/* The icons live in an absolutely-positioned layer with overflow:hidden
+   so anything that would land outside the hero box gets clipped. The
+   layer is inert (pointer-events:none) so it never blocks clicks on the
+   search card / mode toggle that sit above it. */
+.hero__icons-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Push the title + search card above the icon layer so they remain
+   readable even when an icon happens to land near the centre. */
+.hero__inner { position: relative; z-index: 2; }
+
+/* Wrapper sits at the icon's resting position and runs a slow bob so
+   the scattered icons feel alive after they've finished scattering. */
+.hero__icon-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(
+    calc(-50% + var(--x, 0px) * var(--spread, 1)),
+    calc(-50% + var(--y, 0px) * var(--spread, 1))
+  );
+  animation: hero-bob 6s calc(var(--delay, 0s) + 1.5s) ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Inner element does the entrance "scatter": starts at the hero's
+   centre (negated offset) at scale(0.1) and eases out to scale(1) at
+   the wrapper's origin (0, 0). Because the wrapper is already placed
+   at the resting spot, the inner animating from 0,0 means the icon
+   ends exactly where it should be. */
+.hero__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  filter: drop-shadow(0 0 14px rgba(236, 72, 153, 0.4));
+  animation: hero-scatter 1.4s var(--delay, 0s) cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes hero-scatter {
+  0% {
+    /* sit at hero centre by negating the wrapper's offset */
+    transform: translate(
+      calc(-1 * var(--x, 0px) * var(--spread, 1)),
+      calc(-1 * var(--y, 0px) * var(--spread, 1))
+    ) scale(0.1) rotate(-25deg);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) scale(1) rotate(0);
+    opacity: 0.9;
+  }
+}
+
+@keyframes hero-bob {
+  0%, 100% {
+    transform: translate(
+      calc(-50% + var(--x, 0px) * var(--spread, 1)),
+      calc(-50% + var(--y, 0px) * var(--spread, 1))
+    );
+  }
+  50% {
+    transform: translate(
+      calc(-50% + var(--x, 0px) * var(--spread, 1)),
+      calc(-50% + var(--y, 0px) * var(--spread, 1) - 9px)
+    );
+  }
+}
+
+/* Respect users who've asked the OS to reduce motion: skip the
+   scatter + bob and just show the icons in their final spots. */
+@media (prefers-reduced-motion: reduce) {
+  .hero__icon-wrap { animation: none; }
+  .hero__icon {
+    animation: none;
+    opacity: 0.9;
+    transform: none;
+  }
+}

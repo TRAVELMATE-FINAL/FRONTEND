@@ -295,6 +295,10 @@ export default function ProfileSettings() {
 
   const handleDelete = async (rideId) => {
     if (!rideId) return;
+    if (!phone) {
+      window.alert("You need to be logged in to delete your rides.");
+      return;
+    }
     // Cheap built-in confirm — keeps the surface tiny. Replace with a
     // styled modal later if Figma calls for one.
     const yes = window.confirm("Delete this ride? This can't be undone.");
@@ -303,16 +307,25 @@ export default function ProfileSettings() {
     const before = data;
     removeRideFromState(rideId);
     try {
-      await axios.delete(`${API_BASE}/api/rides/${rideId}`, {
+      // IMPORTANT: send `phone` in the QUERY STRING, not just the body.
+      // Some hosting layers (and a number of CORS proxies) strip the
+      // request body off DELETE requests, which made the backend reply
+      // "phone is required" and the delete silently rolled back. The
+      // server route already accepts either source — query is just the
+      // reliable one. We keep `data` set too as a belt-and-braces fallback.
+      const url = `${API_BASE}/api/rides/${rideId}?phone=${encodeURIComponent(phone)}`;
+      await axios.delete(url, {
         data: { phone },
+        headers: { "Content-Type": "application/json" },
         timeout: 10000,
       });
     } catch (e) {
-      console.error("Delete ride failed:", e);
+      console.error("Delete ride failed:", e?.response?.status, e?.response?.data || e);
       setData(before); // rollback
       window.alert(
         e?.response?.data?.message ||
           e?.response?.data?.error ||
+          e?.message ||
           "Could not delete the ride. Please try again."
       );
     }

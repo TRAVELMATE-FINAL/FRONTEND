@@ -583,13 +583,16 @@ export default function TravelMate() {
   const queryTo   = searchParams.get("to")   || "";
   const queryDate = searchParams.get("date") || "";
 
-  // Default the search-bar date to TODAY when the URL doesn't carry one,
-  // so the FindFriends top bar always shows a valid date out of the box.
+  // Helper kept for the date input's `min` attribute below.
   const todayISO = () => new Date().toISOString().split("T")[0];
 
+  // IMPORTANT: do NOT pre-fill the date with today when the URL doesn't
+  // carry one. Auto-defaulting to today silently hides every ride the
+  // user posted for a future date — which is the most common case.
+  // Mirror exactly what's in the URL (empty = no date filter).
   const [from, setFrom] = useState(queryFrom);
   const [to,   setTo]   = useState(queryTo);
-  const [date, setDate] = useState(queryDate || todayISO());
+  const [date, setDate] = useState(queryDate || "");
 
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -651,7 +654,9 @@ export default function TravelMate() {
   useEffect(() => {
     setFrom(queryFrom);
     setTo(queryTo);
-    setDate(queryDate || todayISO());
+    // Mirror the URL exactly — don't fill in today when the URL has no
+    // date, so the search bar's date input matches the active filter.
+    setDate(queryDate || "");
   }, [queryFrom, queryTo, queryDate]);
 
   // Fetch rides ONLY when the user has actually clicked Find Ride —
