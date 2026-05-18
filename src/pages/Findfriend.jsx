@@ -816,9 +816,115 @@ export default function TravelMate() {
           }
           /* keep the search bar above the floating icons */
           .ff-hero .ff-search-bar { position: relative; z-index: 2; }
+
+          /* ─── RESPONSIVE BREAKDOWN (page-local, beats inline styles) ───
+             Inline style props on each field force height: 64, padding:
+             "0 20px", flex: "1 1 0" etc. — those need to be defeated on
+             tablet/mobile. Class-on-element + !important wins reliably. */
+
+          /* TABLET ≤ 1024px — 2-col grid, slightly shorter fields */
+          @media (max-width: 1024px) {
+            .ff-search-card {
+              flex-wrap: wrap !important;
+              gap: 10px !important;
+              padding: 14px !important;
+              border-radius: 18px !important;
+            }
+            .ff-search-card .ff-field,
+            .ff-search-card .ff-find-btn {
+              flex: 1 1 calc(50% - 5px) !important;
+              min-width: 0 !important;
+              height: 56px !important;
+              padding: 0 14px !important;
+              border-radius: 14px !important;
+              box-sizing: border-box !important;
+            }
+            .ff-search-card .ff-find-btn { padding: 0 20px !important; font-size: 15px !important; }
+          }
+
+          /* PHONE ≤ 640px — stack 1-per-row, full-width, snug fields */
+          @media (max-width: 640px) {
+            .ff-search-card {
+              flex-direction: column !important;
+              flex-wrap: nowrap !important;
+              gap: 8px !important;
+              padding: 12px !important;
+              border-radius: 16px !important;
+              max-width: 100% !important;
+              width: 100% !important;
+            }
+            .ff-search-card .ff-field,
+            .ff-search-card .ff-find-btn {
+              flex: 1 1 100% !important;
+              width: 100% !important;
+              height: 50px !important;
+              min-width: 0 !important;
+              padding: 0 14px !important;
+              border-radius: 12px !important;
+              box-sizing: border-box !important;
+            }
+            .ff-search-card .ff-field svg {
+              width: 18px !important;
+              height: 18px !important;
+              flex-shrink: 0 !important;
+            }
+            .ff-search-card .ff-find-btn {
+              padding: 0 16px !important;
+              font-size: 15px !important;
+              min-width: 0 !important;
+            }
+          }
+
+          /* SMALL PHONE ≤ 380px — tighter still */
+          @media (max-width: 380px) {
+            .ff-search-card { padding: 10px !important; gap: 6px !important; }
+            .ff-search-card .ff-field,
+            .ff-search-card .ff-find-btn { height: 46px !important; font-size: 14px !important; }
+          }
+
+          /* ── Hero strip padding shrinks on smaller screens ── */
+          @media (max-width: 1024px) { .ff-hero { padding: 28px 22px 36px !important; } }
+          @media (max-width: 640px)  { .ff-hero { padding: 22px 12px 28px !important; } }
+          @media (max-width: 380px)  { .ff-hero { padding: 18px 10px 22px !important; } }
+
+          /* ── Filter chip area — tighten side gutters on mobile ── */
+          @media (max-width: 640px) {
+            .ff-page > div[style*="padding: \\"12px 48px 0\\""] {
+              padding: 10px 12px 0 !important;
+            }
+          }
+
+          /* ── Body flex (filter panel + cards) — stack on mobile ── */
+          @media (max-width: 1024px) {
+            .ff-body-flex { padding: 18px 20px 40px !important; gap: 16px !important; }
+            .ff-body-flex > div:first-child { width: 220px !important; padding: 18px !important; }
+          }
+          @media (max-width: 720px) {
+            .ff-body-flex {
+              flex-direction: column !important;
+              align-items: stretch !important;
+              padding: 14px 12px 40px !important;
+              gap: 14px !important;
+            }
+            .ff-body-flex > div:first-child { width: 100% !important; padding: 18px !important; }
+            .ff-cards-col { max-width: 100% !important; width: 100% !important; }
+          }
+          @media (max-width: 480px) {
+            .ff-body-flex { padding: 12px 10px 36px !important; gap: 12px !important; }
+            .ff-body-flex > div:first-child { padding: 16px !important; }
+          }
+
+          /* ── Ride card — stack route info above the map ── */
+          @media (max-width: 720px) {
+            .ff-ride-card { padding: 16px !important; border-radius: 18px !important; }
+            .ff-ride-row { flex-direction: column !important; gap: 12px !important; }
+            .ff-ride-map { width: 100% !important; height: 180px !important; border-radius: 14px !important; }
+          }
+          @media (max-width: 480px) { .ff-ride-map { height: 160px !important; } }
+          @media (max-width: 360px) { .ff-ride-map { height: 140px !important; } }
         `}</style>
         <form className="ff-search-bar" onSubmit={handleSearch} style={{ display: "flex", justifyContent: "center" }}>
-        <div style={{
+        <div className="ff-search-card" style={{
           background: "#ffffff",
           borderRadius: "22px",
           padding: "18px 18px",
@@ -830,7 +936,7 @@ export default function TravelMate() {
           boxShadow: "0 12px 36px rgba(0, 0, 0, 0.18)",
         }}>
           {/* From — Tamil Nadu district autocomplete */}
-          <div style={{
+          <div className="ff-field ff-field--from" style={{
             background: "#fff",
             borderRadius: "16px",
             padding: "0 20px",
@@ -859,7 +965,7 @@ export default function TravelMate() {
           </div>
 
           {/* To — Tamil Nadu district autocomplete */}
-          <div style={{
+          <div className="ff-field ff-field--to" style={{
             background: "#fff",
             borderRadius: "16px",
             padding: "0 20px",
@@ -889,7 +995,7 @@ export default function TravelMate() {
           </div>
 
           {/* Date */}
-          <div style={{
+          <div className="ff-field ff-field--date" style={{
             background: "#fff",
             borderRadius: "16px",
             padding: "0 20px",
@@ -924,7 +1030,7 @@ export default function TravelMate() {
           </div>
 
           {/* Find Ride — yellow rounded CTA, matches Figma */}
-          <button type="submit" style={{
+          <button type="submit" className="ff-find-btn" style={{
             background: "#f5c518",
             color: "#111",
             border: "none",
