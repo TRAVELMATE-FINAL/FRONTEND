@@ -151,7 +151,7 @@ export default function Signin() {
               style={styles.checkbox}
             />
             <span style={styles.checkText}>
-              I agree to Friend Travel's{" "}
+              I agree to Travel Mate's{" "}
               <a href="#" style={styles.link}>Terms of Service</a> and{" "}
               <a href="#" style={styles.link}>Privacy Policy</a>
             </span>

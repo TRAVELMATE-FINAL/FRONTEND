@@ -97,10 +97,10 @@ export default function OtpVerify() {
       let nextPath;
       if (pendingPostRide && hasProfile) {
         nextPath = "/plan";
-        setSuccess("✅ Verified! Choose your plan to publish the ride…");
+        setSuccess("✅ Verified! Choose your plan to publish your trip…");
       } else if (pendingPostRide && !hasProfile) {
         nextPath = "/profile-setup";
-        setSuccess("✅ Verified! Set up your profile to publish the ride…");
+        setSuccess("✅ Verified! Set up your profile to publish your trip…");
       } else if (pendingUnlockRideId && hasProfile) {
         nextPath = `/findrideplan?rideId=${pendingUnlockRideId}`;
         setSuccess("✅ Verified! Choose your plan to continue…");

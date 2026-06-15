@@ -12,7 +12,9 @@ function Header() {
 
   // Poll the notifications endpoint every 30s + refetch on route change
   // so the bell-icon dot reflects new unread notifications without
-  // requiring a page refresh.
+  // requiring a page refresh. Also listens for a "notifications:cleared"
+  // window event dispatched by NotificationsPage so the badge drops to
+  // 0 instantly when the user opens the inbox.
   useEffect(() => {
     const phone =
       (typeof window !== 'undefined' && localStorage.getItem('phone')) || '';
@@ -23,6 +25,12 @@ function Header() {
 
     let cancelled = false;
     const fetchUnread = () => {
+      // While the user is on the notifications page itself, force the
+      // badge to stay at 0 — they're literally looking at the list.
+      if (location.pathname === '/notifications') {
+        setUnreadCount(0);
+        return;
+      }
       axios
         .get(API_BASE + '/api/notifications', {
           params: { phone },
@@ -40,9 +48,16 @@ function Header() {
 
     fetchUnread();
     const interval = setInterval(fetchUnread, 30000);
+
+    // The notifications page fires this when it has bulk-marked
+    // everything as read. Clear our badge right away.
+    const onCleared = () => setUnreadCount(0);
+    window.addEventListener('notifications:cleared', onCleared);
+
     return () => {
       cancelled = true;
       clearInterval(interval);
+      window.removeEventListener('notifications:cleared', onCleared);
     };
   }, [location.pathname]);
 
@@ -71,7 +86,14 @@ function Header() {
               ? `Notifications, ${unreadCount} unread`
               : 'Notifications'
           }
-          onClick={() => navigate('/notifications')}
+          onClick={() => {
+            // Optimistically drop the badge the moment the bell is
+            // tapped — the NotificationsPage will confirm via the
+            // server in the background. Avoids the stale-count flash
+            // while the page is loading.
+            setUnreadCount(0);
+            navigate('/notifications');
+          }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />

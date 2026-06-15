@@ -47,7 +47,7 @@ export default function RideLive() {
   useEffect(() => {
     if (!rideId) {
       setLoading(false);
-      setError("No ride found. Post a new ride to see it live.");
+      setError("Nothing found. Post a new trip to see it live.");
       return;
     }
     let cancelled = false;
@@ -61,7 +61,7 @@ export default function RideLive() {
         setError("");
       } catch (err) {
         if (!cancelled) {
-          setError(err.response?.data?.error || "Could not load ride details");
+          setError(err.response?.data?.error || "Could not load details");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -75,7 +75,7 @@ export default function RideLive() {
   const dateLabel  = formatDate(ride?.date);
   const timeLabel  = formatTime(ride?.time);
   const seats      = typeof ride?.seatsAvailable === "number" ? ride.seatsAvailable : 0;
-  const driverName = user?.fullName?.trim() || "Your ride";
+  const driverName = user?.fullName?.trim() || "Your trip";
 
   const handleViewRide = () => {
     // View Ride takes the rider to their own profile & posted-rides
@@ -85,13 +85,13 @@ export default function RideLive() {
 
   const handleShare = async () => {
     const shareUrl = window.location.origin + "/connect-unlock?rideId=" + rideId;
-    const text = "I posted a ride: " + fromCity + " → " + toCity + " on " + dateLabel + " at " + timeLabel + ". Join me!";
+    const text = "I posted a trip: " + fromCity + " → " + toCity + " on " + dateLabel + " at " + timeLabel + ". Join me!";
     try {
       if (navigator.share) {
-        await navigator.share({ title: "TravelMate Ride", text, url: shareUrl });
+        await navigator.share({ title: "TravelMate Trip", text, url: shareUrl });
       } else {
         await navigator.clipboard.writeText(shareUrl);
-        alert("Ride link copied to clipboard:\n" + shareUrl);
+        alert("Trip link copied to clipboard:\n" + shareUrl);
       }
     } catch { /* user cancelled */ }
   };
@@ -129,7 +129,7 @@ export default function RideLive() {
       }}>
         {/* Loading */}
         {loading && (
-          <Spinner label="Loading your ride…" sublabel="Just a moment" />
+          <Spinner label="Loading your trip…" sublabel="Just a moment" />
         )}
 
         {/* Error */}
@@ -175,10 +175,10 @@ export default function RideLive() {
             </div>
 
             <h2 style={{ fontSize: 20, fontWeight: 700, color: "#111", margin: "0 0 8px" }}>
-              Your Ride is Live 🚗
+              Your Trip is Live 🚗
             </h2>
             <p style={{ fontSize: 14, color: "#777", margin: "0 0 24px", lineHeight: 1.6 }}>
-              People can now discover and connect with your ride.
+              People can now discover and connect with your trip.
             </p>
 
             {/* Ride info card */}
@@ -253,7 +253,7 @@ export default function RideLive() {
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
               }}>
                 <span style={{ color: "#f5c518" }}>⚡</span>
-                Most rides get responses within 15 mins
+                Most trips get responses within 15 mins
               </div>
             </div>
 
@@ -265,7 +265,7 @@ export default function RideLive() {
                 fontWeight: 700, fontSize: 16, cursor: "pointer", marginBottom: 12,
               }}
             >
-              View Ride
+              View Trip
             </button>
 
             <button
@@ -276,7 +276,7 @@ export default function RideLive() {
                 fontWeight: 600, fontSize: 16, cursor: "pointer", marginBottom: 16,
               }}
             >
-              Share Ride
+              Share Trip
             </button>
 
             <button
@@ -286,7 +286,7 @@ export default function RideLive() {
                 fontWeight: 600, fontSize: 14, cursor: "pointer", padding: 0,
               }}
             >
-              Post Return Ride
+              Post Return Trip
             </button>
           </>
         )}

@@ -86,7 +86,48 @@ export default function NotificationsPage() {
       })
       .then(({ data }) => {
         if (cancelled) return;
-        setItems(Array.isArray(data?.data) ? data.data : []);
+        const list = Array.isArray(data?.data) ? data.data : [];
+        setItems(list);
+
+        // ── Mark every unread one as read ──
+        // Opening the inbox should clear the bell-icon count in the
+        // header. We fire-and-forget a single bulk PATCH so the
+        // server state matches what the user sees here, and we
+        // dispatch a window event so the Header can drop its count
+        // to 0 immediately (instead of waiting for the 30s poll).
+        const hasUnread = list.some((n) => !n.read);
+        if (hasUnread) {
+          axios
+            .patch(
+              API_BASE + "/api/notifications/mark-all-read",
+              null,
+              { params: { phone }, timeout: 8000 }
+            )
+            .catch((e) => {
+              // Old backend without the endpoint → fall back to
+              // patching each item individually.
+              if (e?.response?.status === 404) {
+                list
+                  .filter((n) => !n.read)
+                  .forEach((n) => {
+                    axios
+                      .patch(API_BASE + "/api/notifications/" + n._id + "/read")
+                      .catch(() => {});
+                  });
+              }
+            })
+            .finally(() => {
+              // Flip the local items to read so the unread dots also
+              // disappear without a refresh.
+              if (!cancelled) {
+                setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+              }
+              // Tell the Header to clear its badge right away.
+              try {
+                window.dispatchEvent(new CustomEvent("notifications:cleared"));
+              } catch {}
+            });
+        }
       })
       .catch((err) => {
         if (cancelled) return;
@@ -169,7 +210,7 @@ export default function NotificationsPage() {
               No notifications yet
             </div>
             <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-              Pay for a plan, post a ride, or unlock a contact — your activity will show up here.
+              Pay for a plan, post a trip, or unlock a contact — your activity will show up here.
             </div>
           </div>
         )}

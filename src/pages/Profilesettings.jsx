@@ -138,13 +138,13 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
       // onDelete returns a Promise that resolves to { ok, error }
       const res = await onDelete(ride._id);
       if (res && res.ok === false) {
-        setDelErr(res.error || "Could not delete the ride.");
+        setDelErr(res.error || "Could not delete the trip.");
         setDelState("idle");
       }
       // On success the card unmounts because the parent removed the
       // ride from state — no further setState needed.
     } catch (e) {
-      setDelErr(e?.message || "Could not delete the ride.");
+      setDelErr(e?.message || "Could not delete the trip.");
       setDelState("idle");
     }
   };
@@ -217,9 +217,9 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
           (confirmation UI is inline so it can't be auto-dismissed by
           a browser the way window.confirm sometimes is). */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0, alignItems: "flex-end" }}>
-        <button type="button" aria-label="Edit ride"
+        <button type="button" aria-label="Edit trip"
           onClick={() => onEdit && onEdit(ride)}
-          title="Edit ride"
+          title="Edit trip"
           disabled={delState !== "idle"}
           style={{
             width: 30, height: 30, borderRadius: "50%",
@@ -232,14 +232,14 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
         </button>
 
         {delState === "idle" && (
-          <button type="button" aria-label="Delete ride"
+          <button type="button" aria-label="Delete trip"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               setDelErr("");
               setDelState("confirming");
             }}
-            title="Delete ride"
+            title="Delete trip"
             style={{
               width: 30, height: 30, borderRadius: "50%",
               border: "none", background: "#ef4444",
@@ -257,7 +257,7 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
             borderRadius: 8, padding: "6px 8px",
           }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>
-              Delete this ride?
+              Delete this trip?
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button type="button"
@@ -413,8 +413,8 @@ export default function ProfileSettings() {
   // feedback instead of relying on window.alert.
   const handleDelete = async (rideId) => {
     console.log("[delete] start", { rideId, phone });
-    if (!rideId) return { ok: false, error: "Missing ride id" };
-    if (!phone)  return { ok: false, error: "You need to be logged in to delete rides." };
+    if (!rideId) return { ok: false, error: "Missing trip id" };
+    if (!phone)  return { ok: false, error: "You need to be logged in to delete trips." };
 
     try {
       // IMPORTANT: send `phone` in BOTH query AND body. Some hosting
@@ -443,7 +443,7 @@ export default function ProfileSettings() {
         e?.response?.data?.message ||
         e?.response?.data?.error ||
         e?.message ||
-        "Could not delete the ride.";
+        "Could not delete the trip.";
       console.error("[delete] failed", { status, msg, error: e });
       return { ok: false, error: `${msg}${status ? ` (HTTP ${status})` : ""}` };
     }
@@ -572,7 +572,7 @@ export default function ProfileSettings() {
           status === 403 ||
           /session.*expired|not.*authoriz|invalid.*token|user.*not.*found/i.test(serverMsg)
         ) {
-          try { localStorage.removeItem("phone"); } catch (e) { /* ignore */ }
+          try { localStorage.removeItem("phone"); localStorage.removeItem("loginExpiry"); } catch (e) { /* ignore */ }
           setSessionExpired(true);
           setData(null);
           setError("");
@@ -726,7 +726,7 @@ export default function ProfileSettings() {
       <div className="ps-shell" style={{ flex: 1, marginTop: 12 }}>
 
         {loading && (
-          <Spinner label="Loading your profile…" sublabel="Fetching your rides" />
+          <Spinner label="Loading your profile…" sublabel="Fetching your trips" />
         )}
 
         {/* Logged-out / session-expired call-to-action — replaces the
@@ -778,8 +778,8 @@ export default function ProfileSettings() {
               maxWidth: 360, margin: "0 auto 22px",
             }}>
               {sessionExpired
-                ? "For your security, you've been logged out. Please log in again to see your profile, your posted rides, and the people you've blocked."
-                : "Log in to see your profile, your posted rides, and the people you've blocked."}
+                ? "For your security, you've been logged out. Please log in again to see your profile, your posted trips, and the people you've blocked."
+                : "Log in to see your profile, your posted trips, and the people you've blocked."}
             </div>
 
             <button
@@ -835,7 +835,7 @@ export default function ProfileSettings() {
                 <button
                   type="button"
                   onClick={() => {
-                    try { localStorage.removeItem("phone"); } catch (e) { /* ignore */ }
+                    try { localStorage.removeItem("phone"); localStorage.removeItem("loginExpiry"); } catch (e) { /* ignore */ }
                     navigate("/login");
                   }}
                   style={{
@@ -925,15 +925,15 @@ export default function ProfileSettings() {
             {/* ── MY RIDES ── */}
             <div style={cardStyle}>
               <div style={{ padding: "14px 20px 4px" }}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#111827", marginBottom: 2 }}>My Rides</div>
-                <div style={{ fontSize: 12, color: "#9ca3af" }}>Manage your posted and booked rides</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#111827", marginBottom: 2 }}>My Trips</div>
+                <div style={{ fontSize: 12, color: "#9ca3af" }}>Manage your posted and booked trips</div>
               </div>
 
               {/* Tabs — Booked Ride | Post Ride */}
               <div style={{ display: "flex", borderBottom: "1px solid #f3f4f6", marginTop: 10 }}>
                 {[
-                  { k: "booked", l: "Booked Ride" },
-                  { k: "post",   l: "Post Ride" },
+                  { k: "booked", l: "Booked" },
+                  { k: "post",   l: "Posted" },
                 ].map((t) => (
                   <button key={t.k} type="button" onClick={() => setActiveTab(t.k)}
                     style={{
@@ -959,14 +959,14 @@ export default function ProfileSettings() {
                         textAlign: "center", padding: "26px 0",
                         color: "#9ca3af", fontSize: 13,
                       }}>
-                        {activeTab === "booked" ? "No booked rides yet." : "You haven't posted any rides yet."}
+                        {activeTab === "booked" ? "No booked trips yet." : "You haven't posted any trips yet."}
                         <div style={{ marginTop: 10 }}>
                           <button onClick={() => navigate("/post-ride")} style={{
                             background: "#2563eb", color: "#fff",
                             padding: "8px 18px", fontWeight: 700, fontSize: 12,
                             cursor: "pointer", fontFamily: "inherit",
                           }}>
-                            Post your first ride
+                            Post your first trip
                           </button>
                         </div>
                       </div>
@@ -1072,7 +1072,7 @@ export default function ProfileSettings() {
           >
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: "#111827" }}>Edit ride</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#111827" }}>Edit trip</div>
                 <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
                   {editingRide.from} → {editingRide.to}
                 </div>

@@ -7,17 +7,17 @@ function Footer() {
       <div className="container">
         <div className="footer__grid">
           <div className="footer__col">
-            <h4 className="footer__heading">Friend Travel</h4>
+            <h4 className="footer__heading">Travel Mate</h4>
             <p className="footer__text">
-              Share rides, save money, and travel together across India.
+              Save money and travel together across India.
             </p>
           </div>
 
           <div className="footer__col">
             <h4 className="footer__heading">Quick Links</h4>
             <ul className="footer__list">
-              <li><Link to="/find-friend">Find Ride</Link></li>
-              <li><Link to="/post-ride">Post Ride</Link></li>
+              <li><Link to="/find-friend">Find</Link></li>
+              <li><Link to="/post-ride">Post</Link></li>
               <li><Link to="/profile-settings">Settings</Link></li>
             </ul>
           </div>
@@ -70,7 +70,7 @@ function Footer() {
         </div>
 
         <div className="footer__bottom">
-          <p>© 2026 Friend Travel. All rights reserved.</p>
+          <p>© 2026 Travel Mate. All rights reserved.</p>
         </div>
       </div>
     </footer>

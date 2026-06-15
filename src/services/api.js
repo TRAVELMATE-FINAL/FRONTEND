@@ -1,4 +1,5 @@
 import axios from "axios";
+import { startSession } from "./session";
 
 // ======================
 // AXIOS INSTANCE
@@ -61,8 +62,10 @@ export const sendOtp = async (phone) => {
 export const verifyOtp = async (phone, otp) => {
   const res = await API.post("/auth/verify-otp", { phone, otp });
 
-  // 🔥 store phone after verify
-  localStorage.setItem("phone", phone);
+  // 🔥 store phone after verify AND start a 14-day login session so the
+  // user isn't forced to log in again every visit (only after two weeks
+  // of inactivity).
+  startSession(phone);
 
   return res.data;
 };

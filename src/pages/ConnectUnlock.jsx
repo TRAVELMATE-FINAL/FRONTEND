@@ -53,7 +53,7 @@ export default function ConnectUnlock() {
   // Fetch the ride + driver profile from backend
   useEffect(() => {
     if (!rideId) {
-      setError("No ride selected. Open a ride from Find Friends to continue.");
+      setError("Nothing selected. Open a trip from the Find page to continue.");
       setLoading(false);
       return;
     }
@@ -68,7 +68,7 @@ export default function ConnectUnlock() {
         setError("");
       } catch (err) {
         if (cancelled) return;
-        setError(err.response?.data?.error || "Could not load ride details");
+        setError(err.response?.data?.error || "Could not load details");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -126,7 +126,7 @@ export default function ConnectUnlock() {
       }
     } catch (e) {
       // Profile check failed → route through login to re-auth safely
-      try { localStorage.removeItem("phone"); } catch (_e) {}
+      try { localStorage.removeItem("phone"); localStorage.removeItem("loginExpiry"); } catch (_e) {}
       navigate("/login");
       return;
     } finally {
@@ -161,7 +161,7 @@ export default function ConnectUnlock() {
 
       {/* Status banners */}
       {loading && (
-        <Spinner label="Loading ride details..." sublabel="Fetching driver info & route" />
+        <Spinner label="Loading details..." sublabel="Fetching driver info & route" />
       )}
       {!loading && error && (
         <div style={{ margin: "40px auto", maxWidth: 520, padding: 24, background: "#fff5f5", border: "1px solid #fecaca", color: "#dc2626", borderRadius: 12, textAlign: "center" }}>

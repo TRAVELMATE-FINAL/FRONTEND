@@ -56,7 +56,7 @@ function Hero({ mode: modeProp, onModeChange }) {
 
       <div className="container hero__inner">
         <h1 className="hero__title">Travel Together. Save More.</h1>
-        <p className="hero__subtitle">Find or share rides easily across cities</p>
+        <p className="hero__subtitle">Find or share travel easily across cities</p>
 
         {/* mode toggle: Find | Post */}
         <div className="hero__toggle" role="tablist" aria-label="Mode">
@@ -166,7 +166,7 @@ function Hero({ mode: modeProp, onModeChange }) {
                 <circle cx="11" cy="11" r="7" />
                 <path d="M21 21l-4.3-4.3" />
               </svg>
-              <span>Find Ride</span>
+              <span>Find</span>
             </button>
           </div>
         </form>

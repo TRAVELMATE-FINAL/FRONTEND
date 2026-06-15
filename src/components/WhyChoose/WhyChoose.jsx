@@ -41,7 +41,7 @@ function WhyChoose() {
     <section className="why-choose">
       <div className="container">
         <header className="why-choose__header">
-          <h2 className="why-choose__title">Why Choose Friend Travel?</h2>
+          <h2 className="why-choose__title">Why Choose Travel Mate?</h2>
           <p className="why-choose__subtitle">Safe, secure, and reliable</p>
         </header>
 

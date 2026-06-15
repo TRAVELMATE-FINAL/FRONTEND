@@ -257,7 +257,7 @@ export default function UserActions({
             </div>
             <h3 className="ua-modal-title">Block {targetName}?</h3>
             <p className="ua-modal-text">
-              You won't see any rides or messages from this user. You can unblock them later from your profile settings.
+              You won't see any trips or messages from this user. You can unblock them later from your profile settings.
             </p>
 
             {err && <div className="ua-err">{err}</div>}

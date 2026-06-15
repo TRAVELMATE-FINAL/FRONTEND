@@ -4,8 +4,8 @@ const STEPS = [
   {
     n: 1,
     color: 'step--pink',
-    title: 'Post or Find a Ride',
-    text: 'Search for available rides or post your own travel plans'
+    title: 'Post or Find a Trip',
+    text: 'Search for available trips or post your own travel plans'
   },
   {
     n: 2,

@@ -101,7 +101,7 @@ export default function RideDetailsPage() {
   useEffect(() => {
     if (!rideId) {
       setLoading(false);
-      setError("No ride id in the URL — open a ride from the Find Friend list.");
+      setError("Nothing selected — open a trip from the Find list.");
       return;
     }
     let cancelled = false;
@@ -214,6 +214,21 @@ export default function RideDetailsPage() {
     return () => { cancelled = true; };
   }, [rideId]);
 
+  // Once the viewer has unlocked the contact (active subscription), record
+  // the unlock as a booking so it appears in the admin panel. Fires at most
+  // once per ride per page session; the backend upserts so repeats are safe.
+  const [bookingLogged, setBookingLogged] = useState(false);
+  useEffect(() => {
+    if (!hasPaid || bookingLogged || !rideId) return;
+    const phone =
+      (typeof window !== "undefined" && localStorage.getItem("phone")) || "";
+    if (!phone) return;
+    setBookingLogged(true);
+    axios
+      .post(`${API_BASE}/api/rides/${rideId}/unlock`, { riderPhone: phone }, { timeout: 6000 })
+      .catch(() => { /* non-fatal — booking is a side effect, never block the UI */ });
+  }, [hasPaid, bookingLogged, rideId]);
+
   const ride = data?.ride;
   const driver = data?.driver;
 
@@ -262,7 +277,7 @@ export default function RideDetailsPage() {
       {/* Loading / error states */}
       {loading && (
         <div style={{ flex: 1, padding: "60px 20px" }}>
-          <Spinner label="Loading ride details…" sublabel="Fetching driver info & route" />
+          <Spinner label="Loading details…" sublabel="Fetching driver info & route" />
         </div>
       )}
 
@@ -283,7 +298,7 @@ export default function RideDetailsPage() {
                 fontSize: 14, cursor: "pointer",
               }}
             >
-              Back to Find Friend
+              Back to Find
             </button>
           </div>
         </div>
@@ -379,7 +394,7 @@ export default function RideDetailsPage() {
                     border: "1px solid #fde68a",
                     display: "flex", alignItems: "center", gap: 4,
                   }}>
-                    🚗 {driver.stats.totalPostedRides} {driver.stats.totalPostedRides === 1 ? "ride" : "rides"}
+                    🚗 {driver.stats.totalPostedRides} {driver.stats.totalPostedRides === 1 ? "trip" : "trips"}
                   </div>
                 )}
               </div>
@@ -550,7 +565,7 @@ export default function RideDetailsPage() {
               padding: "20px 22px",
             }}>
               <p style={{ fontSize: 15, fontWeight: 700, color: "#111827", margin: "0 0 20px" }}>
-                Ride Route
+                Trip Route
               </p>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>

@@ -40,7 +40,7 @@ const LoadingRides = () => (
   <>
     <SpinnerStyles />
     <Spinner
-      label="Finding the best rides for you…"
+      label="Finding the best trips for you…"
       sublabel="Hold tight, this only takes a moment."
     />
 
@@ -94,7 +94,6 @@ const RideCard = ({ ride, onConnect }) => {
       .map((t) => t.trim())
       .filter(Boolean);
   })();
-  const seats = typeof ride.seatsAvailable === "number" ? ride.seatsAvailable : 1;
   // "30 Apr • 06:00 AM" — same field values, more compact rendering
   const dateLabel = (() => {
     if (!ride.date) return "";
@@ -137,7 +136,7 @@ const RideCard = ({ ride, onConnect }) => {
                 </svg>
               </div>
               <div style={{ color: "#a5acc4", fontSize: "13px", marginTop: 1, fontWeight: 500 }}>
-                ★ 4.9 &nbsp;•&nbsp; {ride.viewCount ? ride.viewCount : 45} rides
+                ★ 4.9 &nbsp;•&nbsp; {ride.viewCount ? ride.viewCount : 45} trips
               </div>
             </div>
           </div>
@@ -182,13 +181,10 @@ const RideCard = ({ ride, onConnect }) => {
         </div>
       </div>
 
-      {/* Footer row — 🔥 seats left + 👁 viewers + Connect button */}
+      {/* Footer row — 👁 viewers + Connect button */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingTop: "8px" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#f5c518", fontSize: 14, fontWeight: 700 }}>
-            <span>🔥</span> {seats} {seats === 1 ? "seat" : "seats"} left
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#7d83a3", fontSize: 12, marginTop: 6, fontWeight: 500 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#7d83a3", fontSize: 12, fontWeight: 500 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7d83a3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
               <circle cx="12" cy="12" r="3" />
@@ -336,7 +332,7 @@ const FilterPanel = ({ filters, setFilters, onApply, onReset }) => {
 
       {/* ── Ride Type — horizontal Car | Bike pills ─────────────── */}
       <div style={{ marginBottom: "18px" }}>
-        <div style={sectionLabel}>Ride Type</div>
+        <div style={sectionLabel}>Vehicle Type</div>
         <div style={{
           display: "flex", gap: 6,
           background: "#f3f4f6", padding: 4, borderRadius: 999,
@@ -1051,7 +1047,7 @@ export default function TravelMate() {
             fontFamily: "inherit",
             boxShadow: "0 4px 14px rgba(245, 197, 24, 0.35)",
           }}>
-            Find Ride
+            Find
           </button>
         </div>
       </form>
@@ -1069,7 +1065,7 @@ export default function TravelMate() {
             maxWidth: 875, width: "100%",
           }}>
             <div>
-              Showing rides
+              Showing trips
               {queryFrom && <> from <b>{queryFrom}</b></>}
               {queryTo   && <> to <b>{queryTo}</b></>}
               {queryDate && <> on <b>{queryDate}</b></>}
@@ -1101,7 +1097,7 @@ export default function TravelMate() {
 
           {!loading && !error && notFound && (
             <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 12, padding: 24, textAlign: "center", lineHeight: 1.7 }}>
-              No rides found{queryFrom && <> from <b>{queryFrom}</b></>}{queryTo && <> to <b>{queryTo}</b></>}{queryDate && <> on <b>{queryDate}</b></>}.
+              No trips found{queryFrom && <> from <b>{queryFrom}</b></>}{queryTo && <> to <b>{queryTo}</b></>}{queryDate && <> on <b>{queryDate}</b></>}.
             </div>
           )}
 
@@ -1115,18 +1111,18 @@ export default function TravelMate() {
             }}>
               <div style={{ fontSize: 36, marginBottom: 10 }}>🚗</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a2e", marginBottom: 6 }}>
-                Find your next ride
+                Find your next trip
               </div>
               <div style={{ fontSize: 13, lineHeight: 1.6 }}>
                 Enter <b>From</b>, <b>To</b> or just a <b>Date</b> in the search bar above,
-                then tap <b>Find Ride</b> to see matching rides.
+                then tap <b>Find</b> to see matching trips.
               </div>
             </div>
           )}
 
           {!loading && !error && rides.length > 0 && visibleRides.length === 0 && (
             <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 12, padding: 24, textAlign: "center", lineHeight: 1.7 }}>
-              No rides match the current filters.{" "}
+              No trips match the current filters.{" "}
               <button onClick={resetFilters} style={{ background: "transparent", border: "none", color: "#7c3aed", fontWeight: 600, cursor: "pointer" }}>Reset filters</button>
             </div>
           )}

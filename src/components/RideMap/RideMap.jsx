@@ -8,7 +8,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { GoogleMap } from "@react-google-maps/api";
-import { useGoogleMaps } from "../../utils/googleMapsLoader";
+import { useGoogleMaps, useMapsAuthFailed } from "../../utils/googleMapsLoader";
 import "./RideMap.css";
 
 const containerStyle = { width: "100%", height: "100%" };
@@ -28,6 +28,7 @@ const mapOptions = {
 
 export default function RideMap({ ride }) {
   const { isLoaded, loadError } = useGoogleMaps();
+  const authFailed = useMapsAuthFailed();
 
   const mapRef = useRef(null);
   const directionsRendererRef = useRef(null);
@@ -214,6 +215,17 @@ export default function RideMap({ ride }) {
     return (
       <div className="ridemap ridemap--empty">
         <div className="ridemap__empty-text">Map failed to load</div>
+      </div>
+    );
+  }
+
+  // Script loaded but Google rejected the key at runtime (referrer/billing/API).
+  if (authFailed) {
+    return (
+      <div className="ridemap ridemap--empty">
+        <div className="ridemap__empty-text">
+          Map blocked — check the Google Maps API key’s allowed domains &amp; billing
+        </div>
       </div>
     );
   }

@@ -43,8 +43,8 @@ async function publishPendingRide() {
       err?.response?.data?.message ||
       err?.response?.data?.error ||
       err?.message ||
-      "Could not publish ride";
-    console.error("Failed to publish ride:", msg, err?.response?.data || err);
+      "Could not publish trip";
+    console.error("Failed to publish trip:", msg, err?.response?.data || err);
     return { ok: false, id: "", error: msg };
   }
 }
@@ -221,7 +221,7 @@ export default function SecurePayment() {
               body: `Your ${planMeta?.name || "plan"} subscription is now active.`,
             }).catch(() => {});
 
-            setSuccessMsg("✅ Payment verified — publishing your ride…");
+            setSuccessMsg("✅ Payment verified — publishing your trip…");
             const publishResult = await publishPendingRide();
             const publishedId = publishResult.id || "";
 
@@ -231,7 +231,7 @@ export default function SecurePayment() {
             const pendingPostRideFlag = localStorage.getItem("pendingPostRide");
             if (pendingPostRideFlag && !publishResult.ok) {
               setPayErrMsg(
-                "Payment succeeded, but ride could not be published: " +
+                "Payment succeeded, but your trip could not be published: " +
                   (publishResult.error || "unknown error") +
                   ". Please contact support — your subscription is still active."
               );
@@ -244,15 +244,15 @@ export default function SecurePayment() {
               axios.post(`${API_BASE}/api/notifications`, {
                 userPhone,
                 type: "ride",
-                title: "Ride published successfully",
-                body: "Your ride is now live and visible to other travellers.",
+                title: "Trip published successfully",
+                body: "Your trip is now live and visible to other travellers.",
                 action: { to: `/ride-detail?rideId=${publishedId}` },
               }).catch(() => {});
             }
 
             setSuccessMsg(
               publishedId
-                ? "✅ Payment verified & ride published! Subscription active until " +
+                ? "✅ Payment verified & trip published! Subscription active until " +
                     new Date(v.subscription.endDate).toLocaleDateString() + "."
                 : "✅ Payment verified! Subscription active until " +
                     new Date(v.subscription.endDate).toLocaleDateString() + "."

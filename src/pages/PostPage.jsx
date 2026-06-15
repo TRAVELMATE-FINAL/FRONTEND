@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { GoogleMap } from "@react-google-maps/api";
-import { useGoogleMaps } from "../utils/googleMapsLoader";
+import { useGoogleMaps, useMapsAuthFailed } from "../utils/googleMapsLoader";
 import { formatTime12h } from "../utils/time.js";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
@@ -592,6 +592,7 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
   const mapHeight = compact ? 140 : 260;
 
   const { isLoaded, loadError } = useGoogleMaps();
+  const authFailed = useMapsAuthFailed();
 
   const mapRef = useRef(null);
   // We render alternate routes ourselves as a set of Polylines so that we
@@ -974,6 +975,30 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
         }}
       >
         Google Maps failed to load — check VITE_GOOGLE_MAPS_API_KEY
+      </div>
+    );
+  }
+
+  // Script loaded but Google rejected the key at runtime — the usual cause of
+  // a blank/white map. Tell the user the real reason instead of showing nothing.
+  if (authFailed) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: mapHeight,
+          background: "#fef3c7",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          padding: 12,
+          fontSize: 12,
+          color: "#92400e",
+        }}
+      >
+        Map blocked by Google — add this site's domain to the API key's allowed
+        referrers and enable billing + the Maps JavaScript / Directions / Places APIs.
       </div>
     );
   }
@@ -1437,7 +1462,7 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack }) {
               boxShadow: "0 4px 14px rgba(245, 197, 24, 0.30)",
               letterSpacing:"-0.1px",
             }}>
-            {publishing ? "Publishing…" : "Publish Ride"}
+            {publishing ? "Publishing…" : "Publish Trip"}
           </button>
         </div>
       </div>
@@ -1667,7 +1692,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
       navigate("/plan");
     } catch (err) {
       console.error("Publish prep error:", err);
-      setError(err.message || "Could not prepare ride for publishing.");
+      setError(err.message || "Could not prepare your trip for publishing.");
     } finally {
       setPublishing(false);
     }

@@ -96,7 +96,7 @@ export default function TravelMatePlanPage() {
             <div className="ps-card-right">
               <div className="ps-feature">
                 <span className="ps-tick"><CheckIcon /></span>
-                <span>Unlimited Ride For Only This Route For 24 Hours</span>
+                <span>Unlimited Travel For Only This Route For 24 Hours</span>
               </div>
             </div>
             <button className="ps-btn" onClick={goDaily}>Go Daily</button>
