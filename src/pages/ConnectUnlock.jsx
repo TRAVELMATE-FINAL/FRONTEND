@@ -125,9 +125,30 @@ export default function ConnectUnlock() {
         return;
       }
     } catch (e) {
-      // Profile check failed → route through login to re-auth safely
-      try { localStorage.removeItem("phone"); localStorage.removeItem("loginExpiry"); } catch (_e) {}
-      navigate("/login");
+      // Only a DEFINITIVE auth failure (server says the account is gone or
+      // unauthorized) should end the 14-day session and force a fresh OTP.
+      // A transient failure (timeout, network blip, Render cold-start) must
+      // NOT log the user out — otherwise every flaky request burns a new
+      // Twilio OTP and breaks the "login once per two weeks" guarantee.
+      const status = e?.response?.status;
+      const serverMsg =
+        e?.response?.data?.message || e?.response?.data?.error || "";
+      const isAuthFailure =
+        status === 401 ||
+        status === 403 ||
+        status === 404 ||
+        /not.*authoriz|invalid.*token|user.*not.*found|session.*expired/i.test(serverMsg);
+
+      if (isAuthFailure) {
+        try { localStorage.removeItem("phone"); localStorage.removeItem("loginExpiry"); } catch (_e) {}
+        navigate("/login");
+        return;
+      }
+
+      // Transient error → keep the session alive and continue. The downstream
+      // plan/payment screen re-checks the profile and will route to
+      // /profile-setup if it's genuinely missing. No new OTP is requested.
+      navigate(`/findrideplan?rideId=${rideId}`);
       return;
     } finally {
       setUnlocking(false);
