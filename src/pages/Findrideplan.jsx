@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import planImage from "../assets/plan-travelmate.png";
+import { getFindFee } from "../services/api";
 
 
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
@@ -26,6 +27,16 @@ export default function TravelMatePlanPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [activeSlide, setActiveSlide] = useState(1);
+
+  // Admin-editable find-ride price, fetched at runtime (fallback ₹30).
+  const [findPrice, setFindPrice] = useState(30);
+  useEffect(() => {
+    getFindFee()
+      .then((f) => {
+        if (f && Number.isFinite(Number(f.unlockFee))) setFindPrice(Number(f.unlockFee));
+      })
+      .catch(() => {});
+  }, []);
 
   // Pick up rideId from URL (?rideId=...) — set by FindFriend's handleConnect
   // and also falls back to the localStorage breadcrumb set during the
@@ -90,7 +101,7 @@ export default function TravelMatePlanPage() {
               <div className="ps-plan-duration">Short-term Access</div>
             </div>
             <div className="ps-card-mid">
-              <span className="ps-price">₹30</span>
+              <span className="ps-price">₹{findPrice}</span>
               <span className="ps-per">/24h</span>
             </div>
             <div className="ps-card-right">

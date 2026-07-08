@@ -113,6 +113,12 @@ export const getPlans = async () => {
   return res.data;
 };
 
+// Live find-ride (Unlock Contact) fee — admin-editable, read at runtime.
+export const getFindFee = async () => {
+  const res = await API.get("/plans/find-fee");
+  return res.data; // { unlockFee, processingFee }
+};
+
 // Active subscription for the logged-in user
 export const getMySubscription = async () => {
   const phone = localStorage.getItem("phone");

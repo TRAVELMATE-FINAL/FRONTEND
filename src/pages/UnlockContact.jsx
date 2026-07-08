@@ -7,6 +7,7 @@ import {
   applyCoupon as applyCouponApi,
   createPlanOrder,
   verifyPlanPayment,
+  getFindFee,
 } from "../services/api";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
@@ -56,9 +57,10 @@ async function publishPendingRide() {
   }
 }
 
-// Static pricing — the unlock product is a flat ₹49 + ₹1 processing fee.
-const UNLOCK_FEE = 49;
-const PROCESSING_FEE = 1;
+// Pricing is admin-editable and fetched from the backend at runtime
+// (see the state + effect inside the component). These are only fallbacks.
+const DEFAULT_UNLOCK_FEE = 49;
+const DEFAULT_PROCESSING_FEE = 1;
 
 export default function UnlockContact() {
   const navigate = useNavigate();
@@ -78,9 +80,21 @@ export default function UnlockContact() {
   // discountAmount = how many rupees the coupon knocks off the Unlock Fee.
   const [discountAmount, setDiscountAmount] = useState(0);
 
+  // Live pricing (admin-editable) — fetched from the backend on mount.
+  const [unlockFee, setUnlockFee] = useState(DEFAULT_UNLOCK_FEE);
+  const [processingFee, setProcessingFee] = useState(DEFAULT_PROCESSING_FEE);
+  useEffect(() => {
+    getFindFee()
+      .then((f) => {
+        if (f && Number.isFinite(Number(f.unlockFee))) setUnlockFee(Number(f.unlockFee));
+        if (f && Number.isFinite(Number(f.processingFee))) setProcessingFee(Number(f.processingFee));
+      })
+      .catch(() => {});
+  }, []);
+
   // Dynamic totals — recomputed on every render based on the applied coupon.
-  const unlockAfterDiscount = Math.max(0, UNLOCK_FEE - discountAmount);
-  const total = unlockAfterDiscount + PROCESSING_FEE;
+  const unlockAfterDiscount = Math.max(0, unlockFee - discountAmount);
+  const total = unlockAfterDiscount + processingFee;
 
   const planKey = (() => {
     try { return localStorage.getItem("chosenPlan") || "daily"; } catch { return "daily"; }
@@ -226,7 +240,7 @@ export default function UnlockContact() {
         return;
       }
       // Cap discount at the unlock fee — can't discount more than the base price.
-      const safeAmt = Math.min(amt, UNLOCK_FEE);
+      const safeAmt = Math.min(amt, unlockFee);
       setAppliedCoupon({ code, ...res, discountAmount: safeAmt });
       setDiscountAmount(safeAmt);
       setCouponMsg({
@@ -488,7 +502,7 @@ export default function UnlockContact() {
                   fontSize: 13,
                 }}
               >
-                ₹{UNLOCK_FEE}
+                ₹{unlockFee}
               </span>
             </div>
 
@@ -524,7 +538,7 @@ export default function UnlockContact() {
             >
               <span>Processing Fee</span>
               <span style={{ fontWeight: 500, color: "#4A4A4A", fontFamily: "inter", fontSize: 13 }}>
-                ₹{PROCESSING_FEE}
+                ₹{processingFee}
               </span>
             </div>
 
