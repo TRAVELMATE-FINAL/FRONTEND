@@ -1,16 +1,18 @@
 // components/LocationSearch/LocationSearch.jsx
-// Tamil Nadu (and wider India) locations autocomplete.
+// India-wide location autocomplete.
 //
-// Primary source: Google Places Autocomplete - so the dropdown surfaces
-// EVERY city, town, village, neighbourhood, landmark, temple, beach and
-// business POI within Tamil Nadu (not just the 38 district headquarters).
-// We run two parallel queries - one for geocodes (cities/towns/addresses)
-// and one for establishments (landmarks/temples/hotels) - then merge them
-// so anything you would see pinned on the state map can be picked.
+// Uses the NEW Google Places API (google.maps.places.AutocompleteSuggestion +
+// Place) so the dropdown surfaces EVERY state, district, city, town, village,
+// locality, suburb, bus stop, railway/metro station, airport, landmark,
+// tourist place, college, IT park, industrial/residential area and any POI
+// on the map — restricted to India. Results are not limited to a fixed list.
 //
-// Fallback: if the Google Maps script hasn't loaded yet (or the API key
-// is missing) we drop back to the 38 hard-coded district centroids so the
-// component still works in degraded mode.
+// Why the new API: the legacy AutocompleteService / PlacesService are no
+// longer available to Google Cloud projects created after March 2025, which
+// is why the old dropdown silently fell back to a 38-district list.
+//
+// Fallback: if the Places library hasn't loaded (or the key is missing) we
+// drop back to the 38 Tamil Nadu district centroids so the field still works.
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useGoogleMaps } from "../../utils/googleMapsLoader";
@@ -57,9 +59,6 @@ const TN_DISTRICTS = [
   { name: "Virudhunagar",    lat:  9.5680, lon: 77.9624 },
 ];
 
-const TN_BOUNDS_SW = { lat: 8.0, lng: 76.2 };
-const TN_BOUNDS_NE = { lat: 13.6, lng: 80.4 };
-
 export default function LocationSearch({
   placeholder = "Search location",
   value = "",
@@ -72,92 +71,77 @@ export default function LocationSearch({
   const wrapRef = useRef(null);
 
   const { isLoaded } = useGoogleMaps();
-  const autocompleteServiceRef = useRef(null);
-  const placesServiceRef = useRef(null);
   const sessionTokenRef = useRef(null);
+  const newApiRef = useRef(false); // true once the new Places API is available
 
+  // Detect the new Places API and create a session token.
   useEffect(() => {
     if (!isLoaded) return;
-    if (!window.google || !window.google.maps || !window.google.maps.places) return;
-    const g = window.google;
-    if (!autocompleteServiceRef.current) {
-      autocompleteServiceRef.current = new g.maps.places.AutocompleteService();
-    }
-    if (!placesServiceRef.current) {
-      const stub = document.createElement("div");
-      placesServiceRef.current = new g.maps.places.PlacesService(stub);
-    }
-    if (!sessionTokenRef.current) {
-      sessionTokenRef.current = new g.maps.places.AutocompleteSessionToken();
+    const places = window.google && window.google.maps && window.google.maps.places;
+    if (!places) return;
+    newApiRef.current =
+      !!places.AutocompleteSuggestion &&
+      typeof places.AutocompleteSuggestion.fetchAutocompleteSuggestions === "function";
+    if (!sessionTokenRef.current && places.AutocompleteSessionToken) {
+      sessionTokenRef.current = new places.AutocompleteSessionToken();
     }
   }, [isLoaded]);
 
+  // Fetch India-wide suggestions as the user types (debounced).
   useEffect(() => {
     const q = (value || "").trim();
     if (!q) {
       setPredictions([]);
       return;
     }
-    if (!isLoaded || !autocompleteServiceRef.current) return;
-    if (!window.google || !window.google.maps || !window.google.maps.places) return;
-
-    const g = window.google;
-    const bounds = new g.maps.LatLngBounds(
-      new g.maps.LatLng(TN_BOUNDS_SW.lat, TN_BOUNDS_SW.lng),
-      new g.maps.LatLng(TN_BOUNDS_NE.lat, TN_BOUNDS_NE.lng)
-    );
+    if (!isLoaded) return;
+    const places = window.google && window.google.maps && window.google.maps.places;
+    if (!places || !places.AutocompleteSuggestion) return;
 
     let cancelled = false;
-    const queries = [{ types: ["geocode"] }, { types: ["establishment"] }];
-    const merged = [];
-    let pending = queries.length;
-    const seen = new Set();
 
-    const finalize = () => {
-      if (cancelled) return;
-      const out = [];
-      merged.forEach((p) => {
-        if (seen.has(p.place_id)) return;
-        seen.add(p.place_id);
-        out.push(p);
-      });
-      setPredictions(out);
+    const run = async () => {
+      try {
+        const request = {
+          input: q,
+          includedRegionCodes: ["in"], // India only
+          sessionToken: sessionTokenRef.current || undefined,
+          // No includedPrimaryTypes -> returns ALL place types
+          // (cities, villages, stations, airports, landmarks, POIs, ...).
+        };
+        const { suggestions } =
+          await places.AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+        if (cancelled) return;
+
+        const out = [];
+        (suggestions || []).forEach((s) => {
+          const pp = s.placePrediction;
+          if (!pp) return;
+          const main = pp.mainText && pp.mainText.text ? pp.mainText.text : (pp.text && pp.text.text) || "";
+          const sec = pp.secondaryText && pp.secondaryText.text ? pp.secondaryText.text : "";
+          out.push({
+            placePrediction: pp,
+            place_id: pp.placeId,
+            mainText: main,
+            secondaryText: sec,
+          });
+        });
+        setPredictions(out);
+      } catch (e) {
+        if (!cancelled) setPredictions([]);
+      }
     };
 
-    queries.forEach((q2) => {
-      autocompleteServiceRef.current.getPlacePredictions(
-        {
-          input: q,
-          types: q2.types,
-          componentRestrictions: { country: "in" },
-          locationBias: bounds,
-          sessionToken: sessionTokenRef.current,
-        },
-        (results, status) => {
-          if (cancelled) return;
-          if (status === g.maps.places.PlacesServiceStatus.OK && results) {
-            results.forEach((p) => {
-              const sf = p.structured_formatting || {};
-              merged.push({
-                description: p.description,
-                place_id: p.place_id,
-                mainText: sf.main_text || p.description,
-                secondaryText: sf.secondary_text || "",
-              });
-            });
-          }
-          pending -= 1;
-          if (pending === 0) finalize();
-        }
-      );
-    });
-
-    return () => { cancelled = true; };
+    const t = setTimeout(run, 180);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [value, isLoaded]);
 
   const options = useMemo(() => {
     const q = (value || "").trim().toLowerCase();
-    const googleReady = isLoaded && !!autocompleteServiceRef.current;
+    const googleReady = isLoaded && newApiRef.current;
 
     if (!q) {
       return TN_DISTRICTS.map((d) => ({
@@ -175,9 +159,11 @@ export default function LocationSearch({
         name: p.mainText,
         sub: p.secondaryText || "India",
         place_id: p.place_id,
+        placePrediction: p.placePrediction,
       }));
     }
 
+    // Fallback: filter the district list (used only if Google isn't ready).
     return TN_DISTRICTS.filter((d) =>
       q.length === 1
         ? d.name.toLowerCase().startsWith(q)
@@ -205,40 +191,37 @@ export default function LocationSearch({
     setHighlight(0);
   }, [options.length]);
 
-  const pick = (opt) => {
+  const pick = async (opt) => {
     if (opt.kind === "local") {
       onSelect({ display_name: opt.name, lat: opt.lat, lon: opt.lon });
       setOpen(false);
       return;
     }
-    const svc = placesServiceRef.current;
-    if (!svc) {
+    try {
+      const place = opt.placePrediction.toPlace();
+      await place.fetchFields({
+        fields: ["location", "formattedAddress", "displayName"],
+      });
+      const loc = place.location;
+      if (!loc) {
+        onChange(opt.name);
+        setOpen(false);
+        return;
+      }
+      const lat = typeof loc.lat === "function" ? loc.lat() : loc.lat;
+      const lon = typeof loc.lng === "function" ? loc.lng() : loc.lng;
+      const display = place.formattedAddress || place.displayName || opt.name;
+      onSelect({ display_name: display, lat, lon });
+      setOpen(false);
+      // Start a fresh session token after a completed selection.
+      const places = window.google && window.google.maps && window.google.maps.places;
+      if (places && places.AutocompleteSessionToken) {
+        sessionTokenRef.current = new places.AutocompleteSessionToken();
+      }
+    } catch (e) {
       onChange(opt.name);
       setOpen(false);
-      return;
     }
-    const g = window.google;
-    svc.getDetails(
-      {
-        placeId: opt.place_id,
-        fields: ["geometry", "name", "formatted_address"],
-        sessionToken: sessionTokenRef.current,
-      },
-      (place, status) => {
-        const loc = place && place.geometry && place.geometry.location;
-        if (status !== g.maps.places.PlacesServiceStatus.OK || !loc) {
-          onChange(opt.name);
-          setOpen(false);
-          return;
-        }
-        const lat = loc.lat();
-        const lon = loc.lng();
-        const display = place.formatted_address || place.name || opt.name;
-        onSelect({ display_name: display, lat, lon });
-        setOpen(false);
-        sessionTokenRef.current = new g.maps.places.AutocompleteSessionToken();
-      }
-    );
   };
 
   const handleKey = (e) => {

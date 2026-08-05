@@ -1477,6 +1477,19 @@ export default function TravelMatePost({ embedded = false } = {}) {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
 
+  // Multi-step form lives on a single route, so the global route-based
+  // ScrollToTop doesn't fire when moving between steps. Reset scroll to the
+  // top whenever the step changes so each step starts from the beginning.
+  useEffect(() => {
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    } catch {
+      window.scrollTo(0, 0);
+    }
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+  }, [step]);
+
   const [form, setForm] = useState({
     from: "", fromCoords: null,
     to: "",   toCoords: null,
