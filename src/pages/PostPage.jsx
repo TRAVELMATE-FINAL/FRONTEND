@@ -1481,13 +1481,24 @@ export default function TravelMatePost({ embedded = false } = {}) {
   // ScrollToTop doesn't fire when moving between steps. Reset scroll to the
   // top whenever the step changes so each step starts from the beginning.
   useEffect(() => {
-    try {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    } catch {
-      window.scrollTo(0, 0);
-    }
-    if (document.documentElement) document.documentElement.scrollTop = 0;
-    if (document.body) document.body.scrollTop = 0;
+    const reset = () => {
+      try {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      } catch {
+        window.scrollTo(0, 0);
+      }
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    };
+    reset();                              // before paint of the new step
+    const raf = requestAnimationFrame(reset);
+    const t1 = setTimeout(reset, 60);     // catch late layout shifts
+    const t2 = setTimeout(reset, 200);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [step]);
 
   const [form, setForm] = useState({

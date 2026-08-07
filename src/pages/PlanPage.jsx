@@ -1,8 +1,9 @@
-import { useState, useLayoutEffect } from "react";
+import { useState, useLayoutEffect, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import planImage from "../assets/plan-travelmate.png";
+import { getPlans } from "../services/api";
 
 /* ─── Data ───────────────────────────────────────────────────────────────── */
 
@@ -62,6 +63,21 @@ export default function PlanPage() {
   const navigate = useNavigate();
   const [activeSlide, setActiveSlide] = useState(1);
 
+  // Live, admin-editable prices from the DB. Defaults match the catalog so
+  // the cards render instantly; the fetch overrides them once it returns.
+  const [prices, setPrices] = useState({ daily: "30", monthly: "650", yearly: "1200" });
+  useEffect(() => {
+    getPlans()
+      .then((r) => {
+        const map = {};
+        (r.plans || []).forEach((p) => {
+          if (p && p.key != null && p.price != null) map[p.key] = String(p.price);
+        });
+        if (Object.keys(map).length) setPrices((prev) => ({ ...prev, ...map }));
+      })
+      .catch(() => {});
+  }, []);
+
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
@@ -112,7 +128,7 @@ export default function PlanPage() {
 
                 <div className="prp-price-row">
                   <span className="prp-symbol">₹</span>
-                  <span className="prp-price">{plan.price}</span>
+                  <span className="prp-price">{prices[plan.id] ?? plan.price}</span>
                   <span className="prp-per">{plan.per}</span>
                 </div>
 
