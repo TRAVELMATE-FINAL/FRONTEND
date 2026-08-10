@@ -1,23 +1,20 @@
 // components/LocationSearch/LocationSearch.jsx
-// India-wide location autocomplete using the Places API (New) REST endpoint
-// directly (https://places.googleapis.com/v1/places:autocomplete).
+// India-wide location autocomplete using the Google Maps JS SDK's new Places
+// API (google.maps.places.AutocompleteSuggestion + Place).
 //
-// Why REST instead of the JS SDK's AutocompleteSuggestion class: the SDK class
-// can fail to initialise reliably on some mobile browsers (loading race), which
-// made the dropdown fall back to a fixed district list and show "No matching
-// place". Calling the REST endpoint (the same one verified with curl) behaves
-// identically on desktop and mobile — no SDK timing dependency.
+// We use the SDK (not a raw REST fetch) because the SDK handles the API key,
+// HTTP-referrer and CORS correctly in the browser — a direct REST call to
+// places.googleapis.com gets rejected with referrer-restricted keys.
 //
-// Returns any place in India: states, districts, cities, towns, villages,
-// localities, suburbs, bus/railway/metro stations, airports, landmarks,
-// tourist spots, colleges, IT parks, industrial/residential areas, any POI.
+// The dropdown returns any place in India: states, districts, cities, towns,
+// villages, localities, suburbs, bus/railway/metro stations, airports,
+// landmarks, tourist spots, colleges, IT parks, industrial/residential areas.
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useGoogleMaps } from "../../utils/googleMapsLoader";
 import "./LocationSearch.css";
 
-const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
-
-// Tamil Nadu district fallback — only used if the API key is missing.
+// Fallback list only used if the Maps SDK/key is unavailable.
 const TN_DISTRICTS = [
   { name: "Chennai", lat: 13.0827, lon: 80.2707 },
   { name: "Coimbatore", lat: 11.0168, lon: 76.9558 },
@@ -31,11 +28,11 @@ const TN_DISTRICTS = [
   { name: "Thanjavur", lat: 10.787, lon: 79.1378 },
 ];
 
-function newSessionToken() {
-  try {
-    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
-  } catch {}
-  return "tok-" + Math.random().toString(36).slice(2) + Date.now();
+// True once the SDK's new Places autocomplete is actually available.
+function placesReady() {
+  const p = window.google && window.google.maps && window.google.maps.places;
+  return !!(p && p.AutocompleteSuggestion &&
+    typeof p.AutocompleteSuggestion.fetchAutocompleteSuggestions === "function");
 }
 
 export default function LocationSearch({
@@ -49,44 +46,43 @@ export default function LocationSearch({
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(false);
   const wrapRef = useRef(null);
-  const sessionTokenRef = useRef(newSessionToken());
 
-  // Fetch India-wide suggestions from Places API (New) as the user types.
+  const { isLoaded } = useGoogleMaps();
+  const sessionTokenRef = useRef(null);
+
+  // Fetch India-wide suggestions as the user types. We check placesReady()
+  // LIVE (not via a ref set elsewhere) so a slow mobile load can't leave us
+  // stuck on the district fallback.
   useEffect(() => {
     const q = (value || "").trim();
-    if (!q || !API_KEY) {
+    if (!q) {
       setPredictions([]);
       return;
+    }
+    if (!isLoaded || !placesReady()) return;
+
+    const places = window.google.maps.places;
+    if (!sessionTokenRef.current && places.AutocompleteSessionToken) {
+      sessionTokenRef.current = new places.AutocompleteSessionToken();
     }
 
     let cancelled = false;
     const t = setTimeout(async () => {
       try {
         setLoading(true);
-        const res = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Goog-Api-Key": API_KEY,
-          },
-          body: JSON.stringify({
-            input: q,
-            includedRegionCodes: ["in"], // India only
-            sessionToken: sessionTokenRef.current,
-          }),
+        const { suggestions } = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+          input: q,
+          includedRegionCodes: ["in"], // India only
+          sessionToken: sessionTokenRef.current || undefined,
         });
-        const data = await res.json();
         if (cancelled) return;
         const out = [];
-        (data.suggestions || []).forEach((s) => {
+        (suggestions || []).forEach((s) => {
           const pp = s.placePrediction;
           if (!pp) return;
-          const sf = pp.structuredFormat || {};
-          out.push({
-            place_id: pp.placeId,
-            mainText: (sf.mainText && sf.mainText.text) || (pp.text && pp.text.text) || "",
-            secondaryText: (sf.secondaryText && sf.secondaryText.text) || "",
-          });
+          const main = (pp.mainText && pp.mainText.text) || (pp.text && pp.text.text) || "";
+          const sec = (pp.secondaryText && pp.secondaryText.text) || "";
+          out.push({ placePrediction: pp, place_id: pp.placeId, mainText: main, secondaryText: sec });
         });
         setPredictions(out);
       } catch (e) {
@@ -100,31 +96,32 @@ export default function LocationSearch({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [value]);
+  }, [value, isLoaded]);
 
   const options = useMemo(() => {
     const q = (value || "").trim().toLowerCase();
-
     if (!q) {
       return TN_DISTRICTS.map((d) => ({
         kind: "local", name: d.name, sub: "Tamil Nadu", lat: d.lat, lon: d.lon,
       }));
     }
-    if (API_KEY && predictions.length > 0) {
+    if (predictions.length > 0) {
       return predictions.map((p) => ({
         kind: "google",
         name: p.mainText,
         sub: p.secondaryText || "India",
         place_id: p.place_id,
+        placePrediction: p.placePrediction,
       }));
     }
-    // No API key configured → offer the district fallback.
-    if (!API_KEY) {
+    // If the SDK isn't available at all, offer a district match so the field
+    // still works in degraded mode.
+    if (!placesReady()) {
       return TN_DISTRICTS.filter((d) => d.name.toLowerCase().includes(q)).map((d) => ({
         kind: "local", name: d.name, sub: "Tamil Nadu", lat: d.lat, lon: d.lon,
       }));
     }
-    return []; // API key present but no matches / still loading
+    return [];
   }, [value, predictions]);
 
   useEffect(() => {
@@ -144,27 +141,23 @@ export default function LocationSearch({
       return;
     }
     try {
-      const res = await fetch(
-        `https://places.googleapis.com/v1/places/${opt.place_id}?sessionToken=${sessionTokenRef.current}`,
-        {
-          headers: {
-            "X-Goog-Api-Key": API_KEY,
-            "X-Goog-FieldMask": "location,formattedAddress,displayName",
-          },
-        }
-      );
-      const place = await res.json();
+      const place = opt.placePrediction.toPlace();
+      await place.fetchFields({ fields: ["location", "formattedAddress", "displayName"] });
       const loc = place.location;
-      if (!loc || loc.latitude == null) {
+      if (!loc) {
         onChange(opt.name);
         setOpen(false);
         return;
       }
-      const display =
-        place.formattedAddress || (place.displayName && place.displayName.text) || opt.name;
-      onSelect({ display_name: display, lat: loc.latitude, lon: loc.longitude });
+      const lat = typeof loc.lat === "function" ? loc.lat() : loc.lat;
+      const lon = typeof loc.lng === "function" ? loc.lng() : loc.lng;
+      const display = place.formattedAddress || place.displayName || opt.name;
+      onSelect({ display_name: display, lat, lon });
       setOpen(false);
-      sessionTokenRef.current = newSessionToken(); // new session after a selection
+      const places = window.google && window.google.maps && window.google.maps.places;
+      if (places && places.AutocompleteSessionToken) {
+        sessionTokenRef.current = new places.AutocompleteSessionToken();
+      }
     } catch (e) {
       onChange(opt.name);
       setOpen(false);
