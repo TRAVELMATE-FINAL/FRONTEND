@@ -660,6 +660,7 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
     if (!isLoaded || !mapReady || !haveCoords || !mapRef.current) return;
     const g = window.google;
     const map = mapRef.current;
+    let cancelled = false;
     clearMapLayers();
     // Reset selection whenever the from/to changes so the new primary is shown.
     setSelectedRouteIdx(0);
@@ -765,52 +766,60 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
           if (typeof onRouteCalculated === "function") onRouteCalculated(next);
           setRouteError("");
         } else {
-          // Fallback: straight line between A and B
-          const path = [origin, destination];
-          const line = new g.maps.Polyline({
-            path,
-            map,
-            strokeColor: "#4f6ef7",
-            strokeOpacity: 0.9,
-            strokeWeight: 4,
-          });
-          fallbackPolylineRef.current = line;
-          const bounds = new g.maps.LatLngBounds();
-          path.forEach((p) => bounds.extend(p));
-          map.fitBounds(bounds, 40);
+          // Google's legacy Directions service failed (it can be denied or
+          // flaky per-device/browser). Instead of a misleading straight line,
+          // draw the REAL road route from our own backend (OSRM) so every
+          // device shows the actual roads and correct distance/time.
           drawAB();
           setRoutes([]);
-          // Fallback: use Distance Matrix to still surface km/min when Directions fails
-          if (g.maps.DistanceMatrixService) {
-            const dm = new g.maps.DistanceMatrixService();
-            dm.getDistanceMatrix(
-              {
-                origins: [origin],
-                destinations: [destination],
-                travelMode: g.maps.TravelMode.DRIVING,
-                unitSystem: g.maps.UnitSystem.METRIC,
+          axios
+            .get(`${API}/api/route`, {
+              params: {
+                fromLat: origin.lat, fromLng: origin.lng,
+                toLat: destination.lat, toLng: destination.lng,
               },
-              (resp, st) => {
-                const el = resp?.rows?.[0]?.elements?.[0];
-                if (st === "OK" && el?.status === "OK") {
-                  const next = {
-                    distance: el.distance?.text || "",
-                    duration: el.duration?.text || "",
-                  };
-                  setRouteInfo(next);
-                  if (typeof onRouteCalculated === "function") onRouteCalculated(next);
-                } else {
-                  setRouteInfo({ distance: "", duration: "" });
-                }
-              }
-            );
-          }
-          setRouteError("Direct line shown");
+            })
+            .then((rr) => {
+              if (cancelled) return;
+              const geom = (rr.data?.geometry || []).map(([lon, lat]) => ({ lat, lng: lon }));
+              if (geom.length < 2) throw new Error("no geometry");
+              const line = new g.maps.Polyline({
+                path: geom, map,
+                strokeColor: "#4f6ef7", strokeOpacity: 0.95, strokeWeight: 5,
+              });
+              fallbackPolylineRef.current = line;
+              const b = new g.maps.LatLngBounds();
+              geom.forEach((p) => b.extend(p));
+              if (!b.isEmpty()) map.fitBounds(b, 40);
+              const next = { distance: rr.data?.distance || "", duration: rr.data?.duration || "" };
+              setRouteInfo(next);
+              if (typeof onRouteCalculated === "function") onRouteCalculated(next);
+              setRouteError(""); // real road route drawn — not a straight line
+            })
+            .catch(() => {
+              if (cancelled) return;
+              // Absolute last resort: straight line + haversine estimate.
+              const path = [origin, destination];
+              const line = new g.maps.Polyline({
+                path, map, strokeColor: "#4f6ef7", strokeOpacity: 0.9, strokeWeight: 4,
+              });
+              fallbackPolylineRef.current = line;
+              const b = new g.maps.LatLngBounds();
+              path.forEach((p) => b.extend(p));
+              map.fitBounds(b, 40);
+              const km = Math.round(haversine(origin.lat, origin.lng, destination.lat, destination.lng));
+              setRouteInfo({
+                distance: km > 0 ? `${km} km` : "",
+                duration: km > 0 ? `${Math.round(km / 50)} hr ${Math.round((km / 50 * 60) % 60)} min` : "",
+              });
+              setRouteError("Direct line shown");
+            });
         }
       }
     );
 
     return () => {
+      cancelled = true;
       clearMapLayers();
     };
   }, [
