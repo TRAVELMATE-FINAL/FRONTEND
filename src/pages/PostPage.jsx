@@ -9,37 +9,6 @@ import Footer from "../components/Footer/Footer.jsx";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
 
 const API = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
-const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
-
-// Decode a Google encoded polyline into an array of { lat, lng } points.
-function decodePolyline(encoded) {
-  const pts = [];
-  let index = 0, lat = 0, lng = 0;
-  while (index < encoded.length) {
-    let b, shift = 0, result = 0;
-    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
-    shift = 0; result = 0;
-    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-    lng += (result & 1) ? ~(result >> 1) : (result >> 1);
-    pts.push({ lat: lat / 1e5, lng: lng / 1e5 });
-  }
-  return pts;
-}
-
-// Format Routes API distanceMeters / duration ("1234s") for display.
-function metersToText(m) {
-  if (m == null) return "";
-  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
-}
-function durationToText(d) {
-  const sec = parseInt(String(d || "0"), 10);
-  if (!sec) return "";
-  const mins = Math.round(sec / 60);
-  if (mins < 60) return `${mins} min`;
-  const h = Math.floor(mins / 60), mm = mins % 60;
-  return `${h} hr ${mm} min`;
-}
 
 /* ─────────────────────────────────────────
    Date / time helpers — local time, no UTC
@@ -699,6 +668,8 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
     // origin/destination and no longer make sense for the new search.
     routeStopsCacheRef.current = {};
 
+    const directionsService = new g.maps.DirectionsService();
+
     const origin = { lat: Number(fromCoords.lat), lng: Number(fromCoords.lon) };
     const destination = { lat: Number(toCoords.lat), lng: Number(toCoords.lon) };
 
@@ -736,116 +707,116 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
       markersRef.current = [from, to];
     };
 
-    (async () => {
-      try {
-        if (!MAPS_KEY) throw new Error("no maps key");
-        // Routes API (New) — supports alternate routes and isn't deprecated
-        // like the legacy DirectionsService. Works uniformly on desktop+mobile.
-        const res = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Goog-Api-Key": MAPS_KEY,
-            "X-Goog-FieldMask":
-              "routes.polyline.encodedPolyline,routes.distanceMeters,routes.duration,routes.description",
-          },
-          body: JSON.stringify({
-            origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
-            destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } },
-            travelMode: "DRIVE",
-            computeAlternativeRoutes: true,
-            polylineEncoding: "ENCODED_POLYLINE",
-            regionCode: "IN",
-            languageCode: "en",
-          }),
-        });
-        const data = await res.json();
-        if (cancelled) return;
-        const apiRoutes = data.routes || [];
-        if (!apiRoutes.length) throw new Error("no routes");
+    directionsService.route(
+      {
+        origin,
+        destination,
+        travelMode: g.maps.TravelMode.DRIVING,
+        // 🔑 Ask Google for alternate routes whenever they exist.
+        provideRouteAlternatives: true,
+      },
+      (result, status) => {
+        if (status === "OK") {
+          directionsResultRef.current = result;
+          const allRoutes = result.routes || [];
 
-        // Decode each route; keep an overview_path so the rest of the
-        // component (route selection, bounds, suggested stops) works unchanged.
-        const decoded = apiRoutes.map((r) => ({
-          overview_path: r.polyline?.encodedPolyline ? decodePolyline(r.polyline.encodedPolyline) : [],
-          distanceMeters: r.distanceMeters,
-          duration: r.duration,
-          description: r.description || "",
-        }));
-        directionsResultRef.current = { routes: decoded };
-
-        decoded.forEach((route, idx) => {
-          const path = route.overview_path;
-          if (!path.length) return;
-          const line = new g.maps.Polyline({
-            path, map,
-            strokeColor: idx === 0 ? "#4f6ef7" : "#9ca3af",
-            strokeOpacity: idx === 0 ? 0.95 : 0.55,
-            strokeWeight: idx === 0 ? 5 : 4,
-            zIndex: idx === 0 ? 10 : 1,
-            clickable: true,
+          // Draw each route as its own Polyline so we can style + click them
+          allRoutes.forEach((route, idx) => {
+            const path = route.overview_path || [];
+            const line = new g.maps.Polyline({
+              path,
+              map,
+              strokeColor: idx === 0 ? "#4f6ef7" : "#9ca3af",
+              strokeOpacity: idx === 0 ? 0.95 : 0.55,
+              strokeWeight: idx === 0 ? 5 : 4,
+              zIndex: idx === 0 ? 10 : 1,
+              clickable: true,
+            });
+            // Clicking a faded route promotes it to the "selected" route.
+            line.addListener("click", () => {
+              setSelectedRouteIdx(idx);
+            });
+            routePolylinesRef.current.push({ line, routeIndex: idx });
           });
-          line.addListener("click", () => setSelectedRouteIdx(idx));
-          routePolylinesRef.current.push({ line, routeIndex: idx });
-        });
 
-        const bounds = new g.maps.LatLngBounds();
-        (decoded[0]?.overview_path || []).forEach((p) => bounds.extend(p));
-        if (!bounds.isEmpty()) map.fitBounds(bounds, 40);
+          // Fit the map so all routes (or at least the primary one) are visible.
+          const bounds = new g.maps.LatLngBounds();
+          (allRoutes[0]?.overview_path || []).forEach((p) => bounds.extend(p));
+          if (!bounds.isEmpty()) map.fitBounds(bounds, 40);
 
-        drawAB();
+          drawAB();
 
-        const summaries = decoded.map((r) => ({
-          distance: metersToText(r.distanceMeters),
-          duration: durationToText(r.duration),
-          summary: r.description || "",
-        }));
-        setRoutes(summaries);
-        const next = { distance: summaries[0]?.distance || "", duration: summaries[0]?.duration || "" };
-        setRouteInfo(next);
-        if (typeof onRouteCalculated === "function") onRouteCalculated(next);
-        setRouteError("");
-      } catch (e) {
-        if (cancelled) return;
-        // Fallback: real road route from our own backend (OSRM), so the map
-        // still shows the actual roads even if the Routes API is unavailable.
-        directionsResultRef.current = null;
-        drawAB();
-        setRoutes([]);
-        try {
-          const rr = await axios.get(`${API}/api/route`, {
-            params: { fromLat: origin.lat, fromLng: origin.lng, toLat: destination.lat, toLng: destination.lng },
+          // Build a small summary list to show under the map.
+          const summaries = allRoutes.map((r) => {
+            const leg = r.legs?.[0];
+            return {
+              distance: leg?.distance?.text || "",
+              duration: leg?.duration?.text || "",
+              summary: r.summary || "",
+            };
           });
-          if (cancelled) return;
-          const geom = (rr.data?.geometry || []).map(([lon, lat]) => ({ lat, lng: lon }));
-          if (geom.length < 2) throw new Error("no geometry");
-          const line = new g.maps.Polyline({ path: geom, map, strokeColor: "#4f6ef7", strokeOpacity: 0.95, strokeWeight: 5 });
-          fallbackPolylineRef.current = line;
-          const b = new g.maps.LatLngBounds();
-          geom.forEach((p) => b.extend(p));
-          if (!b.isEmpty()) map.fitBounds(b, 40);
-          const next = { distance: rr.data?.distance || "", duration: rr.data?.duration || "" };
+          setRoutes(summaries);
+
+          // Primary distance / duration goes up to parent (selected = index 0)
+          const next = {
+            distance: summaries[0]?.distance || "",
+            duration: summaries[0]?.duration || "",
+          };
           setRouteInfo(next);
           if (typeof onRouteCalculated === "function") onRouteCalculated(next);
           setRouteError("");
-        } catch (e2) {
-          if (cancelled) return;
-          // Absolute last resort: straight line + haversine estimate.
-          const path = [origin, destination];
-          const line = new g.maps.Polyline({ path, map, strokeColor: "#4f6ef7", strokeOpacity: 0.9, strokeWeight: 4 });
-          fallbackPolylineRef.current = line;
-          const b = new g.maps.LatLngBounds();
-          path.forEach((p) => b.extend(p));
-          map.fitBounds(b, 40);
-          const km = Math.round(haversine(origin.lat, origin.lng, destination.lat, destination.lng));
-          setRouteInfo({
-            distance: km > 0 ? `${km} km` : "",
-            duration: km > 0 ? `${Math.round(km / 50)} hr ${Math.round((km / 50 * 60) % 60)} min` : "",
-          });
-          setRouteError("Direct line shown");
+        } else {
+          // Google's legacy Directions service failed (it can be denied or
+          // flaky per-device/browser). Instead of a misleading straight line,
+          // draw the REAL road route from our own backend (OSRM) so every
+          // device shows the actual roads and correct distance/time.
+          drawAB();
+          setRoutes([]);
+          axios
+            .get(`${API}/api/route`, {
+              params: {
+                fromLat: origin.lat, fromLng: origin.lng,
+                toLat: destination.lat, toLng: destination.lng,
+              },
+            })
+            .then((rr) => {
+              if (cancelled) return;
+              const geom = (rr.data?.geometry || []).map(([lon, lat]) => ({ lat, lng: lon }));
+              if (geom.length < 2) throw new Error("no geometry");
+              const line = new g.maps.Polyline({
+                path: geom, map,
+                strokeColor: "#4f6ef7", strokeOpacity: 0.95, strokeWeight: 5,
+              });
+              fallbackPolylineRef.current = line;
+              const b = new g.maps.LatLngBounds();
+              geom.forEach((p) => b.extend(p));
+              if (!b.isEmpty()) map.fitBounds(b, 40);
+              const next = { distance: rr.data?.distance || "", duration: rr.data?.duration || "" };
+              setRouteInfo(next);
+              if (typeof onRouteCalculated === "function") onRouteCalculated(next);
+              setRouteError(""); // real road route drawn — not a straight line
+            })
+            .catch(() => {
+              if (cancelled) return;
+              // Absolute last resort: straight line + haversine estimate.
+              const path = [origin, destination];
+              const line = new g.maps.Polyline({
+                path, map, strokeColor: "#4f6ef7", strokeOpacity: 0.9, strokeWeight: 4,
+              });
+              fallbackPolylineRef.current = line;
+              const b = new g.maps.LatLngBounds();
+              path.forEach((p) => b.extend(p));
+              map.fitBounds(b, 40);
+              const km = Math.round(haversine(origin.lat, origin.lng, destination.lat, destination.lng));
+              setRouteInfo({
+                distance: km > 0 ? `${km} km` : "",
+                duration: km > 0 ? `${Math.round(km / 50)} hr ${Math.round((km / 50 * 60) % 60)} min` : "",
+              });
+              setRouteError("Direct line shown");
+            });
         }
       }
-    })();
+    );
 
     return () => {
       cancelled = true;
