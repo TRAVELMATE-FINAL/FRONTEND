@@ -1,63 +1,42 @@
 // components/LocationSearch/LocationSearch.jsx
-// India-wide location autocomplete.
+// India-wide location autocomplete using the Places API (New) REST endpoint
+// directly (https://places.googleapis.com/v1/places:autocomplete).
 //
-// Uses the NEW Google Places API (google.maps.places.AutocompleteSuggestion +
-// Place) so the dropdown surfaces EVERY state, district, city, town, village,
-// locality, suburb, bus stop, railway/metro station, airport, landmark,
-// tourist place, college, IT park, industrial/residential area and any POI
-// on the map — restricted to India. Results are not limited to a fixed list.
+// Why REST instead of the JS SDK's AutocompleteSuggestion class: the SDK class
+// can fail to initialise reliably on some mobile browsers (loading race), which
+// made the dropdown fall back to a fixed district list and show "No matching
+// place". Calling the REST endpoint (the same one verified with curl) behaves
+// identically on desktop and mobile — no SDK timing dependency.
 //
-// Why the new API: the legacy AutocompleteService / PlacesService are no
-// longer available to Google Cloud projects created after March 2025, which
-// is why the old dropdown silently fell back to a 38-district list.
-//
-// Fallback: if the Places library hasn't loaded (or the key is missing) we
-// drop back to the 38 Tamil Nadu district centroids so the field still works.
+// Returns any place in India: states, districts, cities, towns, villages,
+// localities, suburbs, bus/railway/metro stations, airports, landmarks,
+// tourist spots, colleges, IT parks, industrial/residential areas, any POI.
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useGoogleMaps } from "../../utils/googleMapsLoader";
 import "./LocationSearch.css";
 
+const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+
+// Tamil Nadu district fallback — only used if the API key is missing.
 const TN_DISTRICTS = [
-  { name: "Ariyalur",        lat: 11.1401, lon: 79.0786 },
-  { name: "Chengalpattu",    lat: 12.6918, lon: 79.9747 },
-  { name: "Chennai",         lat: 13.0827, lon: 80.2707 },
-  { name: "Coimbatore",      lat: 11.0168, lon: 76.9558 },
-  { name: "Cuddalore",       lat: 11.7480, lon: 79.7714 },
-  { name: "Dharmapuri",      lat: 12.1357, lon: 78.1581 },
-  { name: "Dindigul",        lat: 10.3673, lon: 77.9803 },
-  { name: "Erode",           lat: 11.3410, lon: 77.7172 },
-  { name: "Kallakurichi",    lat: 11.7401, lon: 78.9590 },
-  { name: "Kancheepuram",    lat: 12.8342, lon: 79.7036 },
-  { name: "Kanyakumari",     lat:  8.0883, lon: 77.5385 },
-  { name: "Karur",           lat: 10.9601, lon: 78.0766 },
-  { name: "Krishnagiri",     lat: 12.5266, lon: 78.2150 },
-  { name: "Madurai",         lat:  9.9252, lon: 78.1198 },
-  { name: "Mayiladuthurai",  lat: 11.1018, lon: 79.6555 },
-  { name: "Nagapattinam",    lat: 10.7672, lon: 79.8449 },
-  { name: "Namakkal",        lat: 11.2189, lon: 78.1677 },
-  { name: "Nilgiris",        lat: 11.4916, lon: 76.7337 },
-  { name: "Perambalur",      lat: 11.2342, lon: 78.8807 },
-  { name: "Pudukottai",      lat: 10.3833, lon: 78.8001 },
-  { name: "Ramanathapuram",  lat:  9.3639, lon: 78.8395 },
-  { name: "Ranipet",         lat: 12.9249, lon: 79.3308 },
-  { name: "Salem",           lat: 11.6643, lon: 78.1460 },
-  { name: "Sivaganga",       lat:  9.8430, lon: 78.4809 },
-  { name: "Tenkasi",         lat:  8.9595, lon: 77.3152 },
-  { name: "Thanjavur",       lat: 10.7870, lon: 79.1378 },
-  { name: "Theni",           lat: 10.0104, lon: 77.4768 },
-  { name: "Thoothukudi",     lat:  8.7642, lon: 78.1348 },
+  { name: "Chennai", lat: 13.0827, lon: 80.2707 },
+  { name: "Coimbatore", lat: 11.0168, lon: 76.9558 },
+  { name: "Madurai", lat: 9.9252, lon: 78.1198 },
   { name: "Tiruchirappalli", lat: 10.7905, lon: 78.7047 },
-  { name: "Tirunelveli",     lat:  8.7139, lon: 77.7567 },
-  { name: "Tirupathur",      lat: 12.4956, lon: 78.5734 },
-  { name: "Tiruppur",        lat: 11.1085, lon: 77.3411 },
-  { name: "Tiruvallur",      lat: 13.1439, lon: 79.9094 },
-  { name: "Tiruvannamalai",  lat: 12.2253, lon: 79.0747 },
-  { name: "Tiruvarur",       lat: 10.7726, lon: 79.6368 },
-  { name: "Vellore",         lat: 12.9165, lon: 79.1325 },
-  { name: "Viluppuram",      lat: 11.9398, lon: 79.4918 },
-  { name: "Virudhunagar",    lat:  9.5680, lon: 77.9624 },
+  { name: "Salem", lat: 11.6643, lon: 78.146 },
+  { name: "Tirunelveli", lat: 8.7139, lon: 77.7567 },
+  { name: "Vellore", lat: 12.9165, lon: 79.1325 },
+  { name: "Erode", lat: 11.341, lon: 77.7172 },
+  { name: "Thoothukudi", lat: 8.7642, lon: 78.1348 },
+  { name: "Thanjavur", lat: 10.787, lon: 79.1378 },
 ];
+
+function newSessionToken() {
+  try {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+  } catch {}
+  return "tok-" + Math.random().toString(36).slice(2) + Date.now();
+}
 
 export default function LocationSearch({
   placeholder = "Search location",
@@ -68,128 +47,95 @@ export default function LocationSearch({
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const [predictions, setPredictions] = useState([]);
+  const [loading, setLoading] = useState(false);
   const wrapRef = useRef(null);
+  const sessionTokenRef = useRef(newSessionToken());
 
-  const { isLoaded } = useGoogleMaps();
-  const sessionTokenRef = useRef(null);
-  const newApiRef = useRef(false); // true once the new Places API is available
-
-  // Detect the new Places API and create a session token.
-  useEffect(() => {
-    if (!isLoaded) return;
-    const places = window.google && window.google.maps && window.google.maps.places;
-    if (!places) return;
-    newApiRef.current =
-      !!places.AutocompleteSuggestion &&
-      typeof places.AutocompleteSuggestion.fetchAutocompleteSuggestions === "function";
-    if (!sessionTokenRef.current && places.AutocompleteSessionToken) {
-      sessionTokenRef.current = new places.AutocompleteSessionToken();
-    }
-  }, [isLoaded]);
-
-  // Fetch India-wide suggestions as the user types (debounced).
+  // Fetch India-wide suggestions from Places API (New) as the user types.
   useEffect(() => {
     const q = (value || "").trim();
-    if (!q) {
+    if (!q || !API_KEY) {
       setPredictions([]);
       return;
     }
-    if (!isLoaded) return;
-    const places = window.google && window.google.maps && window.google.maps.places;
-    if (!places || !places.AutocompleteSuggestion) return;
 
     let cancelled = false;
-
-    const run = async () => {
+    const t = setTimeout(async () => {
       try {
-        const request = {
-          input: q,
-          includedRegionCodes: ["in"], // India only
-          sessionToken: sessionTokenRef.current || undefined,
-          // No includedPrimaryTypes -> returns ALL place types
-          // (cities, villages, stations, airports, landmarks, POIs, ...).
-        };
-        const { suggestions } =
-          await places.AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+        setLoading(true);
+        const res = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": API_KEY,
+          },
+          body: JSON.stringify({
+            input: q,
+            includedRegionCodes: ["in"], // India only
+            sessionToken: sessionTokenRef.current,
+          }),
+        });
+        const data = await res.json();
         if (cancelled) return;
-
         const out = [];
-        (suggestions || []).forEach((s) => {
+        (data.suggestions || []).forEach((s) => {
           const pp = s.placePrediction;
           if (!pp) return;
-          const main = pp.mainText && pp.mainText.text ? pp.mainText.text : (pp.text && pp.text.text) || "";
-          const sec = pp.secondaryText && pp.secondaryText.text ? pp.secondaryText.text : "";
+          const sf = pp.structuredFormat || {};
           out.push({
-            placePrediction: pp,
             place_id: pp.placeId,
-            mainText: main,
-            secondaryText: sec,
+            mainText: (sf.mainText && sf.mainText.text) || (pp.text && pp.text.text) || "",
+            secondaryText: (sf.secondaryText && sf.secondaryText.text) || "",
           });
         });
         setPredictions(out);
       } catch (e) {
         if (!cancelled) setPredictions([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    };
+    }, 180);
 
-    const t = setTimeout(run, 180);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [value, isLoaded]);
+  }, [value]);
 
   const options = useMemo(() => {
     const q = (value || "").trim().toLowerCase();
-    const googleReady = isLoaded && newApiRef.current;
 
     if (!q) {
       return TN_DISTRICTS.map((d) => ({
-        kind: "local",
-        name: d.name,
-        sub: "Tamil Nadu",
-        lat: d.lat,
-        lon: d.lon,
+        kind: "local", name: d.name, sub: "Tamil Nadu", lat: d.lat, lon: d.lon,
       }));
     }
-
-    if (googleReady && predictions.length > 0) {
+    if (API_KEY && predictions.length > 0) {
       return predictions.map((p) => ({
         kind: "google",
         name: p.mainText,
         sub: p.secondaryText || "India",
         place_id: p.place_id,
-        placePrediction: p.placePrediction,
       }));
     }
-
-    // Fallback: filter the district list (used only if Google isn't ready).
-    return TN_DISTRICTS.filter((d) =>
-      q.length === 1
-        ? d.name.toLowerCase().startsWith(q)
-        : d.name.toLowerCase().includes(q)
-    ).map((d) => ({
-      kind: "local",
-      name: d.name,
-      sub: "Tamil Nadu",
-      lat: d.lat,
-      lon: d.lon,
-    }));
-  }, [value, isLoaded, predictions]);
+    // No API key configured → offer the district fallback.
+    if (!API_KEY) {
+      return TN_DISTRICTS.filter((d) => d.name.toLowerCase().includes(q)).map((d) => ({
+        kind: "local", name: d.name, sub: "Tamil Nadu", lat: d.lat, lon: d.lon,
+      }));
+    }
+    return []; // API key present but no matches / still loading
+  }, [value, predictions]);
 
   useEffect(() => {
     const onDocClick = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
-        setOpen(false);
-      }
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  useEffect(() => {
-    setHighlight(0);
-  }, [options.length]);
+  useEffect(() => { setHighlight(0); }, [options.length]);
 
   const pick = async (opt) => {
     if (opt.kind === "local") {
@@ -198,26 +144,27 @@ export default function LocationSearch({
       return;
     }
     try {
-      const place = opt.placePrediction.toPlace();
-      await place.fetchFields({
-        fields: ["location", "formattedAddress", "displayName"],
-      });
+      const res = await fetch(
+        `https://places.googleapis.com/v1/places/${opt.place_id}?sessionToken=${sessionTokenRef.current}`,
+        {
+          headers: {
+            "X-Goog-Api-Key": API_KEY,
+            "X-Goog-FieldMask": "location,formattedAddress,displayName",
+          },
+        }
+      );
+      const place = await res.json();
       const loc = place.location;
-      if (!loc) {
+      if (!loc || loc.latitude == null) {
         onChange(opt.name);
         setOpen(false);
         return;
       }
-      const lat = typeof loc.lat === "function" ? loc.lat() : loc.lat;
-      const lon = typeof loc.lng === "function" ? loc.lng() : loc.lng;
-      const display = place.formattedAddress || place.displayName || opt.name;
-      onSelect({ display_name: display, lat, lon });
+      const display =
+        place.formattedAddress || (place.displayName && place.displayName.text) || opt.name;
+      onSelect({ display_name: display, lat: loc.latitude, lon: loc.longitude });
       setOpen(false);
-      // Start a fresh session token after a completed selection.
-      const places = window.google && window.google.maps && window.google.maps.places;
-      if (places && places.AutocompleteSessionToken) {
-        sessionTokenRef.current = new places.AutocompleteSessionToken();
-      }
+      sessionTokenRef.current = newSessionToken(); // new session after a selection
     } catch (e) {
       onChange(opt.name);
       setOpen(false);
@@ -266,10 +213,7 @@ export default function LocationSearch({
                 key={itemKey}
                 role="option"
                 aria-selected={isActive}
-                className={
-                  "locsearch__option" +
-                  (isActive ? " locsearch__option--active" : "")
-                }
+                className={"locsearch__option" + (isActive ? " locsearch__option--active" : "")}
                 onMouseEnter={() => setHighlight(i)}
                 onMouseDown={(e) => {
                   e.preventDefault();
@@ -293,7 +237,7 @@ export default function LocationSearch({
       )}
 
       {open && value && options.length === 0 && (
-        <div className="locsearch__empty">No matching place</div>
+        <div className="locsearch__empty">{loading ? "Searching…" : "No matching place"}</div>
       )}
     </div>
   );
