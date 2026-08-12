@@ -842,21 +842,37 @@ export default function TravelMate() {
             .ff-search-card {
               flex-direction: column !important;
               flex-wrap: nowrap !important;
-              gap: 8px !important;
+              align-items: stretch !important;   /* full-width, no side shift */
+              gap: 10px !important;
               padding: 12px !important;
               border-radius: 16px !important;
               max-width: 100% !important;
               width: 100% !important;
+              box-sizing: border-box !important;
             }
             .ff-search-card .ff-field,
             .ff-search-card .ff-find-btn {
-              flex: 1 1 100% !important;
+              /* flex:0 0 auto — in a column, a % flex-basis would apply to the
+                 VERTICAL axis and mis-size the field; auto respects height. */
+              flex: 0 0 auto !important;
               width: 100% !important;
-              height: 50px !important;
+              height: 52px !important;
               min-width: 0 !important;
+              margin: 0 !important;
               padding: 0 14px !important;
               border-radius: 12px !important;
               box-sizing: border-box !important;
+            }
+            /* keep icon + input on one baseline, text vertically centred */
+            .ff-search-card .ff-field {
+              display: flex !important;
+              align-items: center !important;
+              gap: 10px !important;
+            }
+            .ff-search-card .ff-find-btn {
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
             }
             .ff-search-card .ff-field svg {
               width: 18px !important;
