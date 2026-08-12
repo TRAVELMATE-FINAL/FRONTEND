@@ -16,7 +16,6 @@ function Hero({ mode: modeProp, onModeChange }) {
   const [vehicle, setVehicle] = useState('car');    // car | bike
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [date, setDate] = useState('');
 
   const navigate = useNavigate();
 
@@ -44,7 +43,6 @@ function Hero({ mode: modeProp, onModeChange }) {
       from: from.trim(),
       to: to.trim(),
     });
-    if (date) params.set('date', date);
     navigate(`/find-friend?${params.toString()}`);
   };
 
@@ -141,23 +139,6 @@ function Hero({ mode: modeProp, onModeChange }) {
                 value={to}
                 onChange={setTo}
                 onSelect={(item) => setTo(item.display_name)}
-              />
-            </label>
-
-            <label className="field">
-              <span className="field__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                  <path d="M16 2v4M8 2v4M3 10h18" />
-                </svg>
-              </span>
-              <input
-                type="date"
-                value={date}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={(e) => setDate(e.target.value)}
-                aria-label="Travel date"
-                data-has-value={date ? "true" : "false"}
               />
             </label>
 

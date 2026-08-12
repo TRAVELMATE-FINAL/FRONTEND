@@ -578,7 +578,6 @@ export default function TravelMate() {
 
   const queryFrom = searchParams.get("from") || "";
   const queryTo   = searchParams.get("to")   || "";
-  const queryDate = searchParams.get("date") || "";
 
   // Helper kept for the date input's `min` attribute below.
   const todayISO = () => new Date().toISOString().split("T")[0];
@@ -589,7 +588,6 @@ export default function TravelMate() {
   // Mirror exactly what's in the URL (empty = no date filter).
   const [from, setFrom] = useState(queryFrom);
   const [to,   setTo]   = useState(queryTo);
-  const [date, setDate] = useState(queryDate || "");
 
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -637,11 +635,6 @@ export default function TravelMate() {
     if (!matchesAmenity(r.additionalInfo, filters.amenity)) return false;
     if (filters.minSeats > 0 && (r.seatsAvailable || 0) < filters.minSeats) return false;
 
-    // Date filter — show only rides on the chosen day. Picks up the date
-    // from the search bar (URL ?date=) so users can browse rides for a
-    // specific date the same way they'd filter by anything else.
-    if (date && r.date && r.date !== date) return false;
-
     return true;
   });
 
@@ -651,10 +644,7 @@ export default function TravelMate() {
   useEffect(() => {
     setFrom(queryFrom);
     setTo(queryTo);
-    // Mirror the URL exactly — don't fill in today when the URL has no
-    // date, so the search bar's date input matches the active filter.
-    setDate(queryDate || "");
-  }, [queryFrom, queryTo, queryDate]);
+  }, [queryFrom, queryTo]);
 
   // Fetch rides ONLY when the user has actually clicked Find Ride —
   // detected by the presence of AT LEAST one filter (from / to / date)
@@ -664,7 +654,7 @@ export default function TravelMate() {
   // 8-second axios timeout + 10-second safety timer so the spinner
   // can never get stuck if the backend hangs.
   useEffect(() => {
-    const hasAnyFilter = !!(queryFrom || queryTo || queryDate);
+    const hasAnyFilter = !!(queryFrom || queryTo);
     if (!hasAnyFilter) {
       // No search yet — clear any previous results and bail out
       setRides([]);
@@ -692,7 +682,6 @@ export default function TravelMate() {
     const qp = new URLSearchParams();
     if (queryFrom) qp.set("from", queryFrom);
     if (queryTo)   qp.set("to",   queryTo);
-    if (queryDate) qp.set("date", queryDate);
     const url = `${API_BASE}/api/rides/search?${qp.toString()}`;
 
     axios
@@ -742,7 +731,7 @@ export default function TravelMate() {
       clearTimeout(safetyTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryFrom, queryTo, queryDate]);
+  }, [queryFrom, queryTo]);
 
   // Submit search bar → at LEAST one filter (From or To or Date) is
   // enough. Date-only, From+Date, To+Date, full trio, etc. all work.
@@ -750,10 +739,10 @@ export default function TravelMate() {
   // the fetch above.
   const handleSearch = (e) => {
     e?.preventDefault?.();
-    const f = from.trim(), t = to.trim(), d = (date || "").trim();
+    const f = from.trim(), t = to.trim();
 
-    if (!f && !t && !d) {
-      setError("Please fill at least one of From, To or Date before searching.");
+    if (!f && !t) {
+      setError("Please fill at least one of From or To before searching.");
       return;
     }
     if (f && t && f.toLowerCase() === t.toLowerCase()) {
@@ -765,12 +754,11 @@ export default function TravelMate() {
     const params = {};
     if (f) params.from = f;
     if (t) params.to   = t;
-    if (d) params.date = d;
     setSearchParams(params);
   };
 
   const clearFilter = () => {
-    setFrom(""); setTo(""); setDate("");
+    setFrom(""); setTo("");
     setSearchParams({});
   };
 
@@ -812,6 +800,17 @@ export default function TravelMate() {
           }
           /* keep the search bar above the floating icons */
           .ff-hero .ff-search-bar { position: relative; z-index: 2; }
+
+          /* The field being typed in must sit ABOVE the sibling field after
+             it, otherwise the (later-in-DOM) "To" field paints over the
+             "From" suggestions dropdown (dropdown appears cut off / behind). */
+          .ff-search-card .ff-field { z-index: 1; }
+          .ff-search-card .ff-field:focus-within { z-index: 3000; }
+          .ff-search-card .ff-field .locsearch__dropdown,
+          .ff-search-card .ff-field .locsearch__empty { z-index: 99999; }
+
+          /* Never allow horizontal scroll on the Find Ride page (mobile). */
+          .ff-page { overflow-x: hidden; }
 
           /* ─── RESPONSIVE BREAKDOWN (page-local, beats inline styles) ───
              Inline style props on each field force height: 64, padding:
@@ -990,41 +989,6 @@ export default function TravelMate() {
             </div>
           </div>
 
-          {/* Date */}
-          <div className="ff-field ff-field--date" style={{
-            background: "#fff",
-            borderRadius: "16px",
-            padding: "0 20px",
-            height: 64,
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            flex: "1 1 0",
-            minWidth: 0,
-            boxSizing: "border-box",
-            boxShadow: "0 2px 8px rgba(15, 15, 46, 0.04)",
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7a8294" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="3" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8"  y1="2" x2="8"  y2="6" />
-              <line x1="3"  y1="10" x2="21" y2="10" />
-            </svg>
-            <input
-              type="date"
-              value={date}
-              min={new Date().toISOString().split("T")[0]}
-              onChange={(e) => {
-                const v = e.target.value;
-                setDate(v);
-                const next = new URLSearchParams(searchParams);
-                if (v) next.set("date", v); else next.delete("date");
-                setSearchParams(next, { replace: true });
-              }}
-              data-has-value={date ? "true" : "false"}
-              style={{ border: "none", outline: "none", fontSize: "15px", color: "#1a1a2e", width: "100%", background: "transparent", fontFamily: "inherit" }} />
-          </div>
-
           {/* Find Ride — yellow rounded CTA, matches Figma */}
           <button type="submit" className="ff-find-btn" style={{
             background: "#f5c518",
@@ -1055,7 +1019,7 @@ export default function TravelMate() {
 
       {/* Active filter chip — shows whatever combination is active
           (From-only, To-only, Date-only, or any mix) */}
-      {(queryFrom || queryTo || queryDate) && (
+      {(queryFrom || queryTo) && (
         <div style={{ padding: "12px 48px 0", display: "flex", justifyContent: "center" }}>
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -1068,7 +1032,6 @@ export default function TravelMate() {
               Showing trips
               {queryFrom && <> from <b>{queryFrom}</b></>}
               {queryTo   && <> to <b>{queryTo}</b></>}
-              {queryDate && <> on <b>{queryDate}</b></>}
             </div>
             <button onClick={clearFilter} style={{
               background: "transparent", border: "none", color: "#7c3aed",
@@ -1097,13 +1060,13 @@ export default function TravelMate() {
 
           {!loading && !error && notFound && (
             <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 12, padding: 24, textAlign: "center", lineHeight: 1.7 }}>
-              No trips found{queryFrom && <> from <b>{queryFrom}</b></>}{queryTo && <> to <b>{queryTo}</b></>}{queryDate && <> on <b>{queryDate}</b></>}.
+              No trips found{queryFrom && <> from <b>{queryFrom}</b></>}{queryTo && <> to <b>{queryTo}</b></>}.
             </div>
           )}
 
           {/* No search yet → prompt the user to fill the form.
               "No search" = none of the URL filters are set yet. */}
-          {!loading && !error && !notFound && rides.length === 0 && !queryFrom && !queryTo && !queryDate && (
+          {!loading && !error && !notFound && rides.length === 0 && !queryFrom && !queryTo && (
             <div style={{
               background: "#fff", border: "1px dashed #cbd5e1",
               borderRadius: 14, padding: "44px 24px", textAlign: "center",

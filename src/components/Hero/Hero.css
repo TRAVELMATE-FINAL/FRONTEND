@@ -106,7 +106,7 @@
 
 .search-card__fields {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr auto;
   gap: var(--space-3);
   align-items: center;
 }
@@ -290,6 +290,10 @@
 .search-card { position: relative; z-index: 1000; overflow: visible; }
 .search-card__fields { position: relative; overflow: visible; z-index: 1000; }
 .field--locsearch { z-index: 1001; }
+/* The field being typed in must sit ABOVE the sibling field that comes
+   after it, otherwise the (later-in-DOM) "To" field paints over the "From"
+   dropdown. Lifting the focused field fixes the "dropdown behind To" bug. */
+.field--locsearch:focus-within { z-index: 3000; }
 .field--locsearch .locsearch__dropdown,
 .field--locsearch .locsearch__empty { z-index: 99999; }
 
