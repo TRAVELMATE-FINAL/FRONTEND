@@ -33,8 +33,19 @@ export default function ScrollToTop() {
       } catch {
         window.scrollTo(0, 0);
       }
+      // Reset every possible scroll root (covers quirks-mode + browser edge
+      // cases where the scrolling element isn't <html>).
+      if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
       if (document.documentElement) document.documentElement.scrollTop = 0;
       if (document.body) document.body.scrollTop = 0;
+      // Also reset any explicitly-marked nested scroll container, so pages
+      // that scroll inside a wrapper (not the window) still start at the top.
+      // Add data-scroll-container to such a wrapper and it's handled here —
+      // no per-page code needed.
+      document.querySelectorAll("[data-scroll-container]").forEach((el) => {
+        el.scrollTop = 0;
+        el.scrollLeft = 0;
+      });
     };
 
     // Before paint.

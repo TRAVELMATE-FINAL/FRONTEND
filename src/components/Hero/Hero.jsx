@@ -16,6 +16,10 @@ function Hero({ mode: modeProp, onModeChange }) {
   const [vehicle, setVehicle] = useState('car');    // car | bike
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  // Coordinates of the selected place (for geographic/nearby search).
+  // Cleared when the user edits the text so stale coords aren't sent.
+  const [fromCoords, setFromCoords] = useState(null);
+  const [toCoords, setToCoords] = useState(null);
 
   const navigate = useNavigate();
 
@@ -43,6 +47,9 @@ function Hero({ mode: modeProp, onModeChange }) {
       from: from.trim(),
       to: to.trim(),
     });
+    // Pass coordinates so the backend can do geographic/nearby matching.
+    if (fromCoords) { params.set('fromLat', fromCoords.lat); params.set('fromLon', fromCoords.lon); }
+    if (toCoords)   { params.set('toLat', toCoords.lat);     params.set('toLon', toCoords.lon); }
     navigate(`/find-friend?${params.toString()}`);
   };
 
@@ -122,8 +129,8 @@ function Hero({ mode: modeProp, onModeChange }) {
               <LocationSearch
                 placeholder="From"
                 value={from}
-                onChange={setFrom}
-                onSelect={(item) => setFrom(item.display_name)}
+                onChange={(v) => { setFrom(v); setFromCoords(null); }}
+                onSelect={(item) => { setFrom(item.display_name); setFromCoords({ lat: item.lat, lon: item.lon }); }}
               />
             </label>
 
@@ -137,8 +144,8 @@ function Hero({ mode: modeProp, onModeChange }) {
               <LocationSearch
                 placeholder="To"
                 value={to}
-                onChange={setTo}
-                onSelect={(item) => setTo(item.display_name)}
+                onChange={(v) => { setTo(v); setToCoords(null); }}
+                onSelect={(item) => { setTo(item.display_name); setToCoords({ lat: item.lat, lon: item.lon }); }}
               />
             </label>
 

@@ -578,6 +578,11 @@ export default function TravelMate() {
 
   const queryFrom = searchParams.get("from") || "";
   const queryTo   = searchParams.get("to")   || "";
+  // Selected-place coordinates carried in the URL for geographic/nearby search.
+  const queryFromLat = searchParams.get("fromLat") || "";
+  const queryFromLon = searchParams.get("fromLon") || "";
+  const queryToLat   = searchParams.get("toLat")   || "";
+  const queryToLon   = searchParams.get("toLon")   || "";
 
   // Helper kept for the date input's `min` attribute below.
   const todayISO = () => new Date().toISOString().split("T")[0];
@@ -588,6 +593,14 @@ export default function TravelMate() {
   // Mirror exactly what's in the URL (empty = no date filter).
   const [from, setFrom] = useState(queryFrom);
   const [to,   setTo]   = useState(queryTo);
+  // Coordinates of the place the user picked from the suggestions (for
+  // geographic/nearby matching). Cleared when they edit the text manually.
+  const [fromCoords, setFromCoords] = useState(
+    queryFromLat && queryFromLon ? { lat: queryFromLat, lon: queryFromLon } : null
+  );
+  const [toCoords, setToCoords] = useState(
+    queryToLat && queryToLon ? { lat: queryToLat, lon: queryToLon } : null
+  );
 
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -682,6 +695,8 @@ export default function TravelMate() {
     const qp = new URLSearchParams();
     if (queryFrom) qp.set("from", queryFrom);
     if (queryTo)   qp.set("to",   queryTo);
+    if (queryFromLat && queryFromLon) { qp.set("fromLat", queryFromLat); qp.set("fromLon", queryFromLon); }
+    if (queryToLat && queryToLon)     { qp.set("toLat", queryToLat);     qp.set("toLon", queryToLon); }
     const url = `${API_BASE}/api/rides/search?${qp.toString()}`;
 
     axios
@@ -731,7 +746,7 @@ export default function TravelMate() {
       clearTimeout(safetyTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryFrom, queryTo]);
+  }, [queryFrom, queryTo, queryFromLat, queryFromLon, queryToLat, queryToLon]);
 
   // Submit search bar → at LEAST one filter (From or To or Date) is
   // enough. Date-only, From+Date, To+Date, full trio, etc. all work.
@@ -754,11 +769,13 @@ export default function TravelMate() {
     const params = {};
     if (f) params.from = f;
     if (t) params.to   = t;
+    if (fromCoords) { params.fromLat = fromCoords.lat; params.fromLon = fromCoords.lon; }
+    if (toCoords)   { params.toLat = toCoords.lat;     params.toLon = toCoords.lon; }
     setSearchParams(params);
   };
 
   const clearFilter = () => {
-    setFrom(""); setTo("");
+    setFrom(""); setTo(""); setFromCoords(null); setToCoords(null);
     setSearchParams({});
   };
 
@@ -969,8 +986,8 @@ export default function TravelMate() {
               <LocationSearch
                 placeholder="From"
                 value={from}
-                onChange={(v) => setFrom(v)}
-                onSelect={(item) => setFrom(item.display_name)}
+                onChange={(v) => { setFrom(v); setFromCoords(null); }}
+                onSelect={(item) => { setFrom(item.display_name); setFromCoords({ lat: item.lat, lon: item.lon }); }}
               />
             </div>
           </div>
@@ -999,8 +1016,8 @@ export default function TravelMate() {
               <LocationSearch
                 placeholder="To"
                 value={to}
-                onChange={(v) => setTo(v)}
-                onSelect={(item) => setTo(item.display_name)}
+                onChange={(v) => { setTo(v); setToCoords(null); }}
+                onSelect={(item) => { setTo(item.display_name); setToCoords({ lat: item.lat, lon: item.lon }); }}
               />
             </div>
           </div>
