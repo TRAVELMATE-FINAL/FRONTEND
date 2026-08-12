@@ -28,16 +28,19 @@
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  min-width: 240px;
+  min-width: 0;
+  max-width: calc(100vw - 20px);   /* never wider than the screen */
   margin: 0;
   padding: 6px;
   list-style: none;
-  background: #ffffff;
+  background: #ffffff;             /* solid readable background */
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
-  max-height: 260px;
+  max-height: 280px;
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .locsearch__option {
@@ -69,12 +72,32 @@
 
 .locsearch__name {
   font-weight: 600;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .locsearch__sub {
   font-size: 12px;
   color: #94a3b8;
+  flex: 0 1 auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* While a suggestions dropdown is open, lift its containing field above the
+   sibling fields (e.g. "To") so the list overlays them and is fully visible,
+   instead of being painted behind the next input. Set by LocationSearch.jsx
+   via the .locsearch-open class; covers the Hero and Findfriend wrappers. */
+.field--locsearch.locsearch-open,
+.ff-field.locsearch-open,
+.field.locsearch-open {
+  position: relative;
+  z-index: 6000 !important;
 }
 
 .locsearch__empty {
@@ -83,7 +106,9 @@
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  min-width: 240px;
+  min-width: 0;
+  max-width: calc(100vw - 20px);
+  box-sizing: border-box;
   padding: 10px 14px;
   font-size: 13px;
   color: #64748b;

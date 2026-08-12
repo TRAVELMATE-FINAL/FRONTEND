@@ -132,6 +132,21 @@ export default function LocationSearch({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  // While the dropdown is open, lift the containing field ABOVE its siblings
+  // so the suggestions overlay the next field (e.g. "To") instead of being
+  // painted behind it. This is far more reliable than :focus-within CSS,
+  // which can lose to sibling stacking contexts. Works for the field
+  // wrappers used in both the Hero and Findfriend search bars.
+  useEffect(() => {
+    const el =
+      wrapRef.current &&
+      wrapRef.current.closest(".field--locsearch, .ff-field, .field");
+    if (!el) return;
+    if (open) el.classList.add("locsearch-open");
+    else el.classList.remove("locsearch-open");
+    return () => el.classList.remove("locsearch-open");
+  }, [open]);
+
   useEffect(() => { setHighlight(0); }, [options.length]);
 
   const pick = async (opt) => {
