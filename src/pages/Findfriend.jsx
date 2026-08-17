@@ -92,7 +92,10 @@ const RideCard = ({ ride, onConnect }) => {
     return note
       .split(/[,\n]+/)
       .map((t) => t.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      // Defense-in-depth: never render a tag that looks like a phone number
+      // or the backend's redaction marker (backend already strips these).
+      .filter((t) => t.replace(/\D/g, "").length < 7 && !/contact hidden/i.test(t));
   })();
   // "30 Apr • 06:00 AM" — same field values, more compact rendering
   const dateLabel = (() => {
@@ -226,7 +229,7 @@ const RideCard = ({ ride, onConnect }) => {
             boxShadow: "0 6px 18px rgba(245, 197, 24, 0.35)",
             fontFamily: "inherit",
           }}>
-          Connect <span style={{ fontSize: 17, lineHeight: 1 }}>→</span>
+          Request to Ride <span style={{ fontSize: 17, lineHeight: 1 }}>→</span>
         </button>
       </div>
     </div>
@@ -595,13 +598,16 @@ export default function TravelMate() {
       return;
     }
 
-    // ── Step 3: Logged in + profile complete → go straight to plan ──
+    // ── Step 3: Logged in + profile complete → open ride details, where the
+    // free "Request to Ride" flow lives (no paid unlock). ──
     try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e) {}
-    navigate(`/findrideplan?rideId=${rideId}`);
+    navigate(`/ride-detail?rideId=${rideId}`);
   };
 
   const queryFrom = searchParams.get("from") || "";
   const queryTo   = searchParams.get("to")   || "";
+  // Selected vehicle type (car | bike) carried in the URL for backend filtering.
+  const queryVehicle = (searchParams.get("vehicle") || "").toLowerCase();
   // Selected-place coordinates carried in the URL for geographic/nearby search.
   const queryFromLat = searchParams.get("fromLat") || "";
   const queryFromLon = searchParams.get("fromLon") || "";
@@ -634,7 +640,7 @@ export default function TravelMate() {
   // Sidebar filters (applied client-side to the rides list)
   // vehicleType + femaleOnly are independent — they combine with AND.
   const [filters, setFilters] = useState({
-    vehicleType: "",     // "" | "car" | "bike"
+    vehicleType: queryVehicle || "",     // "" | "car" | "bike" (seeded from URL)
     femaleOnly: false,   // true = require Female rider
     departTime: "",      // "" or "HH:MM" (rides ≥ this time)
     amenity: "",         // "" | "smoking" | "pets"
@@ -719,6 +725,7 @@ export default function TravelMate() {
     const qp = new URLSearchParams();
     if (queryFrom) qp.set("from", queryFrom);
     if (queryTo)   qp.set("to",   queryTo);
+    if (queryVehicle) qp.set("vehicle", queryVehicle);
     if (queryFromLat && queryFromLon) { qp.set("fromLat", queryFromLat); qp.set("fromLon", queryFromLon); }
     if (queryToLat && queryToLon)     { qp.set("toLat", queryToLat);     qp.set("toLon", queryToLon); }
     const url = `${API_BASE}/api/rides/search?${qp.toString()}`;
@@ -770,7 +777,7 @@ export default function TravelMate() {
       clearTimeout(safetyTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryFrom, queryTo, queryFromLat, queryFromLon, queryToLat, queryToLon]);
+  }, [queryFrom, queryTo, queryVehicle, queryFromLat, queryFromLon, queryToLat, queryToLon]);
 
   // Submit search bar → at LEAST one filter (From or To or Date) is
   // enough. Date-only, From+Date, To+Date, full trio, etc. all work.

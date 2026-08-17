@@ -47,6 +47,8 @@ function Hero({ mode: modeProp, onModeChange }) {
       from: from.trim(),
       to: to.trim(),
     });
+    // Pass the selected vehicle type so the backend filters Car vs Bike.
+    if (vehicle) params.set('vehicle', vehicle);
     // Pass coordinates so the backend can do geographic/nearby matching.
     if (fromCoords) { params.set('fromLat', fromCoords.lat); params.set('fromLon', fromCoords.lon); }
     if (toCoords)   { params.set('toLat', toCoords.lat);     params.set('toLon', toCoords.lon); }
