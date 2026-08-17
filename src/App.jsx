@@ -15,6 +15,7 @@ import RideDetail from "./pages/RideDetail";
 import ProfileSettings from "./pages/Profilesettings";
 import UnlockContact from "./pages/UnlockContact";
 import NotificationsPage from "./pages/NotificationsPage";
+import RideRequests from "./pages/RideRequests";
 import ScrollToTop from "./components/ScrollToTop/ScrollToTop.jsx";
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/profile-settings" element={<ProfileSettings />} />
         <Route path="/unlock-contact" element={<UnlockContact />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/requests" element={<RideRequests />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

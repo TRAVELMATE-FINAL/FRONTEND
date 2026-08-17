@@ -98,6 +98,43 @@ export default function RideDetailsPage() {
   // subscription endpoint confirms an active plan.
   const [hasPaid, setHasPaid] = useState(false);
 
+  // Request-to-ride state: this viewer's request for this ride (if any).
+  const [myReq, setMyReq] = useState(null);
+  const [reqBusy, setReqBusy] = useState(false);
+  const [reqMsg, setReqMsg] = useState("");
+
+  // Load the viewer's existing request for this ride (status + revealed contact).
+  useEffect(() => {
+    const ph = (() => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } })();
+    if (!rideId || !ph) return;
+    let cancelled = false;
+    axios
+      .get(`${API_BASE}/api/rides/requests/outgoing`, { params: { phone: ph } })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const mine = (data?.data || []).find((r) => r.ride && String(r.ride._id) === String(rideId));
+        setMyReq(mine || null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [rideId]);
+
+  const sendRequest = async () => {
+    const ph = (() => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } })();
+    if (!ph) { navigate("/login"); return; }
+    setReqBusy(true); setReqMsg("");
+    try {
+      await axios.post(`${API_BASE}/api/rides/${rideId}/request`, { riderPhone: ph });
+      setMyReq({ status: "pending" });
+      setReqMsg("Request sent! You'll be notified when the owner confirms.");
+    } catch (e) {
+      if (e.response?.status === 409) setMyReq({ status: "pending" });
+      setReqMsg(e.response?.data?.message || "Could not send request. Please try again.");
+    } finally {
+      setReqBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (!rideId) {
       setLoading(false);
@@ -484,59 +521,63 @@ export default function RideDetailsPage() {
                 <span style={{ fontSize: 14, color: "#374151", fontWeight: 500 }}>{seatsLabel}</span>
               </div>
 
-              {/* Contact Number — masked unless the viewer has paid
-                  for an active subscription, or is the ride poster. */}
-              <div style={{
-                background: contactUnlocked ? "#f0fdf4" : "#f9fafb",
-                border: "1px solid " + (contactUnlocked ? "#bbf7d0" : "#e5e7eb"),
-                borderRadius: 12,
-                padding: "14px 16px",
-                marginBottom: 12,
-              }}>
-                <p style={{
-                  fontSize: 12,
-                  color: contactUnlocked ? "#15803d" : "#9ca3af",
-                  margin: "0 0 6px",
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}>
-                  {contactUnlocked ? "🔓" : "🔒"} Contact Number
-                </p>
-                <p style={{ fontSize: 22, fontWeight: 700, color: "#111827", margin: 0, letterSpacing: "0.5px" }}>
-                  {contactNum}
-                </p>
-                {!contactUnlocked && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      try { localStorage.setItem("pendingUnlockRideId", rideId); } catch {}
-                      navigate("/findrideplan");
-                    }}
-                    style={{
-                      marginTop: 12,
-                      width: "100%",
-                      background: "#f5c518",
-                      color: "#111",
-                      border: "none",
-                      borderRadius: 10,
-                      padding: "10px 14px",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
+              {/* Contact / Request to Ride — contact is revealed only after
+                  the ride owner ACCEPTS the request (no payment). */}
+              {(() => {
+                const rideStatus = ride?.status || "active";
+                const rideClosed = rideStatus === "expired" || rideStatus === "closed";
+                const box = (bg, border, children) => (
+                  <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", marginBottom: 12 }}>{children}</div>
+                );
+                if (isOwnRide) {
+                  return box("#f9fafb", "#e5e7eb", (
+                    <div style={{ fontSize: 14, color: "#374151" }}>
+                      This is your ride. Manage requests in{" "}
+                      <span onClick={() => navigate("/requests")} style={{ color: "#7c3aed", fontWeight: 700, cursor: "pointer" }}>Ride Requests</span>.
+                    </div>
+                  ));
+                }
+                if (rideClosed) {
+                  return box("#f3f4f6", "#e5e7eb", (
+                    <div style={{ fontSize: 14, color: "#6b7280", fontWeight: 600 }}>
+                      This ride is {rideStatus === "closed" ? "closed" : "expired"} and no longer accepting requests.
+                    </div>
+                  ));
+                }
+                if (myReq?.status === "accepted") {
+                  return box("#f0fdf4", "#bbf7d0", (
+                    <div>
+                      <div style={{ fontSize: 12, color: "#15803d", fontWeight: 700, marginBottom: 6 }}>🔓 Confirmed — contact available</div>
+                      <a href={`tel:${myReq.owner?.phone || ""}`} style={{ fontSize: 20, fontWeight: 700, color: "#166534" }}>{myReq.owner?.phone || "—"}</a>
+                    </div>
+                  ));
+                }
+                if (myReq?.status === "pending") {
+                  return box("#fef9c3", "#fde68a", (
+                    <div style={{ fontSize: 14, color: "#854d0e", fontWeight: 600 }}>
+                      Request sent — waiting for the owner to confirm.{" "}
+                      <span onClick={() => navigate("/requests")} style={{ color: "#7c3aed", fontWeight: 700, cursor: "pointer" }}>View</span>
+                    </div>
+                  ));
+                }
+                if (myReq?.status === "rejected") {
+                  return box("#fee2e2", "#fecaca", (
+                    <div style={{ fontSize: 14, color: "#991b1b", fontWeight: 600 }}>Your request was declined.</div>
+                  ));
+                }
+                return (
+                  <div style={{ marginBottom: 12 }}>
+                    <button type="button" onClick={sendRequest} disabled={reqBusy} style={{
+                      width: "100%", background: "#f5c518", color: "#111", border: "none", borderRadius: 10,
+                      padding: "12px 14px", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit",
                       boxShadow: "0 4px 12px rgba(245,197,24,0.30)",
-                    }}
-                  >
-                    Pay to unlock contact →
-                  </button>
-                )}
-              </div>
+                    }}>
+                      {reqBusy ? "Sending…" : "Request to Ride"}
+                    </button>
+                    {reqMsg && <div style={{ marginTop: 8, fontSize: 13, color: "#4b5563" }}>{reqMsg}</div>}
+                  </div>
+                );
+              })()}
 
               {/* Low-seat alert — surfaces only if 1–2 seats remain */}
               {seats > 0 && seats <= 2 && (

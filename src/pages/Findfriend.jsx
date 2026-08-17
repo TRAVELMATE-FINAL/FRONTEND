@@ -101,6 +101,14 @@ const RideCard = ({ ride, onConnect }) => {
     if (isNaN(d.getTime())) return ride.date;
     return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   })();
+  // Gender preference exactly as the poster selected it (not hardcoded).
+  const genderLabel = (() => {
+    const g = String(ride.gender || "").trim().toLowerCase();
+    if (g === "male") return "Male only";
+    if (g === "female") return "Female only";
+    if (g === "any" || g === "all") return "Any";
+    return ride.gender ? String(ride.gender) : "";
+  })();
 
   return (
     <div className="ff-ride-card" style={{
@@ -153,6 +161,22 @@ const RideCard = ({ ride, onConnect }) => {
             </svg>
             {dateLabel} &nbsp;•&nbsp; {formatTime12h(ride.time)}
           </div>
+
+          {/* Gender preference — shows exactly what the poster selected */}
+          {genderLabel && (
+            <div>
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                background: "#2b2b50", color: "#d6dafc",
+                fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 999,
+              }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
+                </svg>
+                {genderLabel}
+              </span>
+            </div>
+          )}
 
           {/* Tag pills — only when the driver wrote a note while
               publishing. No hardcoded defaults. */}
