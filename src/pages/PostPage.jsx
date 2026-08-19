@@ -7,6 +7,7 @@ import { formatTime12h } from "../utils/time.js";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
+import MapModal from "../components/RideMap/MapModal";
 
 const API = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -138,6 +139,16 @@ function Time12Picker({ value, onChange, min }) {
 ───────────────────────────────────────── */
 function PostPage({ form, setForm, route, distance, duration, routeLoading, error, onNext, onRouteCalculated, onRouteStopsCalculated, routeSuggestedStops }) {
   const [stopInput, setStopInput] = useState("");
+  const [mapOpen, setMapOpen] = useState(false);
+  // Pseudo-ride for the zoom modal (same shape RideMap expects).
+  const previewRide = {
+    from: form.from, to: form.to,
+    fromLat: form.fromCoords?.lat, fromLon: form.fromCoords?.lon,
+    toLat: form.toCoords?.lat,   toLon: form.toCoords?.lon,
+  };
+  const canZoomMap =
+    form.fromCoords?.lat != null && form.fromCoords?.lon != null &&
+    form.toCoords?.lat != null && form.toCoords?.lon != null;
 
   const addStop = (val) => {
     const v = (val ?? stopInput).trim();
@@ -453,8 +464,10 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
             </div>
           </div>
 
-          {/* Card 2 — map only (taller so the route reads clearly) */}
+          {/* Card 2 — map only (taller so the route reads clearly).
+              Tap to open the fullscreen zoomable map (same as Find Ride). */}
           <div style={{
+            position: "relative",
             border:"1px solid #e5e7eb",
             borderRadius:12,
             overflow:"hidden",
@@ -470,7 +483,26 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
               onRouteCalculated={onRouteCalculated}
               onRouteStopsCalculated={onRouteStopsCalculated}
             />
+            {canZoomMap && (
+              <button
+                type="button"
+                onClick={() => setMapOpen(true)}
+                title="Tap to enlarge & zoom"
+                style={{
+                  position: "absolute", top: 8, right: 8, zIndex: 5,
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "7px 12px", borderRadius: 8, border: "none",
+                  background: "rgba(15,18,38,0.82)", color: "#fff",
+                  fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                ⛶ Zoom
+              </button>
+            )}
           </div>
+          {canZoomMap && (
+            <MapModal ride={previewRide} open={mapOpen} onClose={() => setMapOpen(false)} />
+          )}
 
           {/* Add stopovers — Figma label with "(optional)" on next line */}
           <div style={{ marginBottom: 6 }}>
