@@ -1,9 +1,21 @@
 import { useState, useLayoutEffect, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import planImage from "../assets/plan-travelmate.png";
 import { getPlans } from "../services/api";
+
+const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
+
+const PLAN_LABEL = { daily: "Daily Plan", monthly: "Monthly Plan", yearly: "Yearly Plan" };
+const fmtUntil = (d) => {
+  try {
+    return new Date(d).toLocaleString("en-IN", {
+      day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
+    });
+  } catch { return ""; }
+};
 
 /* ─── Data ───────────────────────────────────────────────────────────────── */
 
@@ -78,6 +90,18 @@ export default function PlanPage() {
       .catch(() => {});
   }, []);
 
+  // Current subscription status (source of truth = backend), so we can show
+  // "Active until …" for an active plan or a "choose a plan" prompt otherwise.
+  const [sub, setSub] = useState(null);
+  useEffect(() => {
+    const phone = (() => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } })();
+    if (!phone) return;
+    axios
+      .get(`${API_BASE}/api/plans/me`, { params: { phone }, timeout: 6000 })
+      .then(({ data }) => { if (data?.active && data?.subscription) setSub(data.subscription); })
+      .catch(() => {});
+  }, []);
+
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
@@ -86,7 +110,12 @@ export default function PlanPage() {
 
   const choosePlan = (planId) => {
     console.log("[PlanPage] choosePlan:", planId);
-    try { localStorage.setItem("chosenPlan", planId); } catch (e) {}
+    try {
+      localStorage.setItem("chosenPlan", planId);
+      // This is a POST-ride plan purchase — clear any stale Find-plan flag.
+      localStorage.setItem("planPurpose", "post");
+      localStorage.removeItem("findReturnRideId");
+    } catch (e) {}
     navigate("/securepayment");
   };
 
@@ -96,6 +125,25 @@ export default function PlanPage() {
 
       <div className="prp-page">
         <div className="prp-container">
+
+          {/* Subscription status banner */}
+          {sub ? (
+            <div style={{
+              maxWidth: 720, margin: "0 auto 18px", padding: "12px 18px",
+              background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 12,
+              textAlign: "center", color: "#065f46", fontSize: 14, fontWeight: 600,
+            }}>
+              ✅ {PLAN_LABEL[sub.plan] || "Your plan"} is active until {fmtUntil(sub.endDate)}. You can post rides without paying again.
+            </div>
+          ) : (
+            <div style={{
+              maxWidth: 720, margin: "0 auto 18px", padding: "12px 18px",
+              background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12,
+              textAlign: "center", color: "#92400e", fontSize: 14, fontWeight: 600,
+            }}>
+              Choose a plan to continue posting rides. Your plan activates only after successful payment.
+            </div>
+          )}
 
           {/* ── Header ── */}
           <div className="prp-header">

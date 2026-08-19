@@ -149,8 +149,22 @@ export default function RideDetailsPage() {
       setMyReq({ status: "pending" });
       setReqMsg("Request sent! You'll be notified when the owner confirms.");
     } catch (e) {
-      if (e.response?.status === 409) setMyReq({ status: "pending" });
-      setReqMsg(e.response?.data?.message || "Could not send request. Please try again.");
+      if (e.response?.status === 409) { setMyReq({ status: "pending" }); }
+      else if (e.response?.data?.code === "NEED_FIND_PLAN") {
+        // No active Find Ride plan → send the user to the Daily plan (₹1/24h)
+        // payment, then return here to request. Uses the existing plan/payment
+        // screens (Find Ride = Daily only).
+        try {
+          localStorage.setItem("planPurpose", "find");
+          localStorage.setItem("chosenPlan", "daily");
+          localStorage.setItem("findReturnRideId", rideId);
+        } catch (_e) {}
+        setReqBusy(false);
+        navigate("/securepayment");
+        return;
+      } else {
+        setReqMsg(e.response?.data?.message || "Could not send request. Please try again.");
+      }
     } finally {
       setReqBusy(false);
     }

@@ -75,6 +75,10 @@ export default function SecurePayment() {
 
   const [planKey]  = useState(() => localStorage.getItem("chosenPlan") || "daily");
   const [planMeta, setPlanMeta] = useState(null);
+  // Find Ride Daily plan (purpose=find) uses its OWN admin price, separate from
+  // the Post Ride Daily price. Both display and charge come from the backend.
+  const planPurpose = (() => { try { return localStorage.getItem("planPurpose") || "post"; } catch { return "post"; } })();
+  const [findPrice, setFindPrice] = useState(null);
 
   // Coupon states
   const [coupon,          setCoupon]          = useState("");
@@ -112,9 +116,25 @@ export default function SecurePayment() {
     loadRazorpay().catch(() => {});
   }, [planKey]);
 
-  // Pricing
-  const baseFee = planMeta?.price ?? 0;
-  const total   = Math.max(0, discountedAmt ?? baseFee);
+  // For a Find Ride Daily purchase, pull its dedicated admin price.
+  useEffect(() => {
+    if (planPurpose !== "find") return;
+    axios
+      .get(`${API_BASE}/api/plans/find-fee`, { timeout: 6000 })
+      .then(({ data }) => {
+        if (Number.isFinite(Number(data?.dailyPrice))) setFindPrice(Number(data.dailyPrice));
+      })
+      .catch(() => {});
+  }, [planPurpose]);
+
+  // Pricing — Find Ride uses its own price (no coupons); Post uses the plan
+  // price (+ any coupon). Both amounts come from the backend, never hardcoded.
+  const baseFee = planPurpose === "find"
+    ? (findPrice ?? 0)
+    : (planMeta?.price ?? 0);
+  const total = planPurpose === "find"
+    ? (findPrice ?? 0)
+    : Math.max(0, discountedAmt ?? baseFee);
 
   // ── Apply coupon ──
   const handleApplyCoupon = async () => {
@@ -176,6 +196,7 @@ export default function SecurePayment() {
         couponCode: discountAmt > 0 ? coupon.trim().toUpperCase() : "",
         method:     selectedMethod,
         amount:     total * 100,
+        purpose:    planPurpose,
       });
       orderId = order.orderId;
       // Razorpay was pre-loaded on mount — resolves instantly
@@ -202,7 +223,24 @@ export default function SecurePayment() {
               plan:       planKey,
               couponCode: discountAmt > 0 ? coupon.trim().toUpperCase() : "",
               method:     selectedMethod,
+              purpose:    planPurpose,
             });
+
+            // ── Find Ride Daily plan ──────────────────────────────────
+            // This payment activates Find Ride access only. Do NOT publish a
+            // ride. Return the user to the ride they were requesting so they
+            // can now send the request.
+            if (planPurpose === "find") {
+              try {
+                localStorage.removeItem("planPurpose");
+                localStorage.removeItem("chosenPlan");
+              } catch (_e) {}
+              const back = (() => { try { return localStorage.getItem("findReturnRideId") || ""; } catch { return ""; } })();
+              try { localStorage.removeItem("findReturnRideId"); } catch (_e) {}
+              setSuccessMsg("✅ Find Ride Daily Plan active for 24 hours.");
+              navigate(back ? `/ride-detail?rideId=${back}` : "/find-ride");
+              return;
+            }
 
             // Persist subscription proof so RideDetail can reveal the
             // contact instantly without waiting for /api/plans/me to commit.

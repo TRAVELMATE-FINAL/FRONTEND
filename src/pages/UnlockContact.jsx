@@ -141,8 +141,9 @@ export default function UnlockContact() {
         plan: planKey,
         couponCode: appliedCoupon?.code || "",
         method: selectedMethod,
-        // Send the final amount in paise so backend can cross-check/use it
-        amount: total * 100,
+        // Booking (contact-unlock) fee — amount is computed authoritatively on
+        // the backend from the admin config; not trusted from the client.
+        purpose: "booking",
       });
 
       const rzp = new window.Razorpay({
@@ -165,6 +166,7 @@ export default function UnlockContact() {
               plan: planKey,
               couponCode: appliedCoupon?.code || "",
               method: selectedMethod,
+              purpose: "booking",
             });
 
             // Persist subscription proof so RideDetail can unlock the

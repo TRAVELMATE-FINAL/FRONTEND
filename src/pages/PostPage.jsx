@@ -1046,7 +1046,11 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
         options={{
           disableDefaultUI: true,
           zoomControl: !compact,
-          gestureHandling: compact ? "none" : "cooperative",
+          fullscreenControl: !compact,
+          // Big screen: allow direct scroll/pinch zoom (like Find Ride).
+          // Compact/mobile preview stays non-interactive so it doesn't trap
+          // page scroll.
+          gestureHandling: compact ? "none" : "greedy",
           clickableIcons: false,
           styles: [
             { featureType: "poi", stylers: [{ visibility: "off" }] },
@@ -1754,7 +1758,34 @@ export default function TravelMatePost({ embedded = false } = {}) {
         return;
       }
 
-      console.log("Ride payload stashed - proceeding to payment");
+      // ── Subscription gate ────────────────────────────────────────
+      // If the user already has an ACTIVE posting plan, publish the ride
+      // directly — no need to pay again. Otherwise send them to the existing
+      // Choose Your Plan page (with a message if their plan just expired).
+      try {
+        const canRes = await axios.get(
+          `${API}/api/plans/can-post`, { params: { phone: userPhone }, timeout: 6000 }
+        );
+        if (canRes?.data?.canPostRide) {
+          // Publish now — backend re-checks the subscription authoritatively.
+          const res = await axios.post(`${API}/api/rides`, { ...payload, userPhone });
+          const newId = res.data?.data?._id || res.data?.data?.id || "";
+          try {
+            if (newId) localStorage.setItem("lastPostedRideId", newId);
+            localStorage.removeItem("pendingRidePayload");
+            localStorage.removeItem("pendingPostRide");
+          } catch (_e) {}
+          navigate(newId ? `/ride-live?rideId=${newId}` : "/ride-live");
+          return;
+        }
+      } catch (subErr) {
+        // If the subscription check itself failed (network), fall through to
+        // the plan page rather than blocking the user entirely.
+        console.warn("Subscription check failed:", subErr?.message);
+      }
+
+      // No active plan → Choose Your Plan.
+      console.log("No active plan — routing to Choose Your Plan");
       navigate("/plan");
     } catch (err) {
       console.error("Publish prep error:", err);
