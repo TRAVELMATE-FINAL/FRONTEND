@@ -91,6 +91,16 @@ const RideCard = ({ ride, onConnect }) => {
       : typeof ride.remainingSeats === "number"
       ? ride.remainingSeats <= 0
       : false;
+  // Live seat figures from the backend — occupied = CONFIRMED (accepted)
+  // requests only. Pending / rejected / cancelled never count.
+  const confirmedUsers =
+    typeof ride.confirmedSeats === "number" ? ride.confirmedSeats : 0;
+  const availableSeats =
+    typeof ride.remainingSeats === "number"
+      ? ride.remainingSeats
+      : typeof ride.seatsAvailable === "number"
+      ? ride.seatsAvailable
+      : 0;
   // Show whatever the driver typed in the "Notes & preferences" field
   // when publishing the ride (additionalInfo). Split on commas /
   // newlines so they render as separate pills. When the driver didn't
@@ -215,6 +225,29 @@ const RideCard = ({ ride, onConnect }) => {
         }}>
           <RideMap ride={ride} />
         </div>
+      </div>
+
+      {/* Confirmed passengers + available seats — always visible on the card,
+          straight from live backend data (no hardcoded values). */}
+      <div style={{
+        display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 20px",
+        padding: "10px 0", marginTop: "4px",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
+      }}>
+        <span style={{ fontSize: 13, color: "#b9bee0", fontWeight: 500 }}>
+          <strong style={{ color: "#ffffff", fontWeight: 800 }}>
+            {rideFull && confirmedUsers > 0
+              ? "All Users"
+              : `${confirmedUsers} ${confirmedUsers === 1 ? "User" : "Users"}`}
+          </strong>{" "}
+          Confirmed
+        </span>
+        <span style={{ fontSize: 13, color: "#b9bee0", fontWeight: 500 }}>
+          Available Seats:{" "}
+          <strong style={{ color: availableSeats > 0 ? "#7ef0a2" : "#ff8a8a", fontWeight: 800 }}>
+            {availableSeats}
+          </strong>
+        </span>
       </div>
 
       {/* Footer row — 👁 viewers + Connect button */}
@@ -660,6 +693,10 @@ export default function TravelMate() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notFound, setNotFound] = useState(false);
+  // Bumped whenever the tab regains focus so seat counts (confirmed /
+  // available) refresh after a request is accepted / rejected / cancelled
+  // elsewhere — keeps the card in sync with the latest backend data.
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Sidebar filters (applied client-side to the rides list)
   // vehicleType + femaleOnly are independent — they combine with AND.
@@ -805,7 +842,21 @@ export default function TravelMate() {
       clearTimeout(safetyTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryFrom, queryTo, queryVehicle, queryFromLat, queryFromLon, queryToLat, queryToLon]);
+  }, [queryFrom, queryTo, queryVehicle, queryFromLat, queryFromLon, queryToLat, queryToLon, reloadKey]);
+
+  // Refresh seat counts when the user returns to this tab (e.g. after
+  // accepting / cancelling a request on the Requests page). Re-runs the
+  // fetch above via reloadKey so confirmed / available seats stay current.
+  useEffect(() => {
+    const onFocus = () => setReloadKey((k) => k + 1);
+    const onVisible = () => { if (document.visibilityState === "visible") setReloadKey((k) => k + 1); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
 
   // Submit search bar → at LEAST one filter (From or To or Date) is
   // enough. Date-only, From+Date, To+Date, full trio, etc. all work.
