@@ -122,9 +122,14 @@ export default function RideRequests() {
                   <div style={{ fontSize: 12, color: "#9ca3af" }}>{whenText(r)}</div>
                   {r.message && <div style={{ marginTop: 6, fontSize: 13, color: "#4b5563", fontStyle: "italic" }}>“{r.message}”</div>}
 
-                  {r.status === "accepted" && r.rider?.phone && (
+                  {r.status === "accepted" && r.paymentStatus === "paid" && r.rider?.phone && (
                     <div style={{ marginTop: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 10, fontSize: 14 }}>
                       Confirmed ✓ — Rider contact: <a href={`tel:${r.rider.phone}`} style={{ fontWeight: 700, color: "#166534" }}>{r.rider.phone}</a>
+                    </div>
+                  )}
+                  {r.status === "accepted" && r.paymentStatus !== "paid" && (
+                    <div style={{ marginTop: 10, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10, padding: 10, fontSize: 13, color: "#6b7280", fontWeight: 600 }}>
+                      Confirmed ✓ — 🔒 Passenger contact unlocks after their payment is completed.
                     </div>
                   )}
 
