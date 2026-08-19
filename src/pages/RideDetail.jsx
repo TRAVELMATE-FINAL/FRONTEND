@@ -156,25 +156,15 @@ export default function RideDetailsPage() {
     }
   };
 
-  // Load Razorpay checkout script on demand (once).
-  const loadRazorpay = () =>
-    new Promise((resolve) => {
-      if (window.Razorpay) return resolve(true);
-      const s = document.createElement("script");
-      s.src = "https://checkout.razorpay.com/v1/checkout.js";
-      s.onload = () => resolve(true);
-      s.onerror = () => resolve(false);
-      document.body.appendChild(s);
-    });
-
-  // Pay Now — only for a CONFIRMED (accepted) booking. Seat availability does
-  // NOT gate this: the rider already holds a confirmed seat. The order is
-  // created idempotently on the backend, so refresh/retry never double-charges.
-  const payNow = async () => {
-    // Auth gate: a valid session is required to pay. If the session is
-    // missing/expired, preserve the booking + payment context and send the
-    // user to Login. After OTP verify they're returned here with ?pay=1 to
-    // resume — no re-search, no duplicate booking. (No profile-completion gate.)
+  // Pay Now — for a CONFIRMED (accepted) booking. Hands off to the EXISTING
+  // find-ride plan / payment page (no new payment UI), which then continues
+  // the existing flow back to the ride details page. Seat availability does
+  // NOT gate this — the rider already holds a confirmed seat.
+  //
+  // Auth is preserved: if the session is missing/expired we stash the ride and
+  // route through Login, returning here (?pay=1) afterward — no re-search, no
+  // duplicate booking, and no profile-completion gate.
+  const payNow = () => {
     const ph = enforceSession();
     if (!ph) {
       try {
@@ -184,59 +174,9 @@ export default function RideDetailsPage() {
       navigate("/login");
       return;
     }
-    if (!myReq?._id) { setPayMsg("Loading your booking… please try again in a moment."); return; }
-    setPayBusy(true); setPayMsg("");
-    try {
-      const ok = await loadRazorpay();
-      if (!ok) { setPayMsg("Could not load the payment window. Check your connection and retry."); setPayBusy(false); return; }
-
-      const { data } = await axios.post(
-        `${API_BASE}/api/rides/requests/${myReq._id}/pay-order`,
-        { riderPhone: ph }, { timeout: 8000 }
-      );
-      if (data?.alreadyPaid) {
-        setMyReq((m) => ({ ...(m || {}), paymentStatus: "paid" }));
-        setPayMsg("Your booking is already paid.");
-        setPayBusy(false);
-        return;
-      }
-
-      const rzp = new window.Razorpay({
-        key: data.key,
-        amount: data.amount,
-        currency: data.currency || "INR",
-        name: "TravelMate",
-        description: "Ride booking payment",
-        order_id: data.orderId,
-        prefill: { contact: ph.replace(/^\+91/, "") },
-        theme: { color: "#f5c518" },
-        handler: async (resp) => {
-          try {
-            await axios.post(`${API_BASE}/api/rides/requests/${myReq._id}/pay-verify`, {
-              riderPhone: ph,
-              razorpay_order_id: resp.razorpay_order_id,
-              razorpay_payment_id: resp.razorpay_payment_id,
-              razorpay_signature: resp.razorpay_signature,
-            });
-            setMyReq((m) => ({ ...(m || {}), paymentStatus: "paid" }));
-            setPayMsg("Payment successful — your booking is confirmed.");
-          } catch (e) {
-            setPayMsg(e.response?.data?.message || "Payment verification failed. If money was deducted it will be refunded.");
-          } finally {
-            setPayBusy(false);
-          }
-        },
-        modal: { ondismiss: () => { setPayBusy(false); setPayMsg("Payment cancelled. Your booking is still confirmed — you can pay anytime."); } },
-      });
-      rzp.on("payment.failed", (r) => {
-        setPayMsg("Payment failed: " + (r?.error?.description || "please try again."));
-        setPayBusy(false);
-      });
-      rzp.open();
-    } catch (e) {
-      setPayMsg(e.response?.data?.message || "Could not start payment. Please try again.");
-      setPayBusy(false);
-    }
+    // Breadcrumb the existing plan/payment pages already read.
+    try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (_e) {}
+    navigate(`/findrideplan?rideId=${rideId}`);
   };
 
   // Auto-resume payment: if we arrived with ?pay=1 (from the ride card's PAY

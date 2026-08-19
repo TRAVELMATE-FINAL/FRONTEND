@@ -165,7 +165,7 @@ export default function RideRequests() {
                       <div style={{ color: "#4b5563", marginBottom: 10 }}>Payment pending — complete payment to finalize your booking and view contact details.</div>
                       <button
                         type="button"
-                        onClick={() => navigate(`/ride-detail?rideId=${r.ride?._id || ""}`)}
+                        onClick={() => navigate(`/ride-detail?rideId=${r.ride?._id || ""}&pay=1`)}
                         style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: "#f5c518", color: "#111", fontWeight: 700, cursor: "pointer" }}>
                         Pay now
                       </button>
