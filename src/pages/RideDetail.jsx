@@ -539,7 +539,11 @@ export default function RideDetailsPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 5px" }}>Plate Number</p>
-                  <p style={{ fontSize: 14, color: "#6b7280", margin: 0 }}>{ride.plateNumber || "—"}</p>
+                  <p style={{ fontSize: 14, color: "#6b7280", margin: 0 }}>
+                    {myReq?.paymentStatus === "paid" && myReq?.vehicle?.number
+                      ? myReq.vehicle.number
+                      : "🔒 Locked"}
+                  </p>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 5px" }}>Type</p>

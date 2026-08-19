@@ -88,7 +88,11 @@ export default function RideLive() {
           (r) => r.ride && String(r.ride._id) === String(rideId)
         );
         if (b && b.status === "accepted" && b.paymentStatus === "paid" && b.owner?.phone) {
-          setContact({ name: b.owner.name || "Driver", phone: b.owner.phone });
+          setContact({
+            name: b.owner.name || "Driver",
+            phone: b.owner.phone,
+            vehicleNumber: b.vehicle?.number || "",
+          });
         }
       })
       .catch(() => {});
@@ -283,6 +287,12 @@ export default function RideLive() {
                 <a href={`tel:${contact.phone}`} style={{ fontSize: 20, fontWeight: 800, color: "#166534", textDecoration: "none" }}>
                   {contact.phone}
                 </a>
+                {contact.vehicleNumber && (
+                  <div style={{ fontSize: 13, color: "#444", marginTop: 8 }}>
+                    Vehicle Number:{" "}
+                    <span style={{ fontWeight: 700, color: "#111" }}>{contact.vehicleNumber}</span>
+                  </div>
+                )}
               </div>
             )}
 
