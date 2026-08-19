@@ -94,7 +94,19 @@ export default function OtpVerify() {
       //   3. Normal login (no pending intent) →
       //        - new user / no profile → /profile-setup → /find-ride
       //        - existing user         → /find-ride dashboard directly
+      // Highest priority: a booking payment was in progress before login.
+      // Return the user straight to the ride's payment step (?pay=1) and do
+      // NOT force profile-setup — payment must not be gated on profile.
+      const pendingPayRideId = localStorage.getItem("pendingPayRideId");
+
       let nextPath;
+      if (pendingPayRideId) {
+        try { localStorage.removeItem("pendingPayRideId"); } catch (_e) {}
+        nextPath = `/ride-detail?rideId=${pendingPayRideId}&pay=1`;
+        setSuccess("✅ Verified! Returning you to your payment…");
+        setTimeout(() => navigate(nextPath, { replace: true }), 1000);
+        return;
+      }
       if (pendingPostRide && hasProfile) {
         nextPath = "/plan";
         setSuccess("✅ Verified! Choose your plan to publish your trip…");

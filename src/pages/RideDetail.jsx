@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import Spinner from "../components/Spinner/Spinner.jsx";
@@ -8,6 +8,7 @@ import { formatTime12h } from "../utils/time.js";
 import UserActions from "../components/UserActions/UserActions.jsx";
 import RideMap from "../components/RideMap/RideMap";
 import MapModal from "../components/RideMap/MapModal";
+import { enforceSession } from "../services/session";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -170,8 +171,20 @@ export default function RideDetailsPage() {
   // NOT gate this: the rider already holds a confirmed seat. The order is
   // created idempotently on the backend, so refresh/retry never double-charges.
   const payNow = async () => {
-    const ph = (() => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } })();
-    if (!ph || !myReq?._id) { setPayMsg("Please sign in again to complete payment."); return; }
+    // Auth gate: a valid session is required to pay. If the session is
+    // missing/expired, preserve the booking + payment context and send the
+    // user to Login. After OTP verify they're returned here with ?pay=1 to
+    // resume — no re-search, no duplicate booking. (No profile-completion gate.)
+    const ph = enforceSession();
+    if (!ph) {
+      try {
+        localStorage.setItem("pendingPayRideId", rideId);
+        if (myReq?._id) localStorage.setItem("pendingPayBookingId", String(myReq._id));
+      } catch (_e) {}
+      navigate("/login");
+      return;
+    }
+    if (!myReq?._id) { setPayMsg("Loading your booking… please try again in a moment."); return; }
     setPayBusy(true); setPayMsg("");
     try {
       const ok = await loadRazorpay();
@@ -225,6 +238,21 @@ export default function RideDetailsPage() {
       setPayBusy(false);
     }
   };
+
+  // Auto-resume payment: if we arrived with ?pay=1 (from the ride card's PAY
+  // NOW, or returning here after Login), and the viewer's booking is confirmed
+  // but not yet paid, open the payment window automatically — once.
+  const autoPayTriggered = useRef(false);
+  useEffect(() => {
+    if (autoPayTriggered.current) return;
+    const wantPay = searchParams.get("pay") === "1";
+    if (!wantPay) return;
+    if (myReq?.status === "accepted" && myReq?.paymentStatus !== "paid") {
+      autoPayTriggered.current = true;
+      payNow();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myReq, searchParams]);
 
   useEffect(() => {
     if (!rideId) {
@@ -664,7 +692,9 @@ export default function RideDetailsPage() {
                         Booking confirmed by the driver
                       </div>
                       <div style={{ fontSize: 13, color: "#4b5563", marginBottom: 10 }}>
-                        Complete payment to finalize your booking and view the contact details.
+                        {myReq.paymentStatus === "failed"
+                          ? "Your last payment didn't go through. Retry to finalize your booking and view the contact details."
+                          : "Complete payment to finalize your booking and view the contact details."}
                       </div>
                       <button type="button" onClick={payNow} disabled={payBusy} style={{
                         width: "100%", background: "#f5c518", color: "#111", border: "none", borderRadius: 10,
@@ -672,7 +702,9 @@ export default function RideDetailsPage() {
                         cursor: payBusy ? "not-allowed" : "pointer", fontFamily: "inherit",
                         boxShadow: "0 4px 12px rgba(245,197,24,0.30)",
                       }}>
-                        {payBusy ? "Processing…" : `Pay Now${bookingFee ? ` • ₹${bookingFee}` : ""}`}
+                        {payBusy
+                          ? "Processing…"
+                          : `${myReq.paymentStatus === "failed" ? "Retry Payment" : "Pay Now"}${bookingFee ? ` • ₹${bookingFee}` : ""}`}
                       </button>
                       {payMsg && <div style={{ marginTop: 8, fontSize: 13, color: "#4b5563" }}>{payMsg}</div>}
                     </div>

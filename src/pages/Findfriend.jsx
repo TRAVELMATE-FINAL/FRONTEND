@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import RideMap from "../components/RideMap/RideMap";
 import MapModal from "../components/RideMap/MapModal";
+import { enforceSession } from "../services/session";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
 import Spinner from "../components/Spinner/Spinner.jsx";
 import Header from "../components/Header/Header.jsx";
@@ -79,8 +80,12 @@ const Tag = ({ label }) => (
 );
 
 /* ── Live ride card — Figma redesign (template only; same data + logic) ── */
-const RideCard = ({ ride, onConnect }) => {
+const RideCard = ({ ride, onConnect, myBooking, onPay }) => {
   const [mapOpen, setMapOpen] = useState(false);
+  // The viewer's own booking state for THIS ride (if any).
+  const bookingConfirmed = myBooking?.status === "accepted";
+  const bookingPaid = bookingConfirmed && myBooking?.paymentStatus === "paid";
+  const bookingNeedsPay = bookingConfirmed && myBooking?.paymentStatus !== "paid";
   const driver  = ride.driverName?.trim() || "TravelMate Rider";
   const photo   = ride.driverPhoto || "";
   const initial = driver.charAt(0).toUpperCase();
@@ -286,7 +291,36 @@ const RideCard = ({ ride, onConnect }) => {
             {ride.viewCount || 0} people viewing
           </div>
         </div>
-        {rideFull ? (
+        {/* Priority: the viewer's OWN confirmed booking always wins over the
+            seat/full state — a confirmed passenger must be able to pay even
+            when the ride is full. */}
+        {bookingPaid ? (
+          <button
+            type="button"
+            disabled
+            style={{
+              background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0",
+              borderRadius: "28px", padding: "13px 24px",
+              fontWeight: 700, fontSize: "14px", cursor: "default",
+              display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit",
+            }}>
+            ✓ Payment Completed
+          </button>
+        ) : bookingNeedsPay ? (
+          <button
+            type="button"
+            onClick={() => onPay(ride._id)}
+            style={{
+              background: "#f5c518", color: "#111", border: "none",
+              borderRadius: "28px", padding: "13px 30px",
+              fontWeight: 800, fontSize: "15px", cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 6,
+              boxShadow: "0 6px 18px rgba(245, 197, 24, 0.35)", fontFamily: "inherit",
+              letterSpacing: "0.3px",
+            }}>
+            {myBooking?.paymentStatus === "failed" ? "RETRY PAYMENT" : "PAY NOW"}
+          </button>
+        ) : rideFull ? (
           <button
             type="button"
             disabled
@@ -722,6 +756,10 @@ export default function TravelMate() {
   // available) refresh after a request is accepted / rejected / cancelled
   // elsewhere — keeps the card in sync with the latest backend data.
   const [reloadKey, setReloadKey] = useState(0);
+  // Map of rideId -> the viewer's own booking { reqId, status, paymentStatus }
+  // for this ride, so a confirmed booking can show PAY NOW / Payment Completed
+  // right on the card. Only fetched when the viewer is logged in.
+  const [bookingByRide, setBookingByRide] = useState({});
 
   // Sidebar filters (applied client-side to the rides list)
   // vehicleType + femaleOnly are independent — they combine with AND.
@@ -882,6 +920,39 @@ export default function TravelMate() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
+
+  // Load the viewer's own bookings (outgoing requests) so cards can show
+  // PAY NOW for a confirmed-but-unpaid booking. Refreshes with reloadKey.
+  useEffect(() => {
+    const ph = enforceSession();
+    if (!ph) { setBookingByRide({}); return; }
+    let cancelled = false;
+    axios
+      .get(`${API_BASE}/api/rides/requests/outgoing`, { params: { phone: ph }, timeout: 7000 })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const map = {};
+        (data?.data || []).forEach((r) => {
+          if (r.ride && r.ride._id) {
+            map[String(r.ride._id)] = {
+              reqId: r._id,
+              status: r.status,
+              paymentStatus: r.paymentStatus || "none",
+            };
+          }
+        });
+        setBookingByRide(map);
+      })
+      .catch(() => { if (!cancelled) setBookingByRide({}); });
+    return () => { cancelled = true; };
+  }, [reloadKey]);
+
+  // PAY NOW from a card → go to the ride detail and auto-open payment (?pay=1).
+  // The detail page's payNow enforces the session and preserves context if the
+  // user needs to log in first.
+  const handlePay = (rideId) => {
+    navigate(`/ride-detail?rideId=${rideId}&pay=1`);
+  };
 
   // Submit search bar → at LEAST one filter (From or To or Date) is
   // enough. Date-only, From+Date, To+Date, full trio, etc. all work.
@@ -1263,6 +1334,8 @@ export default function TravelMate() {
               key={ride._id}
               ride={ride}
               onConnect={handleConnect}
+              myBooking={bookingByRide[String(ride._id)]}
+              onPay={handlePay}
             />
           ))}
         </div>
