@@ -550,6 +550,15 @@ export default function RideDetailsPage() {
                   <p style={{ fontSize: 14, color: "#6b7280", margin: 0 }}>{vehicleType}</p>
                 </div>
               </div>
+
+              {/* Unlock hint — shown until the booking is paid. */}
+              {myReq?.paymentStatus !== "paid" && (
+                <div style={{ marginTop: 16, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
+                  <p style={{ fontSize: 12.5, color: "#92400e", margin: 0, lineHeight: 1.5 }}>
+                    🔒 The plate number and contact details will be unlocked after your ride request is confirmed and the payment is completed.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Additional Information Card — shown only when the rider added a note */}
@@ -620,8 +629,8 @@ export default function RideDetailsPage() {
                   if (paid) {
                     return box("#f0fdf4", "#bbf7d0", (
                       <div>
-                        <div style={{ fontSize: 12, color: "#15803d", fontWeight: 700, marginBottom: 6 }}>
-                          ✅ Booking confirmed • Payment: Paid
+                        <div style={{ fontSize: 13, color: "#15803d", fontWeight: 800, marginBottom: 6 }}>
+                          ✅ Payment Completed
                         </div>
                         <a href={`tel:${myReq.owner?.phone || ""}`} style={{ fontSize: 20, fontWeight: 700, color: "#166534" }}>
                           {myReq.owner?.phone || "—"}
@@ -697,8 +706,9 @@ export default function RideDetailsPage() {
                 );
               })()}
 
-              {/* Low-seat alert — surfaces only if 1–2 seats remain */}
-              {seats > 0 && seats <= 2 && (
+              {/* Low-seat alert — surfaces only if 1–2 seats remain, and only
+                  for viewers who don't already hold a confirmed booking. */}
+              {seats > 0 && seats <= 2 && myReq?.status !== "accepted" && (
                 <div style={{
                   background: "#fef2f2",
                   border: "1px solid #fecaca",

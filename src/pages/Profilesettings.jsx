@@ -181,21 +181,6 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
           <span style={{ fontSize: 11, color: "#9ca3af" }}>{fmtRideDate(ride.date, ride.time)}</span>
         </div>
 
-        {/* Light-blue contact box */}
-        <div style={{
-          background: "#eff6ff",
-          border: "1px solid #bfdbfe",
-          borderRadius: 8,
-          padding: "8px 12px",
-        }}>
-          <div style={{ fontSize: 11, color: "#1d4ed8", fontWeight: 600, marginBottom: 2 }}>
-            Contact: <span style={{ color: "#1e40af", fontWeight: 700 }}>9876543210</span>
-          </div>
-          <div style={{ fontSize: 10, color: "#3b82f6", fontWeight: 600 }}>
-            You have access to contact details
-          </div>
-        </div>
-
         {/* Inline error message if delete failed (kept beside the card
             so it's impossible to miss — window.alert was unreliable). */}
         {delErr && (
@@ -311,6 +296,66 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
   );
 };
 
+/* ─── Booked Ride Card ───────────────────────────────────────────────
+   One card per confirmed booking the user made. The driver's contact is
+   NEVER hardcoded — it comes from the booking's `owner` object and the
+   backend only fills `owner.phone` once THIS booking's payment is PAID. */
+const BookedRideCard = ({ booking }) => {
+  const ride   = booking.ride || {};
+  const owner  = booking.owner || {};
+  const driver = owner.name || "Driver";
+  const paid   = booking.paymentStatus === "paid";
+  const phone  = paid ? (owner.phone || "") : "";
+
+  return (
+    <div style={{
+      background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14,
+      padding: "14px 16px", marginBottom: 12,
+      display: "flex", gap: 14, alignItems: "flex-start",
+    }}>
+      <Avatar name={driver} size={36} bg="#2563eb" photo={owner.photo} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{driver}</span>
+          {ride.vehicle && <VerifiedBadge label={ride.vehicle} />}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+          <MapPin />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{ride.from || "—"}</span>
+          <ArrowRight />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{ride.to || "—"}</span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
+          <CalendarIcon />
+          <span style={{ fontSize: 11, color: "#9ca3af" }}>{fmtRideDate(ride.date, ride.time)}</span>
+        </div>
+
+        {paid && phone ? (
+          <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "8px 12px" }}>
+            <div style={{ fontSize: 11, color: "#1d4ed8", fontWeight: 600, marginBottom: 2 }}>
+              Contact: <a href={`tel:${phone}`} style={{ color: "#1e40af", fontWeight: 700, textDecoration: "none" }}>{phone}</a>
+            </div>
+            <div style={{ fontSize: 10, color: "#3b82f6", fontWeight: 600 }}>
+              You have access to contact details
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px 12px" }}>
+            <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, marginBottom: 2 }}>
+              Contact: 🔒 Locked
+            </div>
+            <div style={{ fontSize: 10, color: "#9ca3af", fontWeight: 600 }}>
+              Payment required to access contact details
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 /* ─── Blocked User Row (2-up) ─── */
 const blockedColors = {
   A: { bg: "#dbeafe", fg: "#1d4ed8" },
@@ -361,6 +406,10 @@ export default function ProfileSettings() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Real bookings this user made (outgoing requests). Each carries its own
+  // driver (owner) + payment status so the contact number can be shown only
+  // when that specific booking is PAID — never a hardcoded/own number.
+  const [bookings, setBookings] = useState([]);
 
   // Blocked users — pulled from the backend so they're shared across
   // devices, not just one browser. Each item is normalized to the shape
@@ -618,11 +667,29 @@ export default function ProfileSettings() {
     return () => { cancelled = true; };
   }, [phone, reloadKey]);
 
+  // Fetch the user's real bookings (outgoing requests). Refetched on reload so
+  // a payment completed elsewhere flips the contact from locked → unlocked.
+  useEffect(() => {
+    if (!phone) { setBookings([]); return; }
+    let cancelled = false;
+    axios
+      .get(`${API_BASE}/api/rides/requests/outgoing`, { params: { phone }, timeout: 8000 })
+      .then(({ data: resp }) => {
+        if (cancelled) return;
+        // Only bookings the driver actually confirmed (accepted) belong here.
+        setBookings((resp?.data || []).filter((b) => b.status === "accepted"));
+      })
+      .catch(() => { if (!cancelled) setBookings([]); });
+    return () => { cancelled = true; };
+  }, [phone, reloadKey]);
+
   const user = data?.user;
   const rides = data?.rides || [];
 
-  // Booked rides aren't tracked separately yet — same Posted list for now
-  const bookedRides = rides;
+  // Booked rides come from the user's own confirmed/paid requests (live from
+  // the backend). Contact is gated server-side — the driver's phone is only
+  // present in `owner.phone` when that booking's payment is PAID.
+  const bookedRides = bookings;
 
   // Show real user values once loaded; placeholders ONLY when loaded but
   // genuinely empty. While loading we render an em-dash so no fake name
@@ -971,6 +1038,11 @@ export default function ProfileSettings() {
                         </div>
                       </div>
                     );
+                  }
+                  if (activeTab === "booked") {
+                    return list.map((b) => (
+                      <BookedRideCard key={b._id} booking={b} />
+                    ));
                   }
                   return list.map((r) => (
                     <PostedRideCard

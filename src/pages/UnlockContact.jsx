@@ -203,8 +203,10 @@ export default function UnlockContact() {
 
             try { localStorage.removeItem("pendingUnlockRideId"); } catch {}
             try { localStorage.removeItem("chosenPlan"); } catch {}
-            // Land on the EXISTING Ride + Share Ride screen (RideLive).
-            navigate(rideId ? `/ride-live?rideId=${rideId}` : "/ride-live");
+            // Booking (finding) payment → land on the existing Ride Details
+            // page, which now shows the unlocked contact + vehicle number and a
+            // "Payment Completed" state. (RideLive is only for posted rides.)
+            navigate(rideId ? `/ride-detail?rideId=${rideId}` : "/ride-detail");
           } catch (e) {
             setPayErrMsg(
               "Verification failed: " +

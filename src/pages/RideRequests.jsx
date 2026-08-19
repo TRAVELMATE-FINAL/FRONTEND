@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
@@ -25,8 +25,11 @@ function Badge({ status }) {
 
 export default function RideRequests() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const phone = (() => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } })();
-  const [tab, setTab] = useState("received");
+  // Open the tab requested in the URL (?tab=sent) so a "Ride Request Accepted"
+  // / "Payment Successful" notification lands the rider on THEIR sent requests.
+  const [tab, setTab] = useState(searchParams.get("tab") === "sent" ? "sent" : "received");
   const [incoming, setIncoming] = useState([]);
   const [outgoing, setOutgoing] = useState([]);
   const [loading, setLoading] = useState(true);
