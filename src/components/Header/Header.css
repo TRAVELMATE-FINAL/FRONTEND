@@ -149,7 +149,11 @@
   .tm-navbar__logo,
   .tm-navbar__logo-img { width: 32px; height: 32px; border-radius: 9px; }
   .tm-navbar__name { font-size: 15px; letter-spacing: -0.3px; }
-  .tm-navbar__icon-btn { padding: 4px; }
+  /* Keep notifications / requests / settings visible — just make them
+     smaller so all three icons + Login fit on a phone without overflowing
+     off-screen (which is what made them look "missing"). */
+  .tm-navbar__icon-btn { width: 34px; height: 34px; padding: 0; }
+  .tm-navbar__icon-btn svg { width: 18px; height: 18px; }
   .tm-navbar__login { padding: 8px 14px; font-size: 13px; border-radius: 18px; }
 }
 
@@ -158,8 +162,11 @@
     padding: 0 !important;
   }
   .tm-navbar__brand   { padding-left: 8px; }
-  .tm-navbar__actions { padding-right: 8px; gap: 6px; }
-  /* Hide the bell + settings on very small phones — login is the priority */
-  .tm-navbar__icon-btn { display: none; }
+  .tm-navbar__actions { padding-right: 8px; gap: 5px; }
+  /* On very small phones, shrink the icons further but KEEP them visible —
+     notifications, requests and settings must remain reachable. */
+  .tm-navbar__icon-btn { width: 30px; height: 30px; padding: 0; }
+  .tm-navbar__icon-btn svg { width: 16px; height: 16px; }
+  .tm-navbar__login { padding: 7px 12px; font-size: 12px; border-radius: 16px; }
   .tm-navbar__name { font-size: 14px; }
 }

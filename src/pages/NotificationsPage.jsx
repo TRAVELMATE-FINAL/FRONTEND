@@ -274,17 +274,17 @@ export default function NotificationsPage() {
                           </span>
                           <span style={styles.cardTime}>{relativeLabel(n.createdAt)}</span>
                         </div>
-                        {n.subtitle && (
-                          <p style={styles.cardSubtitle}>{n.subtitle}</p>
+                        {(n.body || n.subtitle) && (
+                          <p style={styles.cardSubtitle}>{n.body || n.subtitle}</p>
                         )}
-                        {n.action?.label && (
+                        {n.action?.to && (
                           <div style={styles.actionRow}>
                             <button
                               type="button"
                               onClick={() => handleAction(n)}
                               style={styles.outlineBtn}
                             >
-                              {n.action.label}
+                              {n.action.label || "View details"}
                             </button>
                           </div>
                         )}

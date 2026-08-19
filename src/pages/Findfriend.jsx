@@ -664,8 +664,8 @@ export default function TravelMate() {
     return true;
   };
   const visibleRides = rides.filter((r) => {
-    const v = (r.vehicle || "").toLowerCase();
-    const g = (r.gender || "").toLowerCase();
+    const v = (r.vehicle || "").trim().toLowerCase();
+    const g = (r.gender || "").trim().toLowerCase();
 
     // Vehicle filter — single-select Car or Bike (independent of femaleOnly)
     if (filters.vehicleType === "car"  && v !== "car")  return false;
