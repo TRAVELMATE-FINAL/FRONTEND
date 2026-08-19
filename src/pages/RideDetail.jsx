@@ -6,6 +6,8 @@ import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import { formatTime12h } from "../utils/time.js";
 import UserActions from "../components/UserActions/UserActions.jsx";
+import RideMap from "../components/RideMap/RideMap";
+import MapModal from "../components/RideMap/MapModal";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -102,6 +104,7 @@ export default function RideDetailsPage() {
   const [myReq, setMyReq] = useState(null);
   const [reqBusy, setReqBusy] = useState(false);
   const [reqMsg, setReqMsg] = useState("");
+  const [mapOpen, setMapOpen] = useState(false);
 
   // Load the viewer's existing request for this ride (status + revealed contact).
   useEffect(() => {
@@ -628,9 +631,39 @@ export default function RideDetailsPage() {
               border: "1px solid #e5e7eb",
               padding: "20px 22px",
             }}>
-              <p style={{ fontSize: 15, fontWeight: 700, color: "#111827", margin: "0 0 20px" }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "#111827", margin: "0 0 16px" }}>
                 Trip Route
               </p>
+
+              {/* Map preview — tap to open the zoomable map. Only shown when
+                  the ride has usable coordinates. */}
+              {ride.fromLat != null && ride.fromLon != null &&
+               ride.toLat != null && ride.toLon != null && (
+                <div
+                  onClick={() => setMapOpen(true)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setMapOpen(true); }}
+                  title="Tap to enlarge & zoom"
+                  style={{
+                    position: "relative",
+                    width: "100%", height: 180,
+                    borderRadius: 12, overflow: "hidden",
+                    border: "1px solid #e5e7eb", marginBottom: 18,
+                    cursor: "pointer",
+                  }}
+                >
+                  <RideMap ride={ride} />
+                  <div style={{ position: "absolute", inset: 0 }} />
+                  <div style={{
+                    position: "absolute", bottom: 8, right: 8,
+                    width: 28, height: 28, borderRadius: 8,
+                    background: "rgba(15,18,38,0.82)", color: "#fff",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 15, pointerEvents: "none",
+                  }} aria-hidden="true">⛶</div>
+                </div>
+              )}
 
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                 {/* Origin */}
@@ -674,6 +707,8 @@ export default function RideDetailsPage() {
           </div>
         </div>
       )}
+
+      {ride && <MapModal ride={ride} open={mapOpen} onClose={() => setMapOpen(false)} />}
 
       <Footer />
     </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import RideMap from "../components/RideMap/RideMap";
+import MapModal from "../components/RideMap/MapModal";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
 import Spinner from "../components/Spinner/Spinner.jsx";
 import Header from "../components/Header/Header.jsx";
@@ -79,6 +80,7 @@ const Tag = ({ label }) => (
 
 /* ── Live ride card — Figma redesign (template only; same data + logic) ── */
 const RideCard = ({ ride, onConnect }) => {
+  const [mapOpen, setMapOpen] = useState(false);
   const driver  = ride.driverName?.trim() || "TravelMate Rider";
   const photo   = ride.driverPhoto || "";
   const initial = driver.charAt(0).toUpperCase();
@@ -217,15 +219,38 @@ const RideCard = ({ ride, onConnect }) => {
           )}
         </div>
 
-        {/* Map preview on the right */}
-        <div className="ff-ride-map" style={{
-          width: "220px", height: "200px", flexShrink: 0,
-          borderRadius: "14px", overflow: "hidden",
-          border: "1px solid rgba(255,255,255,0.08)",
-        }}>
+        {/* Map preview on the right — tap to open the zoomable map modal */}
+        <div
+          className="ff-ride-map"
+          onClick={() => setMapOpen(true)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setMapOpen(true); }}
+          title="Tap to enlarge & zoom"
+          style={{
+            position: "relative",
+            width: "220px", height: "200px", flexShrink: 0,
+            borderRadius: "14px", overflow: "hidden",
+            border: "1px solid rgba(255,255,255,0.08)",
+            cursor: "pointer",
+          }}
+        >
           <RideMap ride={ride} />
+          {/* Expand affordance + click-catcher so the whole preview opens the
+              modal (the inner map has gestures disabled in preview mode). */}
+          <div style={{ position: "absolute", inset: 0 }} />
+          <div style={{
+            position: "absolute", bottom: 8, right: 8,
+            width: 28, height: 28, borderRadius: 8,
+            background: "rgba(15,18,38,0.82)", color: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 15, pointerEvents: "none",
+          }} aria-hidden="true">⛶</div>
         </div>
       </div>
+
+      {/* Zoomable map popup for this ride */}
+      <MapModal ride={ride} open={mapOpen} onClose={() => setMapOpen(false)} />
 
       {/* Confirmed passengers + available seats — always visible on the card,
           straight from live backend data (no hardcoded values). */}

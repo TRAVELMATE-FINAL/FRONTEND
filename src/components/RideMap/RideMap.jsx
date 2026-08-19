@@ -13,20 +13,37 @@ import "./RideMap.css";
 
 const containerStyle = { width: "100%", height: "100%" };
 
-// Minimal map styling — clean look that matches the dark ride card
-const mapOptions = {
+const mapStyles = [
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+];
+
+// Static preview (card): no gestures, no controls — clean thumbnail.
+const previewOptions = {
   disableDefaultUI: true,
   gestureHandling: "none",
   clickableIcons: false,
   keyboardShortcuts: false,
-  styles: [
-    { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-    { featureType: "poi", stylers: [{ visibility: "off" }] },
-    { featureType: "transit", stylers: [{ visibility: "off" }] },
-  ],
+  styles: mapStyles,
 };
 
-export default function RideMap({ ride }) {
+// Interactive (zoom modal): pinch-zoom on mobile, scroll/±-button zoom on
+// desktop, plus zoom + fullscreen controls. "greedy" so one-finger drag pans
+// without needing two fingers.
+const interactiveOptions = {
+  disableDefaultUI: false,
+  gestureHandling: "greedy",
+  zoomControl: true,
+  fullscreenControl: true,
+  mapTypeControl: false,
+  streetViewControl: false,
+  clickableIcons: false,
+  keyboardShortcuts: true,
+  styles: mapStyles,
+};
+
+export default function RideMap({ ride, interactive = false }) {
   const { isLoaded, loadError } = useGoogleMaps();
   const authFailed = useMapsAuthFailed();
 
@@ -250,7 +267,7 @@ export default function RideMap({ ride }) {
         mapContainerStyle={containerStyle}
         center={center}
         zoom={7}
-        options={mapOptions}
+        options={interactive ? interactiveOptions : previewOptions}
         onLoad={onMapLoad}
         onUnmount={onMapUnmount}
       />
