@@ -183,12 +183,28 @@ export default function UnlockContact() {
               body: "Your contact unlock is now active.",
             }).catch(() => {});
 
-            // Navigate immediately — no artificial delay
             const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
             const rideId = urlRideId || pendingUnlockRideId || "";
+
+            // Mark the CONFIRMED booking as PAID (backend re-verifies the
+            // Razorpay signature). This is what unlocks the driver's contact
+            // number — the number is never revealed before this succeeds.
+            if (rideId) {
+              try {
+                await axios.post(`${API_BASE}/api/rides/requests/mark-paid`, {
+                  riderPhone: phone,
+                  rideId,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                });
+              } catch (_e) { /* non-fatal — booking may not exist for this ride */ }
+            }
+
             try { localStorage.removeItem("pendingUnlockRideId"); } catch {}
             try { localStorage.removeItem("chosenPlan"); } catch {}
-            navigate(rideId ? `/ride-detail?rideId=${rideId}` : "/ride-detail");
+            // Land on the EXISTING Ride + Share Ride screen (RideLive).
+            navigate(rideId ? `/ride-live?rideId=${rideId}` : "/ride-live");
           } catch (e) {
             setPayErrMsg(
               "Verification failed: " +

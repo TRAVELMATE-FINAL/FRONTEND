@@ -43,6 +43,10 @@ export default function RideLive() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Driver contact — populated ONLY when this viewer has a PAID booking for
+  // this ride. The backend only returns the number after payment, so this can
+  // never show for an unpaid/pending booking or for a random visitor.
+  const [contact, setContact] = useState(null); // { name, phone }
 
   useEffect(() => {
     if (!rideId) {
@@ -67,6 +71,27 @@ export default function RideLive() {
         if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
+  }, [rideId]);
+
+  // Load the viewer's own booking for this ride; the driver contact is only
+  // present in the API response once payment is PAID (backend-gated).
+  useEffect(() => {
+    const ph = (() => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } })();
+    if (!rideId || !ph) return;
+    let cancelled = false;
+    axios
+      .get(API_BASE + "/api/rides/requests/outgoing", { params: { phone: ph } })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const b = (data?.data || []).find(
+          (r) => r.ride && String(r.ride._id) === String(rideId)
+        );
+        if (b && b.status === "accepted" && b.paymentStatus === "paid" && b.owner?.phone) {
+          setContact({ name: b.owner.name || "Driver", phone: b.owner.phone });
+        }
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [rideId]);
 
@@ -243,6 +268,23 @@ export default function RideLive() {
                 </div>
               )}
             </div>
+
+            {/* Unlocked driver contact — shown only after successful payment
+                (the backend returns the number only when the booking is PAID). */}
+            {contact && (
+              <div style={{
+                background: "#f0fdf4", border: "1px solid #bbf7d0",
+                borderRadius: 12, padding: "16px 18px", marginBottom: 22, textAlign: "left",
+              }}>
+                <div style={{ fontSize: 12, color: "#15803d", fontWeight: 700, marginBottom: 4 }}>
+                  🔓 Contact unlocked
+                </div>
+                <div style={{ fontSize: 13, color: "#444", marginBottom: 2 }}>{contact.name}</div>
+                <a href={`tel:${contact.phone}`} style={{ fontSize: 20, fontWeight: 800, color: "#166534", textDecoration: "none" }}>
+                  {contact.phone}
+                </a>
+              </div>
+            )}
 
             <div style={{ marginBottom: 22 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: "#111", marginBottom: 4 }}>
