@@ -33,7 +33,8 @@ export default function TravelMatePlanPage() {
   useEffect(() => {
     getFindFee()
       .then((f) => {
-        if (f && Number.isFinite(Number(f.unlockFee))) setFindPrice(Number(f.unlockFee));
+        // Find Ride Daily plan price (admin-configured).
+        if (f && Number.isFinite(Number(f.dailyPrice))) setFindPrice(Number(f.dailyPrice));
       })
       .catch(() => {});
   }, []);

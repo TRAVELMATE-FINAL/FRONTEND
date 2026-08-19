@@ -8,6 +8,7 @@ import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
 import MapModal from "../components/RideMap/MapModal";
+import ConfirmModal from "../components/ConfirmModal/ConfirmModal";
 
 const API = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -1562,6 +1563,9 @@ export default function TravelMatePost({ embedded = false } = {}) {
   const [routeLoading, setRouteLoading] = useState(false);
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
+  // Publish confirmation modal state: holds the ride payload + the active
+  // plan's name/expiry so we can confirm before actually posting.
+  const [publishConfirm, setPublishConfirm] = useState(null); // { payload, plan, endDate } | null
   // Suggested stops for whichever alternate route is currently selected
   // on the map. RouteMap reverse-geocodes midpoints of the active route
   // and pushes the resulting town names up here.
@@ -1799,15 +1803,14 @@ export default function TravelMatePost({ embedded = false } = {}) {
           `${API}/api/plans/can-post`, { params: { phone: userPhone }, timeout: 6000 }
         );
         if (canRes?.data?.canPostRide) {
-          // Publish now — backend re-checks the subscription authoritatively.
-          const res = await axios.post(`${API}/api/rides`, { ...payload, userPhone });
-          const newId = res.data?.data?._id || res.data?.data?.id || "";
-          try {
-            if (newId) localStorage.setItem("lastPostedRideId", newId);
-            localStorage.removeItem("pendingRidePayload");
-            localStorage.removeItem("pendingPostRide");
-          } catch (_e) {}
-          navigate(newId ? `/ride-live?rideId=${newId}` : "/ride-live");
+          // Active plan → confirm before publishing. The actual POST happens in
+          // confirmPublish() when the user clicks "Yes, Publish Ride".
+          setPublishConfirm({
+            payload: { ...payload, userPhone },
+            plan: canRes.data.plan || "",
+            endDate: canRes.data.endDate || null,
+          });
+          setPublishing(false);
           return;
         }
       } catch (subErr) {
@@ -1826,6 +1829,39 @@ export default function TravelMatePost({ embedded = false } = {}) {
       setPublishing(false);
     }
   };
+
+  // Actually publish the ride after the user confirms in the modal.
+  const confirmPublish = async () => {
+    if (!publishConfirm) return;
+    setPublishing(true);
+    setError("");
+    try {
+      const res = await axios.post(`${API}/api/rides`, publishConfirm.payload);
+      const newId = res.data?.data?._id || res.data?.data?.id || "";
+      try {
+        if (newId) localStorage.setItem("lastPostedRideId", newId);
+        localStorage.removeItem("pendingRidePayload");
+        localStorage.removeItem("pendingPostRide");
+      } catch (_e) {}
+      setPublishConfirm(null);
+      navigate(newId ? `/ride-live?rideId=${newId}` : "/ride-live");
+    } catch (err) {
+      setPublishConfirm(null);
+      setError(err?.response?.data?.message || "Could not publish your trip. Please try again.");
+      setPublishing(false);
+    }
+  };
+
+  // Human-readable expiry for the confirm modal.
+  const fmtPlanUntil = (d) => {
+    if (!d) return "";
+    try {
+      return new Date(d).toLocaleString("en-IN", {
+        day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true,
+      });
+    } catch { return ""; }
+  };
+  const planLabel = (p) => ({ daily: "Daily", monthly: "Monthly", yearly: "Yearly" }[p] || (p ? p : "Active"));
 
   return (
     <>
@@ -1855,6 +1891,23 @@ export default function TravelMatePost({ embedded = false } = {}) {
           onBack={() => setStep(1)}
         />
       )}
+
+      {/* Publish confirmation — shown only when the user has an ACTIVE plan. */}
+      <ConfirmModal
+        open={!!publishConfirm}
+        title="Are you sure you want to publish this ride?"
+        message={publishConfirm ? `Your ${planLabel(publishConfirm.plan)} plan is active.` : ""}
+        rows={publishConfirm ? [
+          { label: "Plan", value: planLabel(publishConfirm.plan) },
+          { label: "Valid Until", value: fmtPlanUntil(publishConfirm.endDate) || "—" },
+        ] : []}
+        cancelLabel="Cancel"
+        confirmLabel="Yes, Publish Ride"
+        busy={publishing}
+        onCancel={() => setPublishConfirm(null)}
+        onConfirm={confirmPublish}
+      />
+
       {!embedded && <Footer />}
     </>
   );

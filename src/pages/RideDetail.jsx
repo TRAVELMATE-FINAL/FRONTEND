@@ -9,6 +9,7 @@ import UserActions from "../components/UserActions/UserActions.jsx";
 import RideMap from "../components/RideMap/RideMap";
 import MapModal from "../components/RideMap/MapModal";
 import { enforceSession } from "../services/session";
+import ConfirmModal from "../components/ConfirmModal/ConfirmModal";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -108,17 +109,17 @@ export default function RideDetailsPage() {
   const [mapOpen, setMapOpen] = useState(false);
   const [payBusy, setPayBusy] = useState(false);
   const [payMsg, setPayMsg] = useState("");
-  const [bookingFee, setBookingFee] = useState(null);
-
-  // Admin-set booking fee (find-ride unlock + processing). Shown on Pay Now.
+  // Find Ride Daily plan price (admin-configured) — shown on Pay Now + in the
+  // payment confirmation popup. Never hardcoded.
+  const [findDailyPrice, setFindDailyPrice] = useState(null);
+  const [payConfirmOpen, setPayConfirmOpen] = useState(false);
   useEffect(() => {
     let cancelled = false;
     axios
       .get(`${API_BASE}/api/plans/find-fee`, { timeout: 6000 })
       .then(({ data }) => {
         if (cancelled) return;
-        const total = (Number(data?.unlockFee) || 0) + (Number(data?.processingFee) || 0);
-        if (total > 0) setBookingFee(total);
+        if (Number.isFinite(Number(data?.dailyPrice))) setFindDailyPrice(Number(data.dailyPrice));
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -150,21 +151,7 @@ export default function RideDetailsPage() {
       setReqMsg("Request sent! You'll be notified when the owner confirms.");
     } catch (e) {
       if (e.response?.status === 409) { setMyReq({ status: "pending" }); }
-      else if (e.response?.data?.code === "NEED_FIND_PLAN") {
-        // No active Find Ride plan → send the user to the Daily plan (₹1/24h)
-        // payment, then return here to request. Uses the existing plan/payment
-        // screens (Find Ride = Daily only).
-        try {
-          localStorage.setItem("planPurpose", "find");
-          localStorage.setItem("chosenPlan", "daily");
-          localStorage.setItem("findReturnRideId", rideId);
-        } catch (_e) {}
-        setReqBusy(false);
-        navigate("/securepayment");
-        return;
-      } else {
-        setReqMsg(e.response?.data?.message || "Could not send request. Please try again.");
-      }
+      else { setReqMsg(e.response?.data?.message || "Could not send request. Please try again."); }
     } finally {
       setReqBusy(false);
     }
@@ -663,7 +650,7 @@ export default function RideDetailsPage() {
                           ? "Your last payment didn't go through. Retry to finalize your booking and view the contact details."
                           : "Complete payment to finalize your booking and view the contact details."}
                       </div>
-                      <button type="button" onClick={payNow} disabled={payBusy} style={{
+                      <button type="button" onClick={() => setPayConfirmOpen(true)} disabled={payBusy} style={{
                         width: "100%", background: "#f5c518", color: "#111", border: "none", borderRadius: 10,
                         padding: "12px 14px", fontWeight: 700, fontSize: 14,
                         cursor: payBusy ? "not-allowed" : "pointer", fontFamily: "inherit",
@@ -671,7 +658,7 @@ export default function RideDetailsPage() {
                       }}>
                         {payBusy
                           ? "Processing…"
-                          : `${myReq.paymentStatus === "failed" ? "Retry Payment" : "Pay Now"}${bookingFee ? ` • ₹${bookingFee}` : ""}`}
+                          : `${myReq.paymentStatus === "failed" ? "Retry Payment" : "Pay Now"}${findDailyPrice != null ? ` • ₹${findDailyPrice}` : ""}`}
                       </button>
                       {payMsg && <div style={{ marginTop: 8, fontSize: 13, color: "#4b5563" }}>{payMsg}</div>}
                     </div>
@@ -825,6 +812,24 @@ export default function RideDetailsPage() {
       )}
 
       {ride && <MapModal ride={ride} open={mapOpen} onClose={() => setMapOpen(false)} />}
+
+      {/* Pay Now confirmation — shown only after the driver has accepted. */}
+      <ConfirmModal
+        open={payConfirmOpen}
+        title="Complete Your Ride Payment"
+        message="Your ride request has been accepted."
+        rows={[
+          { label: "Plan", value: "Find Ride Daily" },
+          { label: "Validity", value: "24 Hours" },
+          { label: "Amount", value: findDailyPrice != null ? `₹${findDailyPrice}` : "—" },
+        ]}
+        note="After payment, the contact number and vehicle number will be unlocked."
+        cancelLabel="Cancel"
+        confirmLabel="Continue to Payment"
+        busy={payBusy}
+        onCancel={() => setPayConfirmOpen(false)}
+        onConfirm={() => { setPayConfirmOpen(false); payNow(); }}
+      />
 
       <Footer />
     </div>

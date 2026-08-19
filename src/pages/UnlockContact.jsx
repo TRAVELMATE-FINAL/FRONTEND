@@ -86,8 +86,9 @@ export default function UnlockContact() {
   useEffect(() => {
     getFindFee()
       .then((f) => {
-        if (f && Number.isFinite(Number(f.unlockFee))) setUnlockFee(Number(f.unlockFee));
-        if (f && Number.isFinite(Number(f.processingFee))) setProcessingFee(Number(f.processingFee));
+        // Pay-after-accept = the Find Ride Daily plan price (admin-configured).
+        if (f && Number.isFinite(Number(f.dailyPrice))) setUnlockFee(Number(f.dailyPrice));
+        setProcessingFee(0);
       })
       .catch(() => {});
   }, []);
