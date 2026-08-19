@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
@@ -23,6 +24,7 @@ function Badge({ status }) {
 }
 
 export default function RideRequests() {
+  const navigate = useNavigate();
   const phone = (() => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } })();
   const [tab, setTab] = useState("received");
   const [incoming, setIncoming] = useState([]);
@@ -151,9 +153,22 @@ export default function RideRequests() {
                   </div>
                   <div style={{ fontSize: 12, color: "#9ca3af" }}>{whenText(r)}</div>
 
-                  {r.status === "accepted" && r.owner?.phone && (
+                  {r.status === "accepted" && r.paymentStatus === "paid" && r.owner?.phone && (
                     <div style={{ marginTop: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 10, fontSize: 14 }}>
-                      Confirmed ✓ — {r.owner.name}: <a href={`tel:${r.owner.phone}`} style={{ fontWeight: 700, color: "#166534" }}>{r.owner.phone}</a>
+                      Confirmed ✓ • Paid — {r.owner.name}: <a href={`tel:${r.owner.phone}`} style={{ fontWeight: 700, color: "#166534" }}>{r.owner.phone}</a>
+                    </div>
+                  )}
+
+                  {r.status === "accepted" && r.paymentStatus !== "paid" && (
+                    <div style={{ marginTop: 10, background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 10, padding: 12, fontSize: 14 }}>
+                      <div style={{ fontWeight: 700, color: "#4338ca", marginBottom: 2 }}>Booking confirmed</div>
+                      <div style={{ color: "#4b5563", marginBottom: 10 }}>Payment pending — complete payment to finalize your booking and view contact details.</div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/ride-detail?rideId=${r.ride?._id || ""}`)}
+                        style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: "#f5c518", color: "#111", fontWeight: 700, cursor: "pointer" }}>
+                        Pay now
+                      </button>
                     </div>
                   )}
 

@@ -1654,6 +1654,39 @@ export default function TravelMatePost({ embedded = false } = {}) {
       return;
     }
 
+    // ── Duplicate-ride pre-check ─────────────────────────────────────
+    // Block a second ACTIVE ride by the same user at the same date + time
+    // BEFORE sending them through the payment flow. The backend enforces this
+    // authoritatively too; this is just a friendly early warning. Only
+    // date + time matter — vehicle / from / to / seats are irrelevant, and
+    // closed/expired rides don't count.
+    try {
+      const phone = localStorage.getItem("phone") || "";
+      if (phone) {
+        const resp = await axios.get(
+          `${API}/api/rides/by-user?phone=${encodeURIComponent(phone)}`,
+          { timeout: 6000 }
+        );
+        const mine = resp?.data?.data?.rides || [];
+        const conflict = mine.some(
+          (r) =>
+            (r.status || "active") === "active" &&
+            String(r.date) === String(form.date) &&
+            String(r.time) === String(form.time)
+        );
+        if (conflict) {
+          setError(
+            "You already have a ride scheduled for this date and time. Please choose a different date or time."
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      // Non-blocking: if the check can't run (network), the backend still
+      // rejects the duplicate, so we don't hard-fail the post here.
+      console.warn("Duplicate-ride pre-check skipped:", e?.message);
+    }
+
     try {
       setPublishing(true);
       const userPhone = localStorage.getItem("phone") || "";

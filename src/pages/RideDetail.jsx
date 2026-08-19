@@ -105,6 +105,23 @@ export default function RideDetailsPage() {
   const [reqBusy, setReqBusy] = useState(false);
   const [reqMsg, setReqMsg] = useState("");
   const [mapOpen, setMapOpen] = useState(false);
+  const [payBusy, setPayBusy] = useState(false);
+  const [payMsg, setPayMsg] = useState("");
+  const [bookingFee, setBookingFee] = useState(null);
+
+  // Admin-set booking fee (find-ride unlock + processing). Shown on Pay Now.
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get(`${API_BASE}/api/plans/find-fee`, { timeout: 6000 })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const total = (Number(data?.unlockFee) || 0) + (Number(data?.processingFee) || 0);
+        if (total > 0) setBookingFee(total);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Load the viewer's existing request for this ride (status + revealed contact).
   useEffect(() => {
@@ -135,6 +152,77 @@ export default function RideDetailsPage() {
       setReqMsg(e.response?.data?.message || "Could not send request. Please try again.");
     } finally {
       setReqBusy(false);
+    }
+  };
+
+  // Load Razorpay checkout script on demand (once).
+  const loadRazorpay = () =>
+    new Promise((resolve) => {
+      if (window.Razorpay) return resolve(true);
+      const s = document.createElement("script");
+      s.src = "https://checkout.razorpay.com/v1/checkout.js";
+      s.onload = () => resolve(true);
+      s.onerror = () => resolve(false);
+      document.body.appendChild(s);
+    });
+
+  // Pay Now — only for a CONFIRMED (accepted) booking. Seat availability does
+  // NOT gate this: the rider already holds a confirmed seat. The order is
+  // created idempotently on the backend, so refresh/retry never double-charges.
+  const payNow = async () => {
+    const ph = (() => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } })();
+    if (!ph || !myReq?._id) { setPayMsg("Please sign in again to complete payment."); return; }
+    setPayBusy(true); setPayMsg("");
+    try {
+      const ok = await loadRazorpay();
+      if (!ok) { setPayMsg("Could not load the payment window. Check your connection and retry."); setPayBusy(false); return; }
+
+      const { data } = await axios.post(
+        `${API_BASE}/api/rides/requests/${myReq._id}/pay-order`,
+        { riderPhone: ph }, { timeout: 8000 }
+      );
+      if (data?.alreadyPaid) {
+        setMyReq((m) => ({ ...(m || {}), paymentStatus: "paid" }));
+        setPayMsg("Your booking is already paid.");
+        setPayBusy(false);
+        return;
+      }
+
+      const rzp = new window.Razorpay({
+        key: data.key,
+        amount: data.amount,
+        currency: data.currency || "INR",
+        name: "TravelMate",
+        description: "Ride booking payment",
+        order_id: data.orderId,
+        prefill: { contact: ph.replace(/^\+91/, "") },
+        theme: { color: "#f5c518" },
+        handler: async (resp) => {
+          try {
+            await axios.post(`${API_BASE}/api/rides/requests/${myReq._id}/pay-verify`, {
+              riderPhone: ph,
+              razorpay_order_id: resp.razorpay_order_id,
+              razorpay_payment_id: resp.razorpay_payment_id,
+              razorpay_signature: resp.razorpay_signature,
+            });
+            setMyReq((m) => ({ ...(m || {}), paymentStatus: "paid" }));
+            setPayMsg("Payment successful — your booking is confirmed.");
+          } catch (e) {
+            setPayMsg(e.response?.data?.message || "Payment verification failed. If money was deducted it will be refunded.");
+          } finally {
+            setPayBusy(false);
+          }
+        },
+        modal: { ondismiss: () => { setPayBusy(false); setPayMsg("Payment cancelled. Your booking is still confirmed — you can pay anytime."); } },
+      });
+      rzp.on("payment.failed", (r) => {
+        setPayMsg("Payment failed: " + (r?.error?.description || "please try again."));
+        setPayBusy(false);
+      });
+      rzp.open();
+    } catch (e) {
+      setPayMsg(e.response?.data?.message || "Could not start payment. Please try again.");
+      setPayBusy(false);
     }
   };
 
@@ -555,10 +643,38 @@ export default function RideDetailsPage() {
                   ));
                 }
                 if (myReq?.status === "accepted") {
-                  return box("#f0fdf4", "#bbf7d0", (
+                  const paid = myReq.paymentStatus === "paid";
+                  // Paid → booking finalized, contact revealed.
+                  if (paid) {
+                    return box("#f0fdf4", "#bbf7d0", (
+                      <div>
+                        <div style={{ fontSize: 12, color: "#15803d", fontWeight: 700, marginBottom: 6 }}>
+                          ✅ Booking confirmed • Payment: Paid
+                        </div>
+                        <a href={`tel:${myReq.owner?.phone || ""}`} style={{ fontSize: 20, fontWeight: 700, color: "#166534" }}>
+                          {myReq.owner?.phone || "—"}
+                        </a>
+                      </div>
+                    ));
+                  }
+                  // Confirmed but payment pending → Pay Now (NEVER "Ride Full").
+                  return box("#eef2ff", "#c7d2fe", (
                     <div>
-                      <div style={{ fontSize: 12, color: "#15803d", fontWeight: 700, marginBottom: 6 }}>🔓 Confirmed — contact available</div>
-                      <a href={`tel:${myReq.owner?.phone || ""}`} style={{ fontSize: 20, fontWeight: 700, color: "#166534" }}>{myReq.owner?.phone || "—"}</a>
+                      <div style={{ fontSize: 12, color: "#4338ca", fontWeight: 700, marginBottom: 2 }}>
+                        Booking confirmed by the driver
+                      </div>
+                      <div style={{ fontSize: 13, color: "#4b5563", marginBottom: 10 }}>
+                        Complete payment to finalize your booking and view the contact details.
+                      </div>
+                      <button type="button" onClick={payNow} disabled={payBusy} style={{
+                        width: "100%", background: "#f5c518", color: "#111", border: "none", borderRadius: 10,
+                        padding: "12px 14px", fontWeight: 700, fontSize: 14,
+                        cursor: payBusy ? "not-allowed" : "pointer", fontFamily: "inherit",
+                        boxShadow: "0 4px 12px rgba(245,197,24,0.30)",
+                      }}>
+                        {payBusy ? "Processing…" : `Pay Now${bookingFee ? ` • ₹${bookingFee}` : ""}`}
+                      </button>
+                      {payMsg && <div style={{ marginTop: 8, fontSize: 13, color: "#4b5563" }}>{payMsg}</div>}
                     </div>
                   ));
                 }
