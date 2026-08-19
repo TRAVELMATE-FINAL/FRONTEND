@@ -7,6 +7,7 @@ import { enforceSession } from './services/session';
 import './styles/global.css';
 import './styles/variables.css';
 import './styles/responsive.css';
+import './styles/polish.css';
 
 // Enforce the 14-day login window once, before the app renders. If the last
 // login was more than two weeks ago the stale session is cleared so the user
