@@ -82,6 +82,15 @@ const RideCard = ({ ride, onConnect }) => {
   const driver  = ride.driverName?.trim() || "TravelMate Rider";
   const photo   = ride.driverPhoto || "";
   const initial = driver.charAt(0).toUpperCase();
+  // Ride is full when all seats are confirmed. Backend sends isFull /
+  // remainingSeats (occupied = accepted requests only). Fall back gracefully
+  // for older payloads that don't include the seat fields.
+  const rideFull =
+    typeof ride.isFull === "boolean"
+      ? ride.isFull
+      : typeof ride.remainingSeats === "number"
+      ? ride.remainingSeats <= 0
+      : false;
   // Show whatever the driver typed in the "Notes & preferences" field
   // when publishing the ride (additionalInfo). Split on commas /
   // newlines so they render as separate pills. When the driver didn't
@@ -219,18 +228,33 @@ const RideCard = ({ ride, onConnect }) => {
             {ride.viewCount || 0} people viewing
           </div>
         </div>
-        <button
-          onClick={() => onConnect(ride._id)}
-          style={{
-            background: "#f5c518", color: "#111", border: "none",
-            borderRadius: "28px", padding: "13px 28px",
-            fontWeight: 700, fontSize: "15px", cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 6,
-            boxShadow: "0 6px 18px rgba(245, 197, 24, 0.35)",
-            fontFamily: "inherit",
-          }}>
-          Request to Ride <span style={{ fontSize: 17, lineHeight: 1 }}>→</span>
-        </button>
+        {rideFull ? (
+          <button
+            type="button"
+            disabled
+            style={{
+              background: "#e5e7eb", color: "#6b7280", border: "none",
+              borderRadius: "28px", padding: "13px 28px",
+              fontWeight: 700, fontSize: "15px", cursor: "not-allowed",
+              display: "flex", alignItems: "center", gap: 6,
+              fontFamily: "inherit",
+            }}>
+            Ride Full
+          </button>
+        ) : (
+          <button
+            onClick={() => onConnect(ride._id)}
+            style={{
+              background: "#f5c518", color: "#111", border: "none",
+              borderRadius: "28px", padding: "13px 28px",
+              fontWeight: 700, fontSize: "15px", cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 6,
+              boxShadow: "0 6px 18px rgba(245, 197, 24, 0.35)",
+              fontFamily: "inherit",
+            }}>
+            Request to Ride <span style={{ fontSize: 17, lineHeight: 1 }}>→</span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -725,7 +749,11 @@ export default function TravelMate() {
     const qp = new URLSearchParams();
     if (queryFrom) qp.set("from", queryFrom);
     if (queryTo)   qp.set("to",   queryTo);
-    if (queryVehicle) qp.set("vehicle", queryVehicle);
+    // NOTE: we intentionally do NOT send `vehicle` to the backend. Fetch ALL
+    // rides for the route regardless of vehicle, then let the sidebar Car/Bike
+    // toggle filter them client-side. Otherwise, searching Bike on the front
+    // page would lock the fetch to bike-only, and switching to Car in the
+    // sidebar could never reveal a Car ride that was never fetched.
     if (queryFromLat && queryFromLon) { qp.set("fromLat", queryFromLat); qp.set("fromLon", queryFromLon); }
     if (queryToLat && queryToLon)     { qp.set("toLat", queryToLat);     qp.set("toLon", queryToLon); }
     const url = `${API_BASE}/api/rides/search?${qp.toString()}`;

@@ -289,8 +289,15 @@ export default function RideDetailsPage() {
   const driverEmail = driver?.email?.trim() || "—";
   const initial     = driverName.charAt(0).toUpperCase();
   const vehicleType = (ride?.vehicle || "").toLowerCase() === "car" ? "Car" : "Bike";
-  const seats       = typeof ride?.seatsAvailable === "number" ? ride.seatsAvailable : 0;
-  const seatsLabel  = `${seats} ${seats === 1 ? "seat" : "seats"} available`;
+  // Seat availability is driven by CONFIRMED (accepted) requests on the
+  // backend. `remainingSeats` = totalSeats − confirmedSeats. Fall back to the
+  // raw seatsAvailable for older API payloads that don't send remainingSeats.
+  const totalSeats  = typeof ride?.seatsAvailable === "number" ? ride.seatsAvailable : 0;
+  const seats       = typeof ride?.remainingSeats === "number" ? ride.remainingSeats : totalSeats;
+  const rideFull    = typeof ride?.isFull === "boolean" ? ride.isFull : seats <= 0;
+  const seatsLabel  = rideFull
+    ? "No seats available"
+    : `${seats} ${seats === 1 ? "seat" : "seats"} available`;
   // Only show the real number once the viewer has paid (or is the
   // ride's own poster). Otherwise show the masked version so the
   // last few digits are visible but the full number stays locked.
@@ -564,6 +571,22 @@ export default function RideDetailsPage() {
                   return box("#fee2e2", "#fecaca", (
                     <div style={{ fontSize: 14, color: "#991b1b", fontWeight: 600 }}>Your request was declined.</div>
                   ));
+                }
+                // No seats left (all confirmed) — disable the request button.
+                if (rideFull) {
+                  return (
+                    <div style={{ marginBottom: 12 }}>
+                      <button type="button" disabled style={{
+                        width: "100%", background: "#e5e7eb", color: "#6b7280", border: "none", borderRadius: 10,
+                        padding: "12px 14px", fontWeight: 700, fontSize: 14, cursor: "not-allowed", fontFamily: "inherit",
+                      }}>
+                        Ride Full
+                      </button>
+                      <div style={{ marginTop: 8, fontSize: 13, color: "#6b7280" }}>
+                        All seats for this ride have been confirmed.
+                      </div>
+                    </div>
+                  );
                 }
                 return (
                   <div style={{ marginBottom: 12 }}>
