@@ -67,10 +67,13 @@
   transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 .tm-navbar__icon-btn:hover {
-  background: #ebedf0;
+  background: #ffd93d;                 /* brand yellow hover */
+  border-color: #ffcb05;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(255, 203, 5, 0.35);
 }
+/* Keep the icon glyph readable (dark) on the yellow hover fill. */
+.tm-navbar__icon-btn:hover svg { stroke: #1a1a2e; }
 
 /* Bell-icon badge — appears when there are unread notifications.
    Shows the unread count up to 9, then "9+". */
@@ -136,9 +139,11 @@
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .tm-navbar__signout:hover {
-  background: #f9fafb;
-  border-color: #c4c8dc;
+  background: #ffd93d;                 /* brand yellow hover */
+  border-color: #ffcb05;
+  color: #1a1a2e;
   transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(255, 203, 5, 0.35);
 }
 
 /* Responsive
