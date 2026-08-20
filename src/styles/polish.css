@@ -104,6 +104,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 }
 .ff-ride-map:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
 
+/* ---------- Profile "My Trips" cards: gentle premium lift ---------- */
+.ps-trip-card { transition: transform 180ms ease, box-shadow 180ms ease; }
+@media (pointer: fine) {
+  .ps-trip-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(15, 15, 46, 0.10) !important;
+  }
+}
+
 /* ---------- 11. Links ---------- */
 a { text-underline-offset: 2px; }
 

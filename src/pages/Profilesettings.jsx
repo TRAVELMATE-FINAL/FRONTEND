@@ -150,13 +150,14 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
   };
 
   return (
-    <div style={{
+    <div className="ps-trip-card" style={{
       background: "#fff",
-      border: "1px solid #e5e7eb",
-      borderRadius: 14,
-      padding: "14px 16px",
+      border: "1px solid #eceef6",
+      borderRadius: 16,
+      padding: "16px 18px",
       marginBottom: 12,
       display: "flex", gap: 14, alignItems: "flex-start",
+      boxShadow: "0 4px 14px rgba(15,15,46,0.05)",
     }}>
       {/* Avatar (pink to match Figma) */}
       <Avatar name={driverName} size={36} bg="#ec4899" photo={driverPhoto} />
@@ -308,10 +309,11 @@ const BookedRideCard = ({ booking }) => {
   const phone  = paid ? (owner.phone || "") : "";
 
   return (
-    <div style={{
-      background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14,
-      padding: "14px 16px", marginBottom: 12,
+    <div className="ps-trip-card" style={{
+      background: "#fff", border: "1px solid #eceef6", borderRadius: 16,
+      padding: "16px 18px", marginBottom: 12,
       display: "flex", gap: 14, alignItems: "flex-start",
+      boxShadow: "0 4px 14px rgba(15,15,46,0.05)",
     }}>
       <Avatar name={driver} size={36} bg="#2563eb" photo={owner.photo} />
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -710,9 +712,9 @@ export default function ProfileSettings() {
 
   const cardStyle = {
     background: "#fff",
-    borderRadius: 18,
-    boxShadow: "0 2px 12px rgba(15, 15, 46, 0.05)",
-    border: "1px solid #eef0f4",
+    borderRadius: 20,
+    boxShadow: "0 10px 30px rgba(15, 15, 46, 0.06)",
+    border: "1px solid #eceef6",
     marginBottom: 18,
     overflow: "hidden",
   };
@@ -745,18 +747,18 @@ export default function ProfileSettings() {
           dedicated CTA instead, further down). */}
       {!loading && !notLoggedIn && !sessionExpired && (
       <div style={{
-        background: "linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%)",
+        background: "linear-gradient(180deg, #f5f3ff 0%, #f3f4f6 100%)",
         textAlign: "center",
-        padding: "32px 16px 28px",
+        padding: "40px 16px 30px",
       }}>
         <div className="ps-hero-avatar" style={{
           width: 96, height: 96, borderRadius: "50%",
-          margin: "0 auto 14px", overflow: "hidden",
+          margin: "0 auto 16px", overflow: "hidden",
           background: "linear-gradient(135deg,#7c3aed,#a78bfa)",
           display: "flex", alignItems: "center", justifyContent: "center",
           color: "#fff", fontSize: 36, fontWeight: 800,
-          border: "3px solid #fff",
-          boxShadow: "0 6px 18px rgba(15,15,46,0.12)",
+          border: "4px solid #fff",
+          boxShadow: "0 14px 32px rgba(124,58,237,0.30)",
         }}>
           {user?.photo
             ? <img src={user.photo} alt={fullName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -772,13 +774,14 @@ export default function ProfileSettings() {
           <span style={{
             display: "inline-flex", alignItems: "center", gap: 6,
             background: "#fff",
-            border: "1px solid #e5e7eb",
+            border: "1px solid #e8e6f5",
             borderRadius: 999,
-            padding: "5px 14px",
+            padding: "6px 16px",
             fontSize: 12, fontWeight: 700,
-            color: "#374151",
+            color: "#4b3f7a",
+            boxShadow: "0 2px 8px rgba(124,58,237,0.10)",
           }}>
-            <UserIcon size={11} color="#6b7280" />
+            <UserIcon size={11} color="#7c3aed" />
             {user?.gender || "Male"}
           </span>
         </div>
@@ -927,62 +930,51 @@ export default function ProfileSettings() {
               <div style={{ padding: "16px 20px 12px", fontSize: 15, fontWeight: 800, color: "#111827" }}>
                 Personal Information
               </div>
-              <div style={{ padding: "0 16px 16px" }}>
-                <div style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 12,
-                  padding: "14px 14px 14px",
-                  background: "#fafafa",
-                }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#111827", marginBottom: 10 }}>
-                    Personal Information
+              <div style={{ padding: "4px 20px 22px" }}>
+                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                  {/* Full Name */}
+                  <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                    <div style={{ fontSize: 11, color: "#6b7090", fontWeight: 700, letterSpacing: "0.3px", textTransform: "uppercase", marginBottom: 7 }}>Full Name</div>
+                    <div style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      background: "#fbfbff",
+                      border: "1px solid #e6e8f2",
+                      borderRadius: 12,
+                      padding: "12px 14px",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                        <UserIcon size={14} />
+                        <span style={{
+                          fontSize: 14, fontWeight: 700, color: "#1a1a4e",
+                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        }}>{fullName.split(" ")[0]}</span>
+                      </div>
+                      <button onClick={() => navigate("/profile-setup")} style={editBtn} aria-label="Edit name">
+                        <PencilIcon size={13} />
+                      </button>
+                    </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    {/* Full Name */}
-                    <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-                      <div style={{ fontSize: 11, color: "#374151", fontWeight: 700, marginBottom: 5 }}>Full Name</div>
-                      <div style={{
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        background: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 8,
-                        padding: "9px 11px",
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                          <UserIcon size={13} />
-                          <span style={{
-                            fontSize: 13, fontWeight: 700, color: "#111827",
-                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                          }}>{fullName.split(" ")[0]}</span>
-                        </div>
-                        <button onClick={() => navigate("/profile-setup")} style={editBtn} aria-label="Edit name">
-                          <PencilIcon size={13} />
-                        </button>
+                  {/* Email Address */}
+                  <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                    <div style={{ fontSize: 11, color: "#6b7090", fontWeight: 700, letterSpacing: "0.3px", textTransform: "uppercase", marginBottom: 7 }}>Email Address</div>
+                    <div style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      background: "#fbfbff",
+                      border: "1px solid #e6e8f2",
+                      borderRadius: 12,
+                      padding: "12px 14px",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                        <MailIcon size={14} />
+                        <span style={{
+                          fontSize: 13, fontWeight: 700, color: "#1a1a4e",
+                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        }}>{email}</span>
                       </div>
-                    </div>
-
-                    {/* Email Address */}
-                    <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-                      <div style={{ fontSize: 11, color: "#374151", fontWeight: 700, marginBottom: 5 }}>Email Address</div>
-                      <div style={{
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        background: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: 8,
-                        padding: "9px 11px",
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                          <MailIcon size={13} />
-                          <span style={{
-                            fontSize: 12, fontWeight: 700, color: "#111827",
-                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                          }}>{email}</span>
-                        </div>
-                        <button onClick={() => navigate("/profile-setup")} style={editBtn} aria-label="Edit email">
-                          <PencilIcon size={13} />
-                        </button>
-                      </div>
+                      <button onClick={() => navigate("/profile-setup")} style={editBtn} aria-label="Edit email">
+                        <PencilIcon size={13} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -996,25 +988,31 @@ export default function ProfileSettings() {
                 <div style={{ fontSize: 12, color: "#9ca3af" }}>Manage your posted and booked trips</div>
               </div>
 
-              {/* Tabs — Booked Ride | Post Ride */}
-              <div style={{ display: "flex", borderBottom: "1px solid #f3f4f6", marginTop: 10 }}>
+              {/* Tabs — premium segmented control */}
+              <div style={{
+                display: "flex", gap: 6, margin: "12px 20px 0",
+                background: "#f3f4f6", padding: 5, borderRadius: 999,
+              }}>
                 {[
                   { k: "booked", l: "Booked" },
                   { k: "post",   l: "Posted" },
-                ].map((t) => (
-                  <button key={t.k} type="button" onClick={() => setActiveTab(t.k)}
-                    style={{
-                      flex: 1, padding: "11px 0",
-                      background: "transparent", border: "none", cursor: "pointer",
-                      fontSize: 13, fontWeight: 700,
-                      color: activeTab === t.k ? "#2563eb" : "#9ca3af",
-                      borderBottom: activeTab === t.k ? "2px solid #2563eb" : "2px solid transparent",
-                      fontFamily: "inherit",
-                      transition: "color 0.15s",
-                    }}>
-                    {t.l}
-                  </button>
-                ))}
+                ].map((t) => {
+                  const on = activeTab === t.k;
+                  return (
+                    <button key={t.k} type="button" onClick={() => setActiveTab(t.k)}
+                      style={{
+                        flex: 1, padding: "9px 0", borderRadius: 999,
+                        background: on ? "#fff" : "transparent",
+                        color: on ? "#1a1a4e" : "#8b90a8",
+                        border: "none", cursor: "pointer",
+                        fontSize: 13, fontWeight: 700, fontFamily: "inherit",
+                        boxShadow: on ? "0 2px 8px rgba(15,15,46,0.10)" : "none",
+                        transition: "all 0.15s ease",
+                      }}>
+                      {t.l}
+                    </button>
+                  );
+                })}
               </div>
 
               <div style={{ padding: "14px 14px 6px" }}>
@@ -1029,9 +1027,11 @@ export default function ProfileSettings() {
                         {activeTab === "booked" ? "No booked trips yet." : "You haven't posted any trips yet."}
                         <div style={{ marginTop: 10 }}>
                           <button onClick={() => navigate("/post-ride")} style={{
-                            background: "#2563eb", color: "#fff",
-                            padding: "8px 18px", fontWeight: 700, fontSize: 12,
+                            background: "#f5c518", color: "#1a1a4e",
+                            padding: "10px 22px", fontWeight: 700, fontSize: 13,
+                            border: "none", borderRadius: 999,
                             cursor: "pointer", fontFamily: "inherit",
+                            boxShadow: "0 6px 16px rgba(245,197,24,0.30)",
                           }}>
                             Post your first trip
                           </button>
