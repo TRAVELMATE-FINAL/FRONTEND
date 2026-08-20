@@ -347,7 +347,6 @@ export default function RideDetailsPage() {
   // Friendly fallbacks for every text field — never render raw "—" in
   // a UI that's supposed to look populated.
   const driverName  = driver?.fullName?.trim() || "TravelMate Rider";
-  const driverEmail = driver?.email?.trim() || "—";
   const initial     = driverName.charAt(0).toUpperCase();
   const vehicleType = (ride?.vehicle || "").toLowerCase() === "car" ? "Car" : "Bike";
   // Seat availability is driven by CONFIRMED (accepted) requests on the
@@ -468,7 +467,6 @@ export default function RideDetailsPage() {
                 <h2 style={{ fontSize: 20, fontWeight: 700, color: "#111827", margin: "0 0 4px" }}>
                   {driverName}
                 </h2>
-                <p style={{ fontSize: 13, color: "#9ca3af", margin: 0 }}>{driverEmail}</p>
                 {driver?.city && (
                   <p style={{ fontSize: 12, color: "#9ca3af", margin: "3px 0 0" }}>
                     📍 {driver.city}
