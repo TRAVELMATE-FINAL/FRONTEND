@@ -564,6 +564,19 @@ const FilterPanel = ({ filters, setFilters, onApply, onReset }) => {
             ),
           },
           {
+            key: "no-smoking",
+            label: "No Smoking",
+            tint: "#ecfdf5",       // soft green tile inactive
+            iconColor: "#10b981",  // green glyph
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <rect x="2"  y="14" width="14" height="4" rx="1" />
+                <rect x="18" y="14" width="2"  height="4" rx="0.5" />
+                <path d="M4 4l16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            ),
+          },
+          {
             key: "pets",
             label: "Pets Allowed",
             tint: "#fff7ed",       // soft amber tile inactive
@@ -780,11 +793,22 @@ export default function TravelMate() {
   };
 
   // Apply filters
-  const matchesAmenity = (info, amenity) => {
-    const t = (info || "").toLowerCase();
+  const matchesAmenity = (r, amenity) => {
     if (!amenity) return true;
-    if (amenity === "smoking") return t.includes("smoking") && !t.includes("no smoking");
-    if (amenity === "pets")    return t.includes("pet");
+    const t = (r.additionalInfo || "").toLowerCase();
+    // Smoking uses the real backend boolean; fall back to notes text for older
+    // API responses that don't include the field yet.
+    const smokingOK = typeof r.smokingAllowed === "boolean"
+      ? r.smokingAllowed
+      : (/\bsmok/.test(t) && !/\bno\s+smok/.test(t) && !/non[-\s]?smok/.test(t) && !/smoking\s+(is\s+)?not\s+allowed/.test(t));
+    if (amenity === "smoking")     return smokingOK === true;
+    if (amenity === "no-smoking")  return smokingOK === false;
+    if (amenity === "pets") {
+      // Prefer the real backend boolean; fall back to notes text for older
+      // API responses that don't include the field yet.
+      if (typeof r.petAllowed === "boolean") return r.petAllowed;
+      return /\bpets?\b/.test(t) && !/\bno\s+pets?\b/.test(t) && !/pets?\s+not\s+allowed/.test(t);
+    }
     return true;
   };
   const visibleRides = rides.filter((r) => {
@@ -799,7 +823,7 @@ export default function TravelMate() {
     if (filters.femaleOnly && g !== "female") return false;
 
     if (filters.departTime && (r.time || "") < filters.departTime) return false;
-    if (!matchesAmenity(r.additionalInfo, filters.amenity)) return false;
+    if (!matchesAmenity(r, filters.amenity)) return false;
     if (filters.minSeats > 0 && (r.seatsAvailable || 0) < filters.minSeats) return false;
 
     return true;
