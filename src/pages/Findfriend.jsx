@@ -1010,7 +1010,7 @@ export default function TravelMate() {
   };
 
   return (
-    <div className="ff-page" style={{ minHeight: "100vh", background: "#dde1e9", fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif" }}>
+    <div className="ff-page" style={{ minHeight: "100vh", background: "var(--tm-internal-bg)", fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif" }}>
 
       {/* Shared Header — same navbar across the whole app */}
       <Header />
