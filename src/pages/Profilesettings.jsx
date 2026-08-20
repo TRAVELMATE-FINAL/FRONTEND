@@ -168,9 +168,8 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
           <span style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{driverName}</span>
           <VerifiedBadge label={ride.vehicleModel || ride.vehicle || "Verified"} />
         </div>
-        <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, marginBottom: 6 }}>★ 4.9</div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
           <MapPin />
           <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{ride.from}</span>
           <ArrowRight />
@@ -322,7 +321,7 @@ const BookedRideCard = ({ booking }) => {
           {ride.vehicle && <VerifiedBadge label={ride.vehicle} />}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
           <MapPin />
           <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{ride.from || "—"}</span>
           <ArrowRight />

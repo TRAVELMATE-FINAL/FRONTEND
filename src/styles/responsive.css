@@ -915,12 +915,9 @@ img { max-width: 100%; height: auto; }
 }
 
 /* ── ProfileSettings ─────────────────────────────────────────── */
-@media (max-width: 900px) {
-  .ps-page,
-  div[class*="profile-settings"] > div {
-    padding: 20px 16px !important;
-  }
-}
+/* NOTE: do NOT pad .ps-page here — it wraps the sticky Header, so any
+   page-level padding insets the navbar (leaving a gap on the sides,
+   unlike every other screen). Content gutters are handled by .ps-shell. */
 @media (max-width: 600px) {
   /* Pair-rendered blocked users on mobile = 1 per row */
   .ps-blocked-row,
@@ -1161,12 +1158,12 @@ img { max-width: 100%; height: auto; }
 @media (max-width: 520px) {
   /* The PostedRideCard outer container is the only flex+gap=14 row
      under .ps-shell; wrap so the right column can drop below. */
-  .ps-shell div[style*="border-radius: 14px"][style*="display: flex"][style*="gap: 14px"] {
+  .ps-shell div[style*="border-radius: 16px"][style*="display: flex"][style*="gap: 14px"] {
     flex-wrap: wrap !important;
   }
   /* The right-column delete area becomes a full-width row when
      wrapped; align its buttons to the right edge. */
-  .ps-shell div[style*="border-radius: 14px"][style*="display: flex"][style*="gap: 14px"] > div:last-of-type {
+  .ps-shell div[style*="border-radius: 16px"][style*="display: flex"][style*="gap: 14px"] > div:last-of-type {
     flex-direction: row !important;
     justify-content: flex-end !important;
     align-items: center !important;
