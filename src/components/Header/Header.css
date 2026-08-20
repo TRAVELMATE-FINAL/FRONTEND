@@ -121,6 +121,26 @@
   box-shadow: 0 6px 16px rgba(232, 184, 0, 0.35);
 }
 
+/* Sign Out — secondary/outline style so it reads as a quieter action than
+   the primary yellow Login button (they're never shown together). */
+.tm-navbar__signout {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d7dae8;
+  border-radius: 22px;
+  padding: 9px 20px;
+  font-weight: 700;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.tm-navbar__signout:hover {
+  background: #f9fafb;
+  border-color: #c4c8dc;
+  transform: translateY(-1px);
+}
+
 /* Responsive
    ──────────
    On phones the navbar drops its horizontal padding entirely so the
@@ -155,6 +175,7 @@
   .tm-navbar__icon-btn { width: 34px; height: 34px; padding: 0; }
   .tm-navbar__icon-btn svg { width: 18px; height: 18px; }
   .tm-navbar__login { padding: 8px 14px; font-size: 13px; border-radius: 18px; }
+  .tm-navbar__signout { padding: 8px 12px; font-size: 13px; border-radius: 18px; }
 }
 
 @media (max-width: 360px) {
@@ -168,5 +189,6 @@
   .tm-navbar__icon-btn { width: 30px; height: 30px; padding: 0; }
   .tm-navbar__icon-btn svg { width: 16px; height: 16px; }
   .tm-navbar__login { padding: 7px 12px; font-size: 12px; border-radius: 16px; }
+  .tm-navbar__signout { padding: 7px 10px; font-size: 12px; border-radius: 16px; }
   .tm-navbar__name { font-size: 14px; }
 }
