@@ -113,6 +113,7 @@ export default function RideDetailsPage() {
   // payment confirmation popup. Never hardcoded.
   const [findDailyPrice, setFindDailyPrice] = useState(null);
   const [payConfirmOpen, setPayConfirmOpen] = useState(false);
+  const [reqSentOpen, setReqSentOpen] = useState(false);
   useEffect(() => {
     let cancelled = false;
     axios
@@ -148,7 +149,7 @@ export default function RideDetailsPage() {
     try {
       await axios.post(`${API_BASE}/api/rides/${rideId}/request`, { riderPhone: ph });
       setMyReq({ status: "pending" });
-      setReqMsg("Request sent! You'll be notified when the owner confirms.");
+      setReqSentOpen(true);
     } catch (e) {
       if (e.response?.status === 409) { setMyReq({ status: "pending" }); }
       else { setReqMsg(e.response?.data?.message || "Could not send request. Please try again."); }
@@ -700,7 +701,7 @@ export default function RideDetailsPage() {
                       padding: "12px 14px", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit",
                       boxShadow: "0 4px 12px rgba(245,197,24,0.30)",
                     }}>
-                      {reqBusy ? "Sending…" : "Request to Ride"}
+                      {reqBusy ? "Sending…" : "Request to Join"}
                     </button>
                     {reqMsg && <div style={{ marginTop: 8, fontSize: 13, color: "#4b5563" }}>{reqMsg}</div>}
                   </div>
@@ -829,6 +830,17 @@ export default function RideDetailsPage() {
         busy={payBusy}
         onCancel={() => setPayConfirmOpen(false)}
         onConfirm={() => { setPayConfirmOpen(false); payNow(); }}
+      />
+
+      {/* Request-sent confirmation (professional acknowledgement popup). */}
+      <ConfirmModal
+        open={reqSentOpen}
+        title="Ride request sent successfully"
+        message="You will be able to access the contact details after the host accepts your request."
+        hideCancel
+        confirmLabel="OK"
+        onCancel={() => setReqSentOpen(false)}
+        onConfirm={() => setReqSentOpen(false)}
       />
 
       <Footer />

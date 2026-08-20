@@ -113,7 +113,10 @@ export default function RideLive() {
   };
 
   const handleShare = async () => {
-    const shareUrl = window.location.origin + "/connect-unlock?rideId=" + rideId;
+    // Share the RIDE DETAILS deep link — NOT the unlock/payment page. Opening
+    // it shows the ride with a "Request to Join" button; it never unlocks
+    // contact or opens payment on its own.
+    const shareUrl = window.location.origin + "/ride-detail?rideId=" + rideId;
     const text = "I posted a trip: " + fromCity + " → " + toCity + " on " + dateLabel + " at " + timeLabel + ". Join me!";
     try {
       if (navigator.share) {

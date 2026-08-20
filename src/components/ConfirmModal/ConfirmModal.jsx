@@ -19,6 +19,7 @@ export default function ConfirmModal({
   busy = false,   // disables the confirm button + shows a working state
   confirmBg = "#f5c518",
   confirmColor = "#111",
+  hideCancel = false,   // single-button acknowledgement mode (e.g. success)
 }) {
   useEffect(() => {
     if (!open) return;
@@ -92,19 +93,21 @@ export default function ConfirmModal({
         )}
 
         <div style={{ display: "flex", gap: 10, padding: "18px 22px 22px" }}>
-          <button
-            type="button"
-            onClick={() => { if (!busy) onCancel && onCancel(); }}
-            disabled={busy}
-            style={{
-              flex: 1, padding: "12px 14px", borderRadius: 11,
-              border: "1px solid #d7dae8", background: "#fff", color: "#374151",
-              fontWeight: 700, fontSize: 14, cursor: busy ? "not-allowed" : "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            {cancelLabel}
-          </button>
+          {!hideCancel && (
+            <button
+              type="button"
+              onClick={() => { if (!busy) onCancel && onCancel(); }}
+              disabled={busy}
+              style={{
+                flex: 1, padding: "12px 14px", borderRadius: 11,
+                border: "1px solid #d7dae8", background: "#fff", color: "#374151",
+                fontWeight: 700, fontSize: 14, cursor: busy ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {cancelLabel}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => { if (!busy) onConfirm && onConfirm(); }}

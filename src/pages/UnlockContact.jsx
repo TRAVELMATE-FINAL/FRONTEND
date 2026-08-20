@@ -114,6 +114,32 @@ export default function UnlockContact() {
     loadRazorpay().catch(() => {});
   }, [urlRideId]);
 
+  // ── Access guard ──────────────────────────────────────────────────
+  // This payment page is reachable ONLY for a booking the driver has already
+  // ACCEPTED but that hasn't been paid yet. Anyone opening it directly (e.g. a
+  // shared link, a manual URL, or a still-pending request) is sent back to the
+  // gated Ride Details page. Decision is based on REAL backend request state,
+  // never the URL alone. (The backend also rejects unauthorized pay/unlock.)
+  useEffect(() => {
+    if (!urlRideId) return;
+    const ph = (() => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } })();
+    if (!ph) { navigate(`/ride-detail?rideId=${urlRideId}`, { replace: true }); return; }
+    let cancelled = false;
+    axios
+      .get(`${API_BASE}/api/rides/requests/outgoing`, { params: { phone: ph }, timeout: 7000 })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const b = (data?.data || []).find((r) => r.ride && String(r.ride._id) === String(urlRideId));
+        const okToPay = b && b.status === "accepted" && b.paymentStatus !== "paid";
+        if (!okToPay) navigate(`/ride-detail?rideId=${urlRideId}`, { replace: true });
+      })
+      .catch(() => {
+        // If we can't confirm eligibility, don't expose the payment page.
+        if (!cancelled) navigate(`/ride-detail?rideId=${urlRideId}`, { replace: true });
+      });
+    return () => { cancelled = true; };
+  }, [urlRideId, navigate]);
+
   // ── Pay Now → Razorpay → /ride-detail ──────────────────────────
   const handlePay = async () => {
     setPayErrMsg("");
