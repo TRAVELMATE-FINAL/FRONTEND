@@ -747,7 +747,7 @@ export default function ProfileSettings() {
           dedicated CTA instead, further down). */}
       {!loading && !notLoggedIn && !sessionExpired && (
       <div style={{
-        background: "linear-gradient(180deg, #f5f3ff 0%, #f3f4f6 100%)",
+        background: "transparent",
         textAlign: "center",
         padding: "40px 16px 30px",
       }}>

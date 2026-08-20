@@ -89,7 +89,7 @@
      Soft lavender→pink wash used on authenticated/internal screens
      (Profile, My Trips, Requests, Notifications, Post/Detail, Payment, etc.).
      Deliberately excluded from Login, OTP, and the Find Ride dashboard. */
-  --tm-internal-bg: linear-gradient(160deg, #f6f4ff 0%, #f2f0fb 52%, #fbf3fb 100%);
+  --tm-internal-bg: linear-gradient(160deg, #ece5fb 0%, #f1e9fa 45%, #fce6f3 100%);
 
   /* ---------- LAYOUT ---------- */
   --container-max: 1200px;
