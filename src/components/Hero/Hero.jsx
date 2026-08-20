@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LocationSearch from '../LocationSearch/LocationSearch';
-import FloatingIconsBg from '../FloatingIconsBg/FloatingIconsBg';
 import './Hero.css';
 
 function Hero({ mode: modeProp, onModeChange }) {
@@ -57,9 +56,7 @@ function Hero({ mode: modeProp, onModeChange }) {
 
   return (
     <section className="hero">
-      {/* Shared decorative-icons layer — same component used on
-          /find-friend so the Figma look is consistent across pages. */}
-      <FloatingIconsBg />
+      {/* Decorative floating-icons background removed per request. */}
 
       <div className="container hero__inner">
         <h1 className="hero__title">Travel Together. Save More.</h1>

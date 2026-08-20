@@ -8,7 +8,6 @@ import LocationSearch from "../components/LocationSearch/LocationSearch";
 import Spinner from "../components/Spinner/Spinner.jsx";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
-import FloatingIconsBg from "../components/FloatingIconsBg/FloatingIconsBg.jsx";
 import { formatTime12h } from "../utils/time.js";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
@@ -1029,7 +1028,7 @@ export default function TravelMate() {
           padding: "40px 48px 56px",
         }}
       >
-        <FloatingIconsBg />
+        {/* Decorative floating-icons background removed per request. */}
 
         {/* ── Search Bar ── */}
         {/* Override LocationSearch's chunky default styling so From/To match Date + Find Ride */}
