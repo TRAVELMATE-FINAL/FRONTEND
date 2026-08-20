@@ -52,14 +52,18 @@ export default function ScrollToTop() {
     reset();
     // After first paint.
     const raf = requestAnimationFrame(reset);
-    // After async content may have shifted layout.
+    // After async content may have shifted layout, and long enough to
+    // out-last any in-flight smooth-scroll animation carrying over from the
+    // previous page.
     const t1 = setTimeout(reset, 60);
     const t2 = setTimeout(reset, 200);
+    const t3 = setTimeout(reset, 400);
 
     return () => {
       cancelAnimationFrame(raf);
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
     };
   }, [pathname, search, navType]);
 

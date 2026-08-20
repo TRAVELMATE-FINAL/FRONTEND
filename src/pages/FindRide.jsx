@@ -22,7 +22,7 @@ export default function FindRide() {
       // wait a tick so the DOM updates first
       requestAnimationFrame(() => {
         const el = document.getElementById('inline-post-section');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (el) el.scrollIntoView({ behavior: 'auto', block: 'start' });
       });
     }
   }, [mode]);

@@ -789,7 +789,7 @@ export default function TravelMate() {
   // The round Search button just scrolls to the top of the cards list
   const applyFilters = () => {
     const cards = document.getElementById("ff-cards");
-    if (cards) cards.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (cards) cards.scrollIntoView({ behavior: "auto", block: "start" });
   };
 
   // Apply filters
