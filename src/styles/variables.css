@@ -85,6 +85,12 @@
   --shadow-lg: 0 12px 32px rgba(20, 22, 60, 0.12);
   --shadow-card: 0 18px 48px rgba(10, 12, 50, 0.18);
 
+  /* ---------- INTERNAL SCREEN BACKGROUND ----------
+     Soft lavender→pink wash used on authenticated/internal screens
+     (Profile, My Trips, Requests, Notifications, Post/Detail, Payment, etc.).
+     Deliberately excluded from Login, OTP, and the Find Ride dashboard. */
+  --tm-internal-bg: linear-gradient(160deg, #f6f4ff 0%, #f2f0fb 52%, #fbf3fb 100%);
+
   /* ---------- LAYOUT ---------- */
   --container-max: 1200px;
   --container-px: 1.25rem;

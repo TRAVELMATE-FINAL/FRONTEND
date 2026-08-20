@@ -722,7 +722,7 @@ export default function ProfileSettings() {
   return (
     <div className="ps-page" style={{
       fontFamily: "'Plus Jakarta Sans', 'Inter', 'Nunito', system-ui, sans-serif",
-      background: "#f3f4f6", minHeight: "100vh",
+      background: "var(--tm-internal-bg)", minHeight: "100vh",
       display: "flex", flexDirection: "column",
     }}>
       <style>{`

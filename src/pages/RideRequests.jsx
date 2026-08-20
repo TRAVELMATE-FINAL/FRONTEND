@@ -75,7 +75,7 @@ export default function RideRequests() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f3f4f8", overflowX: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "var(--tm-internal-bg)", overflowX: "hidden" }}>
       <Header />
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 16px 60px" }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0b1c30", margin: "0 0 4px" }}>Ride Requests</h1>

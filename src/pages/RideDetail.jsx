@@ -369,7 +369,7 @@ export default function RideDetailsPage() {
     <div
       className="ride-detail-page"
       style={{
-        background: "#f3f4f6",
+        background: "var(--tm-internal-bg)",
         minHeight: "100vh",
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
         display: "flex",

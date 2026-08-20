@@ -229,7 +229,7 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
   return (
     <div style={{
       fontFamily: "'Plus Jakarta Sans', 'Inter', 'DM Sans', system-ui, sans-serif",
-      background: "#f5f5f7", minHeight: "100vh", padding: "28px 16px 40px",
+      background: "var(--tm-internal-bg)", minHeight: "100vh", padding: "28px 16px 40px",
     }}>
       {/* Strip LocationSearch's default chrome so From/To render as a
           single clean input field rather than a "box inside a box". */}
@@ -1312,7 +1312,7 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack }) {
   return (
     <div style={{
       fontFamily: "'Plus Jakarta Sans', 'Inter', 'DM Sans', system-ui, sans-serif",
-      background: "#f5f5f7", minHeight: "100vh", padding: "28px 16px 40px",
+      background: "var(--tm-internal-bg)", minHeight: "100vh", padding: "28px 16px 40px",
     }}>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
 

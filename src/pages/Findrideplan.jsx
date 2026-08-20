@@ -66,7 +66,7 @@ export default function TravelMatePlanPage() {
       className="plan-page"
       style={{
         minHeight: "100vh",
-        background: "#f5f7fa",
+        background: "var(--tm-internal-bg)",
         display: "flex",
         flexDirection: "column",
         fontFamily: "'Poppins', system-ui, -apple-system, sans-serif",

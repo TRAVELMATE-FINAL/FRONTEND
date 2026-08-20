@@ -68,7 +68,7 @@ export default function ChooseYourPlan() {
   };
 
   const s = {
-    page:        { fontFamily: "'Poppins', sans-serif", background: "#f5f5f7", minHeight: "100vh",
+    page:        { fontFamily: "'Poppins', sans-serif", background: "var(--tm-internal-bg)", minHeight: "100vh",
                    display: "flex", justifyContent: "center", padding: "48px 20px 28px" },
     inner:       { width: "100%", maxWidth: 900 },
     heading:     { textAlign: "center", marginBottom: 40 },

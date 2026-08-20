@@ -242,7 +242,7 @@ export default function PlanPage() {
           display: flex;
           flex-direction: column;
           font-family: 'Poppins', sans-serif;
-          background: linear-gradient(160deg, #dde1ed 0%, #e8eaf2 40%, #f0f2f7 100%);
+          background: var(--tm-internal-bg);
         }
 
         .prp-container {

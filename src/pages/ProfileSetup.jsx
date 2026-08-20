@@ -386,7 +386,7 @@ await saveProfile({
 const s = {
   page: {
     minHeight: "100vh",
-    background: "#e8eaf6",
+    background: "var(--tm-internal-bg)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",

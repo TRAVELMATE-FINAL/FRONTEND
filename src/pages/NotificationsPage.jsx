@@ -305,7 +305,7 @@ export default function NotificationsPage() {
 const styles = {
   page: {
     minHeight: "100vh",
-    background: "#F4F6FB",
+    background: "var(--tm-internal-bg)",
     fontFamily: "'Segoe UI', sans-serif",
     paddingBottom: 40,
     display: "flex",

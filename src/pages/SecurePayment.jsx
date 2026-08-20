@@ -343,7 +343,7 @@ export default function SecurePayment() {
   return (
     <div style={{
       minHeight: "100vh",
-      background: "#eef0f4",
+      background: "var(--tm-internal-bg)",
       display: "flex",
       flexDirection: "column",
       fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
