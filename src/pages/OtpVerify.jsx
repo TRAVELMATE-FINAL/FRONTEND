@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { verifyOtp, sendOtp } from "../services/api";
+import { peekPendingIntent, clearAllPendingIntents } from "../services/pendingIntent";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -89,8 +90,12 @@ export default function OtpVerify() {
       // Existing users with a saved profile have fullName + city.
       const u = (data && data.user) || {};
       const hasProfile = !!(u.fullName && u.city);
-      const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
-      const pendingPostRide     = localStorage.getItem("pendingPostRide");
+      // Read pending intents through the TTL guard so a stale breadcrumb from an
+      // abandoned flow can't hijack this login (that caused the intermittent
+      // "redirected to Find Ride → Payment" bug). All intents are cleared once
+      // the redirect target is decided, below.
+      const pendingUnlockRideId = peekPendingIntent("pendingUnlockRideId");
+      const pendingPostRide     = peekPendingIntent("pendingPostRide");
 
       // Routing rules:
       //   1. Came from "Publish Ride" (pendingPostRide set) →
@@ -105,11 +110,11 @@ export default function OtpVerify() {
       // Highest priority: a booking payment was in progress before login.
       // Return the user straight to the ride's payment step (?pay=1) and do
       // NOT force profile-setup — payment must not be gated on profile.
-      const pendingPayRideId = localStorage.getItem("pendingPayRideId");
+      const pendingPayRideId = peekPendingIntent("pendingPayRideId");
 
       let nextPath;
       if (pendingPayRideId) {
-        try { localStorage.removeItem("pendingPayRideId"); } catch (_e) {}
+        clearAllPendingIntents();
         nextPath = `/ride-detail?rideId=${pendingPayRideId}&pay=1`;
         setSuccess("✅ Verified! Returning you to your payment…");
         setTimeout(() => navigate(nextPath, { replace: true }), 1000);
@@ -132,6 +137,9 @@ export default function OtpVerify() {
         setSuccess("✅ Verified! Redirecting to your dashboard…");
       }
 
+      // Consume every breadcrumb now that the destination is chosen — nothing
+      // should linger to affect a future login.
+      clearAllPendingIntents();
       setTimeout(() => navigate(nextPath, { replace: true }), 1200);
     } catch (err) {
       setError(err?.response?.data?.message || err.message || "Verification failed");
@@ -188,10 +196,11 @@ export default function OtpVerify() {
         </p>
 
         {/* OTP Inputs */}
-        <div style={styles.otpRow}>
+        <div className="otp-row" style={styles.otpRow}>
           {digits.map((d, i) => (
             <input
               key={i}
+              className="otp-box"
               ref={(el) => (inputRefs.current[i] = el)}
               type="text"
               inputMode="numeric"
@@ -214,6 +223,7 @@ export default function OtpVerify() {
         {needPassword && (
           <div style={{ textAlign: "left", marginBottom: 8 }}>
             <input
+              className="otp-pass"
               type="password"
               placeholder={mode === "reset" ? "New password (min 6 chars)" : "Create a password (min 6 chars)"}
               value={password}
@@ -221,6 +231,7 @@ export default function OtpVerify() {
               style={styles.pwInput}
             />
             <input
+              className="otp-pass"
               type="password"
               placeholder="Confirm password"
               value={confirm}
@@ -353,9 +364,10 @@ const styles = {
   },
   otpRow: {
     display: "flex",
-    gap: 10,
+    gap: 8,
     justifyContent: "center",
     marginBottom: 20,
+    width: "100%",
   },
   pwInput: {
     width: "100%",
@@ -369,8 +381,13 @@ const styles = {
     boxSizing: "border-box",
   },
   otpInput: {
-    width: 46,
+    // Flex so all six boxes always fit the card width on any phone (no wrap,
+    // no horizontal overflow). Capped at 52px so they don't stretch on desktop.
+    flex: "1 1 0",
+    minWidth: 0,
+    maxWidth: 52,
     height: 54,
+    padding: 0,
     textAlign: "center",
     fontSize: 22,
     fontWeight: 700,
@@ -380,6 +397,7 @@ const styles = {
     outline: "none",
     transition: "all 0.15s",
     caretColor: "#2563eb",
+    boxSizing: "border-box",
   },
   error: {
     background: "#fef2f2",

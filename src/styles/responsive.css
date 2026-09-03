@@ -56,11 +56,14 @@
     padding: 24px 18px !important;
   }
   .otp-card h2 { font-size: 22px !important; }
-  .otp-card input {
-    width: 38px !important;
+  /* Only the 6 OTP digit boxes — width is handled by flex so they always fit;
+     just tune height/font here. Must NOT hit the password inputs. */
+  .otp-card .otp-box {
     height: 46px !important;
     font-size: 18px !important;
   }
+  /* Password inputs stay full width — never shrunk to digit-box size. */
+  .otp-card .otp-pass { width: 100% !important; }
 
   /* ProfileSetup */
   .profile-page { padding: 16px !important; }
@@ -83,11 +86,11 @@
 
 /* ============== EXTRA SMALL (≤ 380px) ============== */
 @media (max-width: 380px) {
-  .otp-card input {
-    width: 32px !important;
+  .otp-card .otp-box {
     height: 42px !important;
     font-size: 16px !important;
   }
+  .otp-card .otp-pass { width: 100% !important; }
   .signin-left h1 { font-size: 24px !important; }
 }
 

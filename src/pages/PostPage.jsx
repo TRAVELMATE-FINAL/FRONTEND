@@ -4,6 +4,7 @@ import axios from "axios";
 import { GoogleMap } from "@react-google-maps/api";
 import { useGoogleMaps, useMapsAuthFailed } from "../utils/googleMapsLoader";
 import { formatTime12h } from "../utils/time.js";
+import { setPendingIntent, clearPendingIntent } from "../services/pendingIntent";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
@@ -1794,7 +1795,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
       try { localStorage.removeItem("lastPostedRideId"); } catch (e) {}
 
       // Auth + profile gate before payment
-      try { localStorage.setItem("pendingPostRide", "1"); } catch (e) {}
+      setPendingIntent("pendingPostRide", "1");
 
       const phoneLooksValid = /^\+?\d{10,13}$/.test(userPhone);
       if (!phoneLooksValid) {
@@ -1866,8 +1867,8 @@ export default function TravelMatePost({ embedded = false } = {}) {
       try {
         if (newId) localStorage.setItem("lastPostedRideId", newId);
         localStorage.removeItem("pendingRidePayload");
-        localStorage.removeItem("pendingPostRide");
       } catch (_e) {}
+      clearPendingIntent("pendingPostRide");
       setPublishConfirm(null);
       navigate(newId ? `/ride-live?rideId=${newId}` : "/ride-live");
     } catch (err) {

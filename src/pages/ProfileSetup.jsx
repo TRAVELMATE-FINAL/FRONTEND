@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { saveProfile } from "../services/api";
+import { peekPendingIntent, clearAllPendingIntents } from "../services/pendingIntent";
 import { useState, useRef, useEffect } from "react";
 
 export default function ProfileSetup() {
@@ -136,8 +137,9 @@ await saveProfile({
     //   • pendingPostRide      → user is mid-Publish Ride flow → /plan
     //   • pendingUnlockRideId  → user is mid-Unlock Contact   → /findrideplan
     //   • normal sign-up       → /find-ride dashboard
-    const pendingPostRide     = localStorage.getItem("pendingPostRide");
-    const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
+    const pendingPostRide     = peekPendingIntent("pendingPostRide");
+    const pendingUnlockRideId = peekPendingIntent("pendingUnlockRideId");
+    clearAllPendingIntents();
     if (pendingPostRide) {
       navigate("/plan", { replace: true });
     } else if (pendingUnlockRideId) {

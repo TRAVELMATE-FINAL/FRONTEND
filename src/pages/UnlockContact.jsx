@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
+import { setPendingIntent, peekPendingIntent, clearPendingIntent } from "../services/pendingIntent";
 import {
   applyCoupon as applyCouponApi,
   createPlanOrder,
@@ -108,7 +109,7 @@ export default function UnlockContact() {
   // On mount: sync rideId + pre-load Razorpay script for faster checkout.
   useEffect(() => {
     if (urlRideId) {
-      try { localStorage.setItem("pendingUnlockRideId", urlRideId); } catch (e) {}
+      setPendingIntent("pendingUnlockRideId", urlRideId);
     }
     // Pre-load Razorpay in background so Pay button is instant
     loadRazorpay().catch(() => {});
@@ -212,7 +213,7 @@ export default function UnlockContact() {
               body: "Your contact unlock is now active.",
             }).catch(() => {});
 
-            const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");
+            const pendingUnlockRideId = peekPendingIntent("pendingUnlockRideId");
             const rideId = urlRideId || pendingUnlockRideId || "";
 
             // Mark the CONFIRMED booking as PAID (backend re-verifies the
@@ -230,7 +231,7 @@ export default function UnlockContact() {
               } catch (_e) { /* non-fatal — booking may not exist for this ride */ }
             }
 
-            try { localStorage.removeItem("pendingUnlockRideId"); } catch {}
+            clearPendingIntent("pendingUnlockRideId");
             try { localStorage.removeItem("chosenPlan"); } catch {}
             // Booking (finding) payment → land on the existing Ride Details
             // page, which now shows the unlocked contact + vehicle number and a

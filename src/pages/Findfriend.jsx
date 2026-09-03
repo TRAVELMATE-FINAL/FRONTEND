@@ -4,6 +4,7 @@ import axios from "axios";
 import RideMap from "../components/RideMap/RideMap";
 import MapModal from "../components/RideMap/MapModal";
 import { enforceSession } from "../services/session";
+import { setPendingIntent } from "../services/pendingIntent";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
 import Spinner from "../components/Spinner/Spinner.jsx";
 import Header from "../components/Header/Header.jsx";
@@ -706,7 +707,7 @@ export default function TravelMate() {
 
     // ── Step 1: Not logged in → send to login ──
     if (!phoneLooksValid) {
-      try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e) {}
+      setPendingIntent("pendingUnlockRideId", rideId);
       navigate("/login");
       return;
     }
@@ -723,20 +724,20 @@ export default function TravelMate() {
 
       if (!hasProfile) {
         // Logged in but profile incomplete → set up profile first, then plan
-        try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e) {}
+        setPendingIntent("pendingUnlockRideId", rideId);
         navigate("/profile-setup");
         return;
       }
     } catch (e) {
       // Profile check failed → route through login to be safe
-      try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e2) {}
+      setPendingIntent("pendingUnlockRideId", rideId);
       navigate("/login");
       return;
     }
 
     // ── Step 3: Logged in + profile complete → open ride details, where the
     // free "Request to Ride" flow lives (no paid unlock). ──
-    try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e) {}
+    setPendingIntent("pendingUnlockRideId", rideId);
     navigate(`/ride-detail?rideId=${rideId}`);
   };
 

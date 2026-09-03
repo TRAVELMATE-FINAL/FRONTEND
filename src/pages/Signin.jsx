@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { sendOtp, loginWithPassword, getAccountStatus } from "../services/api";
+import { peekPendingIntent, clearAllPendingIntents } from "../services/pendingIntent";
 
 const COUNTRY_CODES = [
   { code: "IN", dial: "+91", flag: "🇮🇳" },
@@ -24,16 +25,18 @@ export default function Signin() {
 
   const routeAfterLogin = (user) => {
     const hasProfile = !!(user && user.fullName && user.city);
-    const read = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
-    const pendingPay = read("pendingPayRideId");
-    const pendingPost = read("pendingPostRide");
+    // TTL-guarded reads: a stale breadcrumb from an abandoned flow is ignored,
+    // so a normal login lands on the dashboard instead of a payment page.
+    const pendingPay = peekPendingIntent("pendingPayRideId");
+    const pendingPost = peekPendingIntent("pendingPostRide");
     if (!hasProfile) { navigate("/profile-setup", { replace: true }); return; }
     if (pendingPay) {
-      try { localStorage.removeItem("pendingPayRideId"); } catch (_e) {}
+      clearAllPendingIntents();
       navigate(`/ride-detail?rideId=${pendingPay}&pay=1`, { replace: true });
       return;
     }
-    if (pendingPost) { navigate("/plan", { replace: true }); return; }
+    if (pendingPost) { clearAllPendingIntents(); navigate("/plan", { replace: true }); return; }
+    clearAllPendingIntents();
     navigate("/find-ride", { replace: true });
   };
 

@@ -4,6 +4,7 @@ import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import planImage from "../assets/plan-travelmate.png";
 import { getFindFee } from "../services/api";
+import { setPendingIntent, peekPendingIntent } from "../services/pendingIntent";
 
 
 /* ─── Icons ─────────────────────────────────────────────────────────────── */
@@ -44,14 +45,14 @@ export default function TravelMatePlanPage() {
   // login → otp → profile-setup chain.
   const rideId =
     searchParams.get("rideId") ||
-    (() => { try { return localStorage.getItem("pendingUnlockRideId") || ""; } catch { return ""; } })();
+    peekPendingIntent("pendingUnlockRideId");
 
   // "Go Daily" → save plan choice and carry rideId to UnlockContact
   const goDaily = () => {
     try { localStorage.setItem("chosenPlan", "daily"); } catch (e) {}
     // Keep the rideId breadcrumb alive so UnlockContact can read it
     if (rideId) {
-      try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (e) {}
+      setPendingIntent("pendingUnlockRideId", rideId);
     }
     console.log("[Findrideplan] Go Daily → /unlock-contact?rideId=" + rideId);
     navigate(rideId ? `/unlock-contact?rideId=${rideId}` : "/unlock-contact");

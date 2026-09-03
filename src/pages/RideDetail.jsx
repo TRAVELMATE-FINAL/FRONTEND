@@ -9,6 +9,7 @@ import UserActions from "../components/UserActions/UserActions.jsx";
 import RideMap from "../components/RideMap/RideMap";
 import MapModal from "../components/RideMap/MapModal";
 import { enforceSession } from "../services/session";
+import { setPendingIntent, peekPendingIntent } from "../services/pendingIntent";
 import ConfirmModal from "../components/ConfirmModal/ConfirmModal";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
@@ -91,7 +92,7 @@ export default function RideDetailsPage() {
   const rideId =
     searchParams.get("rideId") ||
     localStorage.getItem("lastPostedRideId") ||
-    localStorage.getItem("pendingUnlockRideId") ||
+    peekPendingIntent("pendingUnlockRideId") ||
     "";
 
   const [data, setData] = useState(null);
@@ -169,15 +170,15 @@ export default function RideDetailsPage() {
   const payNow = () => {
     const ph = enforceSession();
     if (!ph) {
+      setPendingIntent("pendingPayRideId", rideId);
       try {
-        localStorage.setItem("pendingPayRideId", rideId);
         if (myReq?._id) localStorage.setItem("pendingPayBookingId", String(myReq._id));
       } catch (_e) {}
       navigate("/login");
       return;
     }
     // Breadcrumb the existing plan/payment pages already read.
-    try { localStorage.setItem("pendingUnlockRideId", rideId); } catch (_e) {}
+    setPendingIntent("pendingUnlockRideId", rideId);
     navigate(`/findrideplan?rideId=${rideId}`);
   };
 
