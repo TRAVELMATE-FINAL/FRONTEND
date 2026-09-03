@@ -300,10 +300,13 @@ const styles = {
     minHeight: "100vh",
     background: "#e8eaf6",
     display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-    overflow: "hidden",
+    alignItems: "flex-start",      // top-align so the card doesn't re-center
+    justifyContent: "center",      // (and jump) when its height changes or the
+    position: "relative",          // mobile keyboard opens.
+    overflowX: "hidden",
+    overflowY: "auto",
+    padding: "48px 16px",
+    boxSizing: "border-box",
     fontFamily: "'Segoe UI', sans-serif",
   },
   bgText: {

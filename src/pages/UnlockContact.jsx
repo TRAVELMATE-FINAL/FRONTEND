@@ -124,7 +124,9 @@ export default function UnlockContact() {
   useEffect(() => {
     if (!urlRideId) return;
     const ph = (() => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } })();
-    if (!ph) { navigate(`/ride-detail?rideId=${urlRideId}`, { replace: true }); return; }
+    // Not logged in → require login/signup first, then return to this Find Ride
+    // payment flow (the breadcrumb sends them back after OTP).
+    if (!ph) { setPendingIntent("pendingUnlockRideId", urlRideId); navigate("/login", { replace: true }); return; }
     let cancelled = false;
     axios
       .get(`${API_BASE}/api/rides/requests/outgoing`, { params: { phone: ph }, timeout: 7000 })
@@ -153,6 +155,8 @@ export default function UnlockContact() {
 
     const phone = localStorage.getItem("phone") || "";
     if (!phone) {
+      // Preserve the ride so payment resumes on the same page after login.
+      if (urlRideId) setPendingIntent("pendingUnlockRideId", urlRideId);
       navigate("/login");
       return;
     }

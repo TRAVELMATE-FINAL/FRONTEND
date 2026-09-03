@@ -5,6 +5,7 @@
 // is processing to prevent double-submission.
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export default function ConfirmModal({
   open,
@@ -35,7 +36,10 @@ export default function ConfirmModal({
 
   if (!open) return null;
 
-  return (
+  // Render through a portal to <body> so the fixed overlay is always positioned
+  // against the viewport — not trapped inside a transformed / sticky ancestor
+  // (e.g. the sticky navbar), which was pinning the sign-out dialog to the top.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -124,6 +128,7 @@ export default function ConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
