@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { sendOtp, loginWithPassword } from "../services/api";
+import { sendOtp, loginWithPassword, getAccountStatus } from "../services/api";
 
 const COUNTRY_CODES = [
   { code: "IN", dial: "+91", flag: "🇮🇳" },
@@ -71,6 +71,28 @@ export default function Signin() {
     }
     try {
       setLoading(true);
+      // For NEW registrations, first check the number isn't already taken —
+      // this avoids sending an OTP and silently overwriting an existing user's
+      // password. An existing account with a password is sent to Sign In; a
+      // legacy account without one falls through to OTP so they can set one.
+      if (mode === "register") {
+        try {
+          const status = await getAccountStatus(fullNumber());
+          if (status?.blocked) {
+            setError("This account has been blocked. Please contact support.");
+            setLoading(false);
+            return;
+          }
+          if (status?.exists && status?.hasPassword) {
+            setError("You already have an account with this number. Please sign in above, or use \"Forgot password?\" if you don't remember it.");
+            setLoading(false);
+            return;
+          }
+        } catch (_e) {
+          // If the check itself fails, don't hard-block registration — fall
+          // through to the normal OTP flow.
+        }
+      }
       await sendOtp(fullNumber());
       navigate("/otp", { state: { mobileNumber: fullNumber(), mode } });
     } catch (err) {

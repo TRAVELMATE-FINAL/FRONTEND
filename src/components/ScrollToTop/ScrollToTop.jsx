@@ -38,6 +38,14 @@ export default function ScrollToTop() {
       if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
       if (document.documentElement) document.documentElement.scrollTop = 0;
       if (document.body) document.body.scrollTop = 0;
+      // The app mounts inside #root, which is itself the scrolling element
+      // (overflow-y: auto). window.scrollTo does nothing when the real scroll
+      // lives on #root, so reset it directly.
+      const rootEl = document.getElementById("root");
+      if (rootEl) {
+        rootEl.scrollTop = 0;
+        rootEl.scrollLeft = 0;
+      }
       // Also reset any explicitly-marked nested scroll container, so pages
       // that scroll inside a wrapper (not the window) still start at the top.
       // Add data-scroll-container to such a wrapper and it's handled here —

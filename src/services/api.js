@@ -74,6 +74,14 @@ export const verifyOtp = async (phone, otp, password) => {
   return res.data;
 };
 
+// 🔹 ACCOUNT STATUS (no OTP / no SMS). Used before the register OTP is sent
+// so an existing user is routed to sign-in instead of resetting a password.
+export const getAccountStatus = async (phone) => {
+  const clean = String(phone).replace("+91", "").replace(/\D/g, "");
+  const res = await API.get(`/auth/account-status?phone=${encodeURIComponent(clean)}`);
+  return res.data; // { exists, hasPassword, blocked }
+};
+
 // 🔹 PASSWORD LOGIN (no OTP). Returns { needsPassword:true } for legacy
 // accounts that haven't set a password yet — the caller then routes to OTP.
 export const loginWithPassword = async (phone, password) => {
