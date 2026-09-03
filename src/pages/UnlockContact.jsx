@@ -180,7 +180,7 @@ export default function UnlockContact() {
         amount: order.amount,
         currency: order.currency || "INR",
         order_id: order.orderId,
-        name: "TravelMate",
+        name: "Vooggly",
         description: `${planKey.charAt(0).toUpperCase() + planKey.slice(1)} Plan — Unlock Contact`,
         prefill: { contact: phone.replace(/^\+91/, "") },
         theme: { color: "#0d1b2a" },

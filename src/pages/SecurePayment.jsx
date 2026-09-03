@@ -209,7 +209,7 @@ export default function SecurePayment() {
         amount:   order.amount,
         currency: order.currency || "INR",
         order_id: order.orderId,
-        name:     "TravelMate",
+        name:     "Vooggly",
         description: planMeta.name + " — " + (planMeta.feature || ""),
         prefill:  { contact: phone.replace(/^\+91/, ""), email },
         theme:    { color: "#0d1b2a" },

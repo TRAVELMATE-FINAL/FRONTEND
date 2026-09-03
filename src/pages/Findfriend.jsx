@@ -85,7 +85,7 @@ const RideCard = ({ ride, onConnect, myBooking, onPay }) => {
   const bookingConfirmed = myBooking?.status === "accepted";
   const bookingPaid = bookingConfirmed && myBooking?.paymentStatus === "paid";
   const bookingNeedsPay = bookingConfirmed && myBooking?.paymentStatus !== "paid";
-  const driver  = ride.driverName?.trim() || "TravelMate Rider";
+  const driver  = ride.driverName?.trim() || "Vooggly Rider";
   const photo   = ride.driverPhoto || "";
   const initial = driver.charAt(0).toUpperCase();
   // Ride is full when all seats are confirmed. Backend sends isFull /

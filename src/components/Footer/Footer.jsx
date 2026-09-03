@@ -7,7 +7,7 @@ function Footer() {
       <div className="container">
         <div className="footer__grid">
           <div className="footer__col">
-            <h4 className="footer__heading">Travel Mate</h4>
+            <h4 className="footer__heading">Vooggly</h4>
             <p className="footer__text">
               Save money and travel together across India.
             </p>
@@ -70,7 +70,7 @@ function Footer() {
         </div>
 
         <div className="footer__bottom">
-          <p>© 2026 Travel Mate. All rights reserved.</p>
+          <p>© 2026 Vooggly. All rights reserved.</p>
         </div>
       </div>
     </footer>

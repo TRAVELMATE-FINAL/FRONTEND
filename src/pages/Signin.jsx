@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { sendOtp } from "../services/api";
+import { sendOtp, loginWithPassword } from "../services/api";
 
 const COUNTRY_CODES = [
   { code: "IN", dial: "+91", flag: "🇮🇳" },
@@ -13,44 +13,72 @@ const COUNTRY_CODES = [
 export default function Signin() {
   const navigate = useNavigate();
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [country, setCountry] = useState(COUNTRY_CODES[0]);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
- 
-  const isValid = /^\d{10}$/.test(phone) && agreed;
-  const handleSubmit = async () => {
-  if (loading) return; // prevent spam clicks
 
-  setError("");
+  const phoneOk = /^\d{10}$/.test(phone);
+  const fullNumber = () => `${country.dial}${phone}`;
 
-  // 🔴 STRICT VALIDATION (exactly 10 digits)
-  if (!/^\d{10}$/.test(phone)) {
-    setError("Phone number must be exactly 10 digits");
-    return;
-  }
+  const routeAfterLogin = (user) => {
+    const hasProfile = !!(user && user.fullName && user.city);
+    const read = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
+    const pendingPay = read("pendingPayRideId");
+    const pendingPost = read("pendingPostRide");
+    if (!hasProfile) { navigate("/profile-setup", { replace: true }); return; }
+    if (pendingPay) {
+      try { localStorage.removeItem("pendingPayRideId"); } catch (_e) {}
+      navigate(`/ride-detail?rideId=${pendingPay}&pay=1`, { replace: true });
+      return;
+    }
+    if (pendingPost) { navigate("/plan", { replace: true }); return; }
+    navigate("/find-ride", { replace: true });
+  };
 
-  if (!agreed) {
-    setError("Please agree to the Terms of Service and Privacy Policy.");
-    return;
-  }
+  // Password sign-in (no OTP for returning users with a password).
+  const handleLogin = async () => {
+    if (loading) return;
+    setError("");
+    if (!phoneOk) { setError("Phone number must be exactly 10 digits"); return; }
+    if (!password) { setError("Please enter your password"); return; }
+    try {
+      setLoading(true);
+      const data = await loginWithPassword(fullNumber(), password);
+      if (data?.needsPassword) {
+        // Legacy account without a password → verify via OTP and set one.
+        await sendOtp(fullNumber());
+        navigate("/otp", { state: { mobileNumber: fullNumber(), mode: "setPassword" } });
+        return;
+      }
+      routeAfterLogin(data.user);
+    } catch (err) {
+      setError(err.response?.data?.message || "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const fullNumber = `${country.dial}${phone}`;
-
-  try {
-    setLoading(true);
-
-    await sendOtp(fullNumber);
-
-    navigate("/otp", { state: { mobileNumber: fullNumber } });
-
-  } catch (err) {
-    // ✅ Proper API error handling
-    setError(err.response?.data?.message || "Failed to send OTP");
-  } finally {
-    setLoading(false);
-  }
-};
+  // OTP-based flows: register (new account) and reset (forgot password).
+  const startOtpFlow = async (mode) => {
+    if (loading) return;
+    setError("");
+    if (!phoneOk) { setError("Phone number must be exactly 10 digits"); return; }
+    if (mode === "register" && !agreed) {
+      setError("Please agree to the Terms of Service and Privacy Policy.");
+      return;
+    }
+    try {
+      setLoading(true);
+      await sendOtp(fullNumber());
+      navigate("/otp", { state: { mobileNumber: fullNumber(), mode } });
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="signin-page" style={styles.root}>
@@ -111,8 +139,8 @@ export default function Signin() {
       {/* Right Panel */}
       <div className="signin-right" style={styles.right}>
         <div className="signin-form" style={styles.form}>
-          <h2 style={styles.formTitle}>Create your account</h2>
-          <p style={styles.formSub}>Join 50,000+ verified travelers</p>
+          <h2 style={styles.formTitle}>Welcome back</h2>
+          <p style={styles.formSub}>Sign in to your Vooggly account</p>
 
           <div style={styles.fieldGroup}>
             <label style={styles.label}>Mobile Number</label>
@@ -135,14 +163,47 @@ export default function Signin() {
                 placeholder="9876543210"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                 style={styles.phoneInput}
                 maxLength={10}
               />
             </div>
-            <p style={styles.hint}>ⓘ We'll send an OTP to verify your number</p>
           </div>
 
+          <div style={styles.fieldGroup}>
+            <label style={styles.label}>Password</label>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              style={styles.textInput}
+            />
+            <div style={{ textAlign: "right", marginTop: 6 }}>
+              <button type="button" onClick={() => startOtpFlow("reset")} style={styles.linkBtn}>
+                Forgot password?
+              </button>
+            </div>
+          </div>
+
+          {error && <div style={styles.error}>{error}</div>}
+
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            style={{
+              ...styles.btn,
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+          >
+            {loading ? "Please wait…" : "Sign In"}
+          </button>
+
+          {/* Divider */}
+          <div style={styles.divider}><span style={styles.dividerText}>or</span></div>
+
+          {/* Register (OTP) */}
           <label style={styles.checkRow}>
             <input
               type="checkbox"
@@ -151,26 +212,23 @@ export default function Signin() {
               style={styles.checkbox}
             />
             <span style={styles.checkText}>
-              I agree to Travel Mate's{" "}
+              I agree to Vooggly's{" "}
               <a href="#" style={styles.link}>Terms of Service</a> and{" "}
               <a href="#" style={styles.link}>Privacy Policy</a>
             </span>
           </label>
 
-          {error && <div style={styles.error}>{error}</div>}
-
-         <button
-  onClick={handleSubmit}
-  disabled={!isValid || loading}
-  style={{
-    ...styles.btn,
-    background: isValid ? "#2563eb" : "#9ca3af",
-    opacity: loading ? 0.7 : 1,
-    cursor: !isValid || loading ? "not-allowed" : "pointer",
-  }}
->
-  {loading ? "Sending OTP..." : "Continue with OTP"}
-</button>
+          <button
+            type="button"
+            onClick={() => startOtpFlow("register")}
+            disabled={loading}
+            style={styles.btnOutline}
+          >
+            Create a new account
+          </button>
+          <p style={{ ...styles.hint, textAlign: "center", marginTop: 10 }}>
+            ⓘ New accounts verify your number once with an OTP, then use a password.
+          </p>
         </div>
       </div>
     </div>
@@ -394,6 +452,60 @@ const styles = {
     color: "#2563eb",
     fontWeight: 500,
     textDecoration: "none",
+  },
+
+  textInput: {
+    width: "100%",
+    height: 54,
+    padding: "0 16px",
+    border: "1px solid #e5e7eb",
+    borderRadius: 14,
+    background: "#fff",
+    fontSize: 15,
+    color: "#111827",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+
+  linkBtn: {
+    background: "none",
+    border: "none",
+    padding: 0,
+    color: "#2563eb",
+    fontWeight: 600,
+    fontSize: 13,
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+
+  divider: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "18px 0 14px",
+    borderTop: "1px solid #e5e7eb",
+    position: "relative",
+  },
+  dividerText: {
+    position: "absolute",
+    top: -10,
+    background: "#f9fafb",
+    padding: "0 10px",
+    color: "#9ca3af",
+    fontSize: 13,
+  },
+
+  btnOutline: {
+    width: "100%",
+    height: 52,
+    background: "#fff",
+    color: "#1a1a4e",
+    border: "1.5px solid #d7dae8",
+    borderRadius: 12,
+    fontSize: 15,
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: "inherit",
   },
 
   error: {

@@ -346,7 +346,7 @@ export default function RideDetailsPage() {
 
   // Friendly fallbacks for every text field — never render raw "—" in
   // a UI that's supposed to look populated.
-  const driverName  = driver?.fullName?.trim() || "TravelMate Rider";
+  const driverName  = driver?.fullName?.trim() || "Vooggly Rider";
   const initial     = driverName.charAt(0).toUpperCase();
   const vehicleType = (ride?.vehicle || "").toLowerCase() === "car" ? "Car" : "Bike";
   // Seat availability is driven by CONFIRMED (accepted) requests on the

@@ -166,7 +166,7 @@ await saveProfile({
 
       {/* full-page background */}
       <div className="profile-page" style={s.page}>
-        <div style={s.bgText} aria-hidden="true">TravelMate</div>
+        <div style={s.bgText} aria-hidden="true">Vooggly</div>
 
         {/* card */}
         <div className="profile-card" style={s.card}>

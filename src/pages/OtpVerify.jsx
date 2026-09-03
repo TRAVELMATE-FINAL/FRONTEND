@@ -9,8 +9,12 @@ export default function OtpVerify() {
   const navigate = useNavigate();
   const location = useLocation();
   const mobileNumber = location.state?.mobileNumber || "";
+  const mode = location.state?.mode || "";           // register | reset | setPassword | ""
+  const needPassword = ["register", "reset", "setPassword"].includes(mode);
 
   const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(""));
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -72,9 +76,13 @@ export default function OtpVerify() {
   const handleVerify = async () => {
     if (!isComplete) return;
     setError("");
+    if (needPassword) {
+      if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
+      if (password !== confirm) { setError("Passwords do not match"); return; }
+    }
     setLoading(true);
     try {
-      const data = await verifyOtp(mobileNumber, otp);
+      const data = await verifyOtp(mobileNumber, otp, needPassword ? password : undefined);
 
       // ── Decide where to send the user next ─────────────────
       // Backend returns the user document. New users have no fullName.
@@ -157,7 +165,7 @@ export default function OtpVerify() {
   return (
     <div className="otp-page" style={styles.root}>
       {/* Background watermark */}
-      <div style={styles.bgText} aria-hidden="true">TravelMate</div>
+      <div style={styles.bgText} aria-hidden="true">Vooggly</div>
 
       {/* Back button */}
       <button onClick={() => navigate(-1)} style={styles.back}>
@@ -202,22 +210,49 @@ export default function OtpVerify() {
           ))}
         </div>
 
+        {/* Password fields — shown for register / reset / set-password. */}
+        {needPassword && (
+          <div style={{ textAlign: "left", marginBottom: 8 }}>
+            <input
+              type="password"
+              placeholder={mode === "reset" ? "New password (min 6 chars)" : "Create a password (min 6 chars)"}
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(""); }}
+              style={styles.pwInput}
+            />
+            <input
+              type="password"
+              placeholder="Confirm password"
+              value={confirm}
+              onChange={(e) => { setConfirm(e.target.value); setError(""); }}
+              onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+              style={{ ...styles.pwInput, marginTop: 10 }}
+            />
+          </div>
+        )}
+
         {/* Error / Success */}
         {error && <div style={styles.error}>{error}</div>}
         {success && <div style={styles.successMsg}>{success}</div>}
 
         {/* Verify button */}
-        <button
-          onClick={handleVerify}
-          disabled={!isComplete || loading}
-          style={{
-            ...styles.btn,
-            opacity: !isComplete || loading ? 0.5 : 1,
-            cursor: !isComplete || loading ? "not-allowed" : "pointer",
-          }}
-        >
-          {loading ? "Verifying..." : "Verify"}
-        </button>
+        {(() => {
+          const pwOk = !needPassword || (password.length >= 6 && password === confirm);
+          const disabled = !isComplete || loading || !pwOk;
+          return (
+            <button
+              onClick={handleVerify}
+              disabled={disabled}
+              style={{
+                ...styles.btn,
+                opacity: disabled ? 0.5 : 1,
+                cursor: disabled ? "not-allowed" : "pointer",
+              }}
+            >
+              {loading ? "Verifying..." : (needPassword ? "Verify & Continue" : "Verify")}
+            </button>
+          );
+        })()}
 
         {/* Resend */}
         <p style={styles.resendRow}>
@@ -321,6 +356,17 @@ const styles = {
     gap: 10,
     justifyContent: "center",
     marginBottom: 20,
+  },
+  pwInput: {
+    width: "100%",
+    height: 48,
+    padding: "0 14px",
+    border: "1px solid #d1d5db",
+    borderRadius: 10,
+    fontSize: 15,
+    color: "#1f2937",
+    outline: "none",
+    boxSizing: "border-box",
   },
   otpInput: {
     width: 46,

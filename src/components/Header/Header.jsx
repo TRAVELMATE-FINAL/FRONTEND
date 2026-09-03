@@ -85,11 +85,11 @@ function Header() {
         <img
           className="tm-navbar__logo-img"
           src="/favicon.png"
-          alt="Travel Mate"
+          alt="Vooggly"
           width="38"
           height="38"
         />
-        <span className="tm-navbar__name">Travel Mate</span>
+        <span className="tm-navbar__name">Vooggly</span>
       </div>
 
       {/* Right cluster. Logged out → only Login. Logged in → the user icons
@@ -159,7 +159,7 @@ function Header() {
 
       <ConfirmModal
         open={signOutOpen}
-        title="Sign out of TravelMate?"
+        title="Sign out of Vooggly?"
         message="You'll need to verify your mobile number again to sign back in."
         cancelLabel="Cancel"
         confirmLabel="Sign Out"

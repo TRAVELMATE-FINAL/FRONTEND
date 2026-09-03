@@ -120,7 +120,7 @@ export default function RideLive() {
     const text = "I posted a trip: " + fromCity + " → " + toCity + " on " + dateLabel + " at " + timeLabel + ". Join me!";
     try {
       if (navigator.share) {
-        await navigator.share({ title: "TravelMate Trip", text, url: shareUrl });
+        await navigator.share({ title: "Vooggly Trip", text, url: shareUrl });
       } else {
         await navigator.clipboard.writeText(shareUrl);
         alert("Trip link copied to clipboard:\n" + shareUrl);

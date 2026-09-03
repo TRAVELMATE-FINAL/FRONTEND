@@ -58,15 +58,27 @@ export const sendOtp = async (phone) => {
   return res.data;
 };
 
-// 🔹 VERIFY OTP
-export const verifyOtp = async (phone, otp) => {
-  const res = await API.post("/auth/verify-otp", { phone, otp });
+// 🔹 VERIFY OTP (optionally set a password in the same step — used for
+// registration, forgot-password, and existing users setting their first
+// password after an OTP login).
+export const verifyOtp = async (phone, otp, password) => {
+  const body = { phone, otp };
+  if (password) body.password = password;
+  const res = await API.post("/auth/verify-otp", body);
 
   // 🔥 store phone after verify AND start a 14-day login session so the
   // user isn't forced to log in again every visit (only after two weeks
   // of inactivity).
   startSession(phone);
 
+  return res.data;
+};
+
+// 🔹 PASSWORD LOGIN (no OTP). Returns { needsPassword:true } for legacy
+// accounts that haven't set a password yet — the caller then routes to OTP.
+export const loginWithPassword = async (phone, password) => {
+  const res = await API.post("/auth/login", { phone, password });
+  if (res.data && res.data.user) startSession(phone); // real login only
   return res.data;
 };
 
