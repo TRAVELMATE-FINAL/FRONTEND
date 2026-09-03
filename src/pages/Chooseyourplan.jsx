@@ -2,6 +2,7 @@ import { useLayoutEffect, useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
+import { scrollAllToTop } from "../utils/scrollToTop";
 
 const Check = ({ color = "#22c55e", bg = "#e8f5e9" }) => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
@@ -23,7 +24,7 @@ export default function ChooseYourPlan() {
   const [activeSub, setActiveSub] = useState(null);
 
   useLayoutEffect(() => {
-    window.scrollTo(0, 0);
+    scrollAllToTop();
   }, []);
 
   // Fetch real prices in the background — page renders fine if this fails.

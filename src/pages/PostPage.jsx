@@ -5,6 +5,7 @@ import { GoogleMap } from "@react-google-maps/api";
 import { useGoogleMaps, useMapsAuthFailed } from "../utils/googleMapsLoader";
 import { formatTime12h } from "../utils/time.js";
 import { setPendingIntent, clearPendingIntent } from "../services/pendingIntent";
+import { scrollAllToTopPersistent } from "../utils/scrollToTop";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
@@ -1551,26 +1552,9 @@ export default function TravelMatePost({ embedded = false } = {}) {
   // Multi-step form lives on a single route, so the global route-based
   // ScrollToTop doesn't fire when moving between steps. Reset scroll to the
   // top whenever the step changes so each step starts from the beginning.
-  useEffect(() => {
-    const reset = () => {
-      try {
-        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      } catch {
-        window.scrollTo(0, 0);
-      }
-      if (document.documentElement) document.documentElement.scrollTop = 0;
-      if (document.body) document.body.scrollTop = 0;
-    };
-    reset();                              // before paint of the new step
-    const raf = requestAnimationFrame(reset);
-    const t1 = setTimeout(reset, 60);     // catch late layout shifts
-    const t2 = setTimeout(reset, 200);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [step]);
+  // Uses the shared helper so it resets #root (the real scroll container),
+  // not just the window.
+  useEffect(() => scrollAllToTopPersistent(), [step]);
 
   const [form, setForm] = useState({
     from: "", fromCoords: null,

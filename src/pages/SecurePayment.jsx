@@ -6,6 +6,7 @@ import {
 } from "../services/api";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
+import { scrollAllToTop } from "../utils/scrollToTop";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -71,7 +72,7 @@ const PROCESSING_FEE = 0; // ₹0 — not counted in total
 export default function SecurePayment() {
   const navigate = useNavigate();
 
-  useLayoutEffect(() => { window.scrollTo(0, 0); }, []);
+  useLayoutEffect(() => { scrollAllToTop(); }, []);
 
   const [planKey]  = useState(() => localStorage.getItem("chosenPlan") || "daily");
   const [planMeta, setPlanMeta] = useState(null);

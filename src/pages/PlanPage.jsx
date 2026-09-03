@@ -5,6 +5,7 @@ import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import planImage from "../assets/plan-travelmate.png";
 import { getPlans } from "../services/api";
+import { scrollAllToTop } from "../utils/scrollToTop";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -103,9 +104,7 @@ export default function PlanPage() {
   }, []);
 
   useLayoutEffect(() => {
-    window.scrollTo(0, 0);
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
+    scrollAllToTop();
   }, []);
 
   const choosePlan = (planId) => {

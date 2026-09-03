@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
+import { scrollAllToTopPersistent } from "../../utils/scrollToTop";
 
 /**
  * ScrollToTop
@@ -26,53 +27,9 @@ export default function ScrollToTop() {
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
-
-    const reset = () => {
-      try {
-        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      } catch {
-        window.scrollTo(0, 0);
-      }
-      // Reset every possible scroll root (covers quirks-mode + browser edge
-      // cases where the scrolling element isn't <html>).
-      if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
-      if (document.documentElement) document.documentElement.scrollTop = 0;
-      if (document.body) document.body.scrollTop = 0;
-      // The app mounts inside #root, which is itself the scrolling element
-      // (overflow-y: auto). window.scrollTo does nothing when the real scroll
-      // lives on #root, so reset it directly.
-      const rootEl = document.getElementById("root");
-      if (rootEl) {
-        rootEl.scrollTop = 0;
-        rootEl.scrollLeft = 0;
-      }
-      // Also reset any explicitly-marked nested scroll container, so pages
-      // that scroll inside a wrapper (not the window) still start at the top.
-      // Add data-scroll-container to such a wrapper and it's handled here —
-      // no per-page code needed.
-      document.querySelectorAll("[data-scroll-container]").forEach((el) => {
-        el.scrollTop = 0;
-        el.scrollLeft = 0;
-      });
-    };
-
-    // Before paint.
-    reset();
-    // After first paint.
-    const raf = requestAnimationFrame(reset);
-    // After async content may have shifted layout, and long enough to
-    // out-last any in-flight smooth-scroll animation carrying over from the
-    // previous page.
-    const t1 = setTimeout(reset, 60);
-    const t2 = setTimeout(reset, 200);
-    const t3 = setTimeout(reset, 400);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
+    // Reset the real scroll container (#root) before paint, next frame, and a
+    // few times after — see utils/scrollToTop for details.
+    return scrollAllToTopPersistent();
   }, [pathname, search, navType]);
 
   return null;
