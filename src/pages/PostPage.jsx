@@ -1470,6 +1470,30 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack }) {
             </div>
           </div>
 
+          {/* Fare per Seat */}
+          <div style={{ marginBottom: 18 }}>
+            <SectionLabel icon={<PeopleIcon />}>Fare per Seat (₹)</SectionLabel>
+            <div style={{ ...boxedInput, padding: 0, display: "flex", alignItems: "center", overflow: "hidden" }}>
+              <span style={{ padding: "0 4px 0 16px", fontSize: 15, color: "#6b7280", fontWeight: 700 }}>₹</span>
+              <input
+                type="number"
+                value={form.farePerSeat}
+                min={0}
+                placeholder="0"
+                onChange={(e) => setForm((f) => ({ ...f, farePerSeat: Math.max(0, Number(e.target.value) || 0) }))}
+                style={{
+                  flex: 1, border: "none", outline: "none",
+                  padding: "13px 16px 13px 6px",
+                  fontSize: 15, fontFamily: "inherit", color: "#1a1a2e",
+                  background: "transparent", minWidth: 0,
+                }}
+              />
+            </div>
+            <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 5 }}>
+              Amount each co-passenger pays for one seat. Leave 0 if negotiable.
+            </div>
+          </div>
+
           {/* Notes & Preferences */}
           <div style={{ marginBottom: 22 }}>
             <SectionLabel icon={<NotesIcon />}>Notes & Preferences</SectionLabel>
@@ -1553,7 +1577,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
     date: "", time: "", gender: "Male",
     stops: [],
     vehicleType: "Car", vehicleColor: "", vehicleName: "", plateNumber: "",
-    seats: 1, notes: "",
+    seats: 1, farePerSeat: 0, notes: "",
   });
 
   // Auto-fetch route when both coordinates are picked
@@ -1753,6 +1777,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
         vehicleColor: form.vehicleColor.trim(),
         plateNumber: (form.plateNumber || "").toUpperCase().replace(/[\s-]/g, ""),
         seatsAvailable: Number(form.seats) || 1,
+        farePerSeat: Number(form.farePerSeat) || 0,
         additionalInfo: form.notes || "",
       };
 

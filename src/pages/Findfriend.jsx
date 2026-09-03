@@ -277,6 +277,14 @@ const RideCard = ({ ride, onConnect, myBooking, onPay }) => {
             {availableSeats}
           </strong>
         </span>
+        {Number(ride.farePerSeat) > 0 && (
+          <span style={{ fontSize: 13, color: "#b9bee0", fontWeight: 500 }}>
+            Fare/Seat:{" "}
+            <strong style={{ color: "#ffd93d", fontWeight: 800 }}>
+              ₹{Number(ride.farePerSeat)}
+            </strong>
+          </span>
+        )}
       </div>
 
       {/* Footer row — 👁 viewers + Connect button */}

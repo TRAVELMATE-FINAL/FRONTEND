@@ -176,9 +176,22 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
           <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{ride.to}</span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8 }}>
           <CalendarIcon />
           <span style={{ fontSize: 11, color: "#9ca3af" }}>{fmtRideDate(ride.date, ride.time)}</span>
+        </div>
+
+        {/* Seats + fare per seat */}
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 12px", marginBottom: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", background: "#f3f4f6", borderRadius: 6, padding: "3px 8px" }}>
+            {(typeof ride.remainingSeats === "number" ? ride.remainingSeats : ride.seatsAvailable) || 0} seat
+            {((typeof ride.remainingSeats === "number" ? ride.remainingSeats : ride.seatsAvailable) || 0) === 1 ? "" : "s"} available
+          </span>
+          {Number(ride.farePerSeat) > 0 && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed", background: "#f3effe", borderRadius: 6, padding: "3px 8px" }}>
+              ₹{Number(ride.farePerSeat)} / seat
+            </span>
+          )}
         </div>
 
         {/* Inline error message if delete failed (kept beside the card
@@ -506,6 +519,7 @@ export default function ProfileSettings() {
       date: ride.date || "",
       time: ride.time || "",
       seatsAvailable: ride.seatsAvailable || 1,
+      farePerSeat: ride.farePerSeat || 0,
       vehicle: ride.vehicle || "Car",
       vehicleModel: ride.vehicleModel || "",
       vehicleColor: ride.vehicleColor || "",
@@ -1189,6 +1203,18 @@ export default function ProfileSettings() {
                 max={8}
                 value={editForm.seatsAvailable}
                 onChange={(e) => setEditForm((f) => ({ ...f, seatsAvailable: Number(e.target.value) || 1 }))}
+                style={editInput}
+              />
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={editLabel}>Fare per seat (₹)</label>
+              <input
+                type="number"
+                min={0}
+                value={editForm.farePerSeat}
+                placeholder="0"
+                onChange={(e) => setEditForm((f) => ({ ...f, farePerSeat: Math.max(0, Number(e.target.value) || 0) }))}
                 style={editInput}
               />
             </div>

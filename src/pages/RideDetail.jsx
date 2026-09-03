@@ -595,10 +595,18 @@ export default function RideDetailsPage() {
                   {formatDateTime(ride.date, ride.time)}
                 </span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: Number(ride?.farePerSeat) > 0 ? 10 : 18 }}>
                 <PersonIcon />
                 <span style={{ fontSize: 14, color: "#374151", fontWeight: 500 }}>{seatsLabel}</span>
               </div>
+              {Number(ride?.farePerSeat) > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: "#7c3aed", width: 20, textAlign: "center" }}>₹</span>
+                  <span style={{ fontSize: 14, color: "#374151", fontWeight: 500 }}>
+                    <strong style={{ fontWeight: 800, color: "#1a1a2e" }}>₹{Number(ride.farePerSeat)}</strong> per seat
+                  </span>
+                </div>
+              )}
 
               {/* Contact / Request to Ride — contact is revealed only after
                   the ride owner ACCEPTS the request (no payment). */}

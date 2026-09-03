@@ -261,6 +261,16 @@ export default function RideLive() {
                 </span>
               </div>
 
+              {/* Fare per seat (optional) */}
+              {Number(ride?.farePerSeat) > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <span style={{ width: 16, textAlign: "center", fontSize: 15, fontWeight: 800, color: "#7c3aed" }}>₹</span>
+                  <span style={{ fontSize: 13, color: "#444", fontWeight: 500 }}>
+                    <strong style={{ fontWeight: 800, color: "#1a1a2e" }}>₹{Number(ride.farePerSeat)}</strong> per seat
+                  </span>
+                </div>
+              )}
+
               {/* Vehicle (optional) */}
               {ride.vehicleModel && (
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
