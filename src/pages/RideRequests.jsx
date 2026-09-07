@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
+import { formatTime12h } from "../utils/time.js";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -68,7 +69,7 @@ export default function RideRequests() {
   };
 
   const routeText = (r) => (r.ride ? `${r.ride.from} → ${r.ride.to}` : "Ride");
-  const whenText = (r) => (r.ride ? `${r.ride.date || ""} ${r.ride.time || ""}`.trim() : "");
+  const whenText = (r) => (r.ride ? `${r.ride.date || ""} ${r.ride.time ? formatTime12h(r.ride.time) : ""}`.trim() : "");
 
   const card = (children) => (
     <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 16, marginBottom: 12 }}>{children}</div>

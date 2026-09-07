@@ -77,19 +77,36 @@ function Header() {
     };
   }, [location.pathname]);
 
+  const isHome = location.pathname === '/' || location.pathname === '/find-ride';
+  const goBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) navigate(-1);
+    else navigate('/');
+  };
+
   return (
     <div className="tm-navbar">
-      {/* Brand (click → home) — uses the user-supplied favicon.png as
-          the logo icon, paired with the gradient wordmark. */}
-      <div className="tm-navbar__brand" onClick={() => navigate('/')}>
-        <img
-          className="tm-navbar__logo-img"
-          src="/favicon.png"
-          alt="Vooggly"
-          width="38"
-          height="38"
-        />
-        <span className="tm-navbar__name">Vooggly</span>
+      {/* Left cluster: Back button (hidden on home) + Brand. */}
+      <div className="tm-navbar__left">
+        {!isHome && (
+          <button type="button" className="tm-navbar__back" onClick={goBack} aria-label="Go back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            <span className="tm-navbar__back-label">Back</span>
+          </button>
+        )}
+        {/* Brand (click → home) — uses the user-supplied favicon.png as
+            the logo icon, paired with the gradient wordmark. */}
+        <div className="tm-navbar__brand" onClick={() => navigate('/')}>
+          <img
+            className="tm-navbar__logo-img"
+            src="/favicon.png"
+            alt="Vooggly"
+            width="38"
+            height="38"
+          />
+          <span className="tm-navbar__name">Vooggly</span>
+        </div>
       </div>
 
       {/* Right cluster. Logged out → only Login. Logged in → the user icons

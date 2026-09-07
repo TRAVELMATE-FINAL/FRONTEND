@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { saveProfile } from "../services/api";
 import { peekPendingIntent, clearAllPendingIntents } from "../services/pendingIntent";
+import BackButton from "../components/BackButton/BackButton";
 import { useState, useRef, useEffect } from "react";
 
 export default function ProfileSetup() {
@@ -158,6 +159,7 @@ await saveProfile({
 };
   return (
     <>
+      <BackButton />
       <style>{`
         html, body, #root { margin: 0; padding: 0; height: 100%; }
         * { box-sizing: border-box; }

@@ -14,6 +14,38 @@
   font-family: 'DM Sans', 'Inter', 'Segoe UI', system-ui, sans-serif;
 }
 
+/* Left cluster: back button + brand */
+.tm-navbar__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Global Back button */
+.tm-navbar__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #1a1a2e;
+  border-radius: 999px;
+  padding: 6px 12px 6px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+.tm-navbar__back:hover {
+  background: #ffd93d;
+  border-color: #ffcb05;
+  transform: translateY(-1px);
+}
+.tm-navbar__back svg { stroke: #1a1a2e; }
+
 /* Brand */
 .tm-navbar__brand {
   display: flex;
@@ -196,4 +228,11 @@
   .tm-navbar__login { padding: 7px 12px; font-size: 12px; border-radius: 16px; }
   .tm-navbar__signout { padding: 7px 10px; font-size: 12px; border-radius: 16px; }
   .tm-navbar__name { font-size: 14px; }
+}
+
+/* Back button: compact on phones — show just the arrow to save navbar space */
+@media (max-width: 600px) {
+  .tm-navbar__back-label { display: none; }
+  .tm-navbar__back { padding: 6px 9px; }
+  .tm-navbar__left { gap: 6px; }
 }

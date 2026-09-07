@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { sendOtp, loginWithPassword, getAccountStatus } from "../services/api";
 import { peekPendingIntent, clearAllPendingIntents } from "../services/pendingIntent";
+import BackButton from "../components/BackButton/BackButton";
 
 const COUNTRY_CODES = [
   { code: "IN", dial: "+91", flag: "🇮🇳" },
@@ -107,6 +108,7 @@ export default function Signin() {
 
   return (
     <div className="signin-page" style={styles.root}>
+      <BackButton />
       {/* Left Panel */}
       <div className="signin-left" style={styles.left}>
         <div style={styles.leftContent}>
