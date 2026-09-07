@@ -122,28 +122,28 @@ export default function RideRequests() {
                   <div style={{ fontSize: 12, color: "#9ca3af" }}>{whenText(r)}</div>
                   {r.message && <div style={{ marginTop: 6, fontSize: 13, color: "#4b5563", fontStyle: "italic" }}>“{r.message}”</div>}
 
-                  {r.status === "accepted" && r.paymentStatus === "paid" && r.rider?.phone && (
+                  {r.status === "accepted" && r.rider?.phone && (
                     <div style={{ marginTop: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 10, fontSize: 14 }}>
                       Confirmed ✓ — Rider contact: <a href={`tel:${r.rider.phone}`} style={{ fontWeight: 700, color: "#166534" }}>{r.rider.phone}</a>
                     </div>
                   )}
-                  {r.status === "accepted" && r.paymentStatus !== "paid" && (
-                    <div style={{ marginTop: 10, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10, padding: 10, fontSize: 13, color: "#6b7280", fontWeight: 600 }}>
-                      Confirmed ✓ — 🔒 Passenger contact unlocks after their payment is completed.
-                    </div>
-                  )}
 
                   {r.status === "pending" && (
-                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                      <button disabled={busy === r._id} onClick={() => act(`/api/rides/requests/${r._id}/accept`, { ownerPhone: phone }, r._id)}
-                        style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-                        Accept
-                      </button>
-                      <button disabled={busy === r._id} onClick={() => act(`/api/rides/requests/${r._id}/reject`, { ownerPhone: phone }, r._id)}
-                        style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #ef4444", background: "#fff", color: "#ef4444", fontWeight: 700, cursor: "pointer" }}>
-                        Reject
-                      </button>
-                    </div>
+                    <>
+                      <div style={{ marginTop: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 10px", fontSize: 13, color: "#166534", fontWeight: 700 }}>
+                        💳 Paid • awaiting your response — respond within 1 hour or it auto-cancels &amp; refunds the rider.
+                      </div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                        <button disabled={busy === r._id} onClick={() => act(`/api/rides/requests/${r._id}/accept`, { ownerPhone: phone }, r._id)}
+                          style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                          Accept
+                        </button>
+                        <button disabled={busy === r._id} onClick={() => act(`/api/rides/requests/${r._id}/reject`, { ownerPhone: phone }, r._id)}
+                          style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #ef4444", background: "#fff", color: "#ef4444", fontWeight: 700, cursor: "pointer" }}>
+                          Reject
+                        </button>
+                      </div>
+                    </>
                   )}
                 </div>
               ))
@@ -161,30 +161,33 @@ export default function RideRequests() {
                   </div>
                   <div style={{ fontSize: 12, color: "#9ca3af" }}>{whenText(r)}</div>
 
-                  {r.status === "accepted" && r.paymentStatus === "paid" && r.owner?.phone && (
+                  {r.status === "accepted" && r.owner?.phone && (
                     <div style={{ marginTop: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 10, fontSize: 14 }}>
                       Confirmed ✓ • Paid — {r.owner.name}: <a href={`tel:${r.owner.phone}`} style={{ fontWeight: 700, color: "#166534" }}>{r.owner.phone}</a>
                     </div>
                   )}
 
-                  {r.status === "accepted" && r.paymentStatus !== "paid" && (
-                    <div style={{ marginTop: 10, background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 10, padding: 12, fontSize: 14 }}>
-                      <div style={{ fontWeight: 700, color: "#4338ca", marginBottom: 2 }}>Booking confirmed</div>
-                      <div style={{ color: "#4b5563", marginBottom: 10 }}>Payment pending — complete payment to finalize your booking and view contact details.</div>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/ride-detail?rideId=${r.ride?._id || ""}&pay=1`)}
-                        style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: "#f5c518", color: "#111", fontWeight: 700, cursor: "pointer" }}>
-                        Pay now
+                  {r.status === "pending" && (
+                    <>
+                      <div style={{ marginTop: 10, background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 10, padding: "8px 10px", fontSize: 13, color: "#854d0e", fontWeight: 600 }}>
+                        💳 Paid • waiting for the owner to respond. If they don't respond within 1 hour, you're automatically refunded.
+                      </div>
+                      <button disabled={busy === r._id} onClick={() => act(`/api/rides/requests/${r._id}/cancel`, { riderPhone: phone }, r._id)}
+                        style={{ marginTop: 12, padding: "9px 16px", borderRadius: 10, border: "1px solid #9ca3af", background: "#fff", color: "#374151", fontWeight: 700, cursor: "pointer" }}>
+                        Cancel &amp; refund
                       </button>
-                    </div>
+                    </>
                   )}
 
-                  {r.status === "pending" && (
-                    <button disabled={busy === r._id} onClick={() => act(`/api/rides/requests/${r._id}/cancel`, { riderPhone: phone }, r._id)}
-                      style={{ marginTop: 12, padding: "9px 16px", borderRadius: 10, border: "1px solid #9ca3af", background: "#fff", color: "#374151", fontWeight: 700, cursor: "pointer" }}>
-                      Cancel request
-                    </button>
+                  {(r.status === "rejected" || r.status === "expired") && (
+                    <div style={{ marginTop: 10, background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 10, padding: 10, fontSize: 13, color: "#4b5563", fontWeight: 600 }}>
+                      {r.status === "rejected" ? "Not accepted by the owner." : "The owner didn't respond in time."}
+                      {(r.paymentStatus === "refunded" || r.refundAmount > 0)
+                        ? ` Your payment of ₹${r.refundAmount || r.amountPaid || ""} has been refunded.`
+                        : r.paymentStatus === "refund_pending"
+                        ? " Your refund is being processed."
+                        : ""}
+                    </div>
                   )}
                 </div>
               ))

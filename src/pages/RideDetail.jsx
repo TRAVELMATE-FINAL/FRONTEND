@@ -10,6 +10,7 @@ import RideMap from "../components/RideMap/RideMap";
 import MapModal from "../components/RideMap/MapModal";
 import { enforceSession } from "../services/session";
 import { setPendingIntent, peekPendingIntent } from "../services/pendingIntent";
+import { loadRazorpay } from "../utils/razorpay";
 import ConfirmModal from "../components/ConfirmModal/ConfirmModal";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
@@ -143,18 +144,75 @@ export default function RideDetailsPage() {
     return () => { cancelled = true; };
   }, [rideId]);
 
+  // PAY-FIRST request flow: the rider pays the booking fee up front; only after
+  // the payment is verified does the backend create & send the request to the
+  // owner. Not logged in → route through Login and return to this ride.
   const sendRequest = async () => {
-    const ph = (() => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } })();
-    if (!ph) { navigate("/login"); return; }
+    const ph = enforceSession();
+    if (!ph) {
+      setPendingIntent("pendingPayRideId", rideId);
+      navigate("/login");
+      return;
+    }
     setReqBusy(true); setReqMsg("");
     try {
-      await axios.post(`${API_BASE}/api/rides/${rideId}/request`, { riderPhone: ph });
-      setMyReq({ status: "pending" });
-      setReqSentOpen(true);
+      await loadRazorpay();
+      // 1) Create the Razorpay order + a hidden awaiting_payment request.
+      const { data: order } = await axios.post(
+        `${API_BASE}/api/rides/${rideId}/request-order`,
+        { riderPhone: ph, message: "" },
+        { timeout: 12000 }
+      );
+      if (!order?.orderId) throw new Error(order?.message || "Could not start payment");
+
+      // 2) Open Razorpay checkout.
+      const rzp = new window.Razorpay({
+        key: order.key,
+        amount: order.amount,
+        currency: order.currency || "INR",
+        order_id: order.orderId,
+        name: "Vooggly",
+        description: "Ride request fee",
+        theme: { color: "#f5c518" },
+        modal: { ondismiss: () => setReqBusy(false) },
+        handler: async (resp) => {
+          try {
+            // 3) Verify → the request is now sent to the owner.
+            const { data: v } = await axios.post(
+              `${API_BASE}/api/rides/requests/${order.bookingId}/request-pay-verify`,
+              {
+                riderPhone: ph,
+                razorpay_order_id: resp.razorpay_order_id,
+                razorpay_payment_id: resp.razorpay_payment_id,
+                razorpay_signature: resp.razorpay_signature,
+              },
+              { timeout: 12000 }
+            );
+            if (v?.success) {
+              setMyReq({ status: "pending", paymentStatus: "paid" });
+              setReqSentOpen(true);
+            } else {
+              setReqMsg(v?.message || "Payment could not be confirmed. If you were charged it will be refunded.");
+            }
+          } catch (e) {
+            setReqMsg(e.response?.data?.message || "Payment verification failed. If you were charged it will be refunded.");
+          } finally {
+            setReqBusy(false);
+          }
+        },
+      });
+      rzp.on("payment.failed", () => {
+        setReqMsg("Payment failed. Please try again.");
+        setReqBusy(false);
+      });
+      rzp.open();
     } catch (e) {
-      if (e.response?.status === 409) { setMyReq({ status: "pending" }); }
-      else { setReqMsg(e.response?.data?.message || "Could not send request. Please try again."); }
-    } finally {
+      if (e.response?.status === 409) {
+        setMyReq({ status: "pending" });
+        setReqMsg(e.response?.data?.message || "You have already requested this ride.");
+      } else {
+        setReqMsg(e.response?.data?.message || "Could not start the request. Please try again.");
+      }
       setReqBusy(false);
     }
   };
@@ -633,56 +691,34 @@ export default function RideDetailsPage() {
                   ));
                 }
                 if (myReq?.status === "accepted") {
-                  const paid = myReq.paymentStatus === "paid";
-                  // Paid → booking finalized, contact revealed.
-                  if (paid) {
-                    return box("#f0fdf4", "#bbf7d0", (
-                      <div>
-                        <div style={{ fontSize: 13, color: "#15803d", fontWeight: 800, marginBottom: 6 }}>
-                          ✅ Payment Completed
-                        </div>
-                        <a href={`tel:${myReq.owner?.phone || ""}`} style={{ fontSize: 20, fontWeight: 700, color: "#166534" }}>
-                          {myReq.owner?.phone || "—"}
-                        </a>
-                      </div>
-                    ));
-                  }
-                  // Confirmed but payment pending → Pay Now (NEVER "Ride Full").
-                  return box("#eef2ff", "#c7d2fe", (
+                  // Pay-first: an accepted request is already paid → contact revealed.
+                  return box("#f0fdf4", "#bbf7d0", (
                     <div>
-                      <div style={{ fontSize: 12, color: "#4338ca", fontWeight: 700, marginBottom: 2 }}>
-                        Booking confirmed by the driver
+                      <div style={{ fontSize: 13, color: "#15803d", fontWeight: 800, marginBottom: 6 }}>
+                        ✅ Booking confirmed — payment completed
                       </div>
-                      <div style={{ fontSize: 13, color: "#4b5563", marginBottom: 10 }}>
-                        {myReq.paymentStatus === "failed"
-                          ? "Your last payment didn't go through. Retry to finalize your booking and view the contact details."
-                          : "Complete payment to finalize your booking and view the contact details."}
-                      </div>
-                      <button type="button" onClick={() => setPayConfirmOpen(true)} disabled={payBusy} style={{
-                        width: "100%", background: "#f5c518", color: "#111", border: "none", borderRadius: 10,
-                        padding: "12px 14px", fontWeight: 700, fontSize: 14,
-                        cursor: payBusy ? "not-allowed" : "pointer", fontFamily: "inherit",
-                        boxShadow: "0 4px 12px rgba(245,197,24,0.30)",
-                      }}>
-                        {payBusy
-                          ? "Processing…"
-                          : `${myReq.paymentStatus === "failed" ? "Retry Payment" : "Pay Now"}${findDailyPrice != null ? ` • ₹${findDailyPrice}` : ""}`}
-                      </button>
-                      {payMsg && <div style={{ marginTop: 8, fontSize: 13, color: "#4b5563" }}>{payMsg}</div>}
+                      <a href={`tel:${myReq.owner?.phone || ""}`} style={{ fontSize: 20, fontWeight: 700, color: "#166534" }}>
+                        {myReq.owner?.phone || "—"}
+                      </a>
                     </div>
                   ));
                 }
                 if (myReq?.status === "pending") {
                   return box("#fef9c3", "#fde68a", (
                     <div style={{ fontSize: 14, color: "#854d0e", fontWeight: 600 }}>
-                      Request sent — waiting for the owner to confirm.{" "}
-                      <span onClick={() => navigate("/requests")} style={{ color: "#7c3aed", fontWeight: 700, cursor: "pointer" }}>View</span>
+                      Payment successful — your request has been sent. Waiting for the owner to respond (auto-expires with a refund if not answered within 1 hour).{" "}
+                      <span onClick={() => navigate("/requests?tab=sent")} style={{ color: "#7c3aed", fontWeight: 700, cursor: "pointer" }}>View</span>
                     </div>
                   ));
                 }
                 if (myReq?.status === "rejected") {
                   return box("#fee2e2", "#fecaca", (
-                    <div style={{ fontSize: 14, color: "#991b1b", fontWeight: 600 }}>Your request was declined.</div>
+                    <div style={{ fontSize: 14, color: "#991b1b", fontWeight: 600 }}>Your request was declined. Your payment has been refunded.</div>
+                  ));
+                }
+                if (myReq?.status === "expired") {
+                  return box("#f3f4f6", "#e5e7eb", (
+                    <div style={{ fontSize: 14, color: "#6b7280", fontWeight: 600 }}>The owner didn't respond in time. Your payment has been refunded.</div>
                   ));
                 }
                 // No seats left (all confirmed) — disable the request button.
@@ -703,14 +739,17 @@ export default function RideDetailsPage() {
                 }
                 return (
                   <div style={{ marginBottom: 12 }}>
-                    <button type="button" onClick={sendRequest} disabled={reqBusy} style={{
+                    <button type="button" onClick={() => setPayConfirmOpen(true)} disabled={reqBusy} style={{
                       width: "100%", background: "#f5c518", color: "#111", border: "none", borderRadius: 10,
-                      padding: "12px 14px", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit",
+                      padding: "12px 14px", fontWeight: 700, fontSize: 14, cursor: reqBusy ? "not-allowed" : "pointer", fontFamily: "inherit",
                       boxShadow: "0 4px 12px rgba(245,197,24,0.30)",
                     }}>
-                      {reqBusy ? "Sending…" : "Request to Join"}
+                      {reqBusy ? "Processing…" : `Request Ride${findDailyPrice != null ? ` • ₹${findDailyPrice}` : ""}`}
                     </button>
-                    {reqMsg && <div style={{ marginTop: 8, fontSize: 13, color: "#4b5563" }}>{reqMsg}</div>}
+                    <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
+                      Pay now to send your request. If the owner rejects it or doesn't respond within 1 hour, you're automatically refunded.
+                    </div>
+                    {reqMsg && <div style={{ marginTop: 8, fontSize: 13, color: "#b91c1c" }}>{reqMsg}</div>}
                   </div>
                 );
               })()}
@@ -821,29 +860,29 @@ export default function RideDetailsPage() {
 
       {ride && <MapModal ride={ride} open={mapOpen} onClose={() => setMapOpen(false)} />}
 
-      {/* Pay Now confirmation — shown only after the driver has accepted. */}
+      {/* Pay-first confirmation — pay BEFORE the request is sent to the owner. */}
       <ConfirmModal
         open={payConfirmOpen}
-        title="Complete Your Ride Payment"
-        message="Your ride request has been accepted."
+        title="Pay to send your ride request"
+        message="Your request is sent to the ride owner only after payment succeeds."
         rows={[
-          { label: "Plan", value: "Find Ride Daily" },
-          { label: "Validity", value: "24 Hours" },
-          { label: "Amount", value: findDailyPrice != null ? `₹${findDailyPrice}` : "—" },
+          { label: "Booking fee", value: findDailyPrice != null ? `₹${findDailyPrice}` : "—" },
+          { label: "Owner response window", value: "1 hour" },
+          { label: "If rejected / no response", value: "Auto-refund" },
         ]}
-        note="After payment, the contact number and vehicle number will be unlocked."
+        note="On success, your request is sent and the owner is notified. If they reject it or don't respond within 1 hour, your payment is automatically refunded."
         cancelLabel="Cancel"
-        confirmLabel="Continue to Payment"
-        busy={payBusy}
+        confirmLabel="Pay & Send Request"
+        busy={reqBusy}
         onCancel={() => setPayConfirmOpen(false)}
-        onConfirm={() => { setPayConfirmOpen(false); payNow(); }}
+        onConfirm={() => { setPayConfirmOpen(false); sendRequest(); }}
       />
 
       {/* Request-sent confirmation (professional acknowledgement popup). */}
       <ConfirmModal
         open={reqSentOpen}
-        title="Ride request sent successfully"
-        message="You will be able to access the contact details after the host accepts your request."
+        title="Payment successful — request sent"
+        message="Your paid request has been sent to the ride owner. You'll be notified when they accept or reject. If they don't respond within 1 hour, you'll be refunded automatically."
         hideCancel
         confirmLabel="OK"
         onCancel={() => setReqSentOpen(false)}
