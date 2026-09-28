@@ -12,8 +12,12 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
+import axios from "axios";
 import { useGoogleMaps } from "../../utils/googleMapsLoader";
 import "./LocationSearch.css";
+
+const API_BASE =
+  import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
 // Fallback list only used if the Maps SDK/key is unavailable.
 const TN_DISTRICTS = [
@@ -91,10 +95,13 @@ export default function LocationSearch({
       setPredictions([]);
       return;
     }
-    if (!isLoaded || !placesReady()) return;
+    // Do NOT bail when Google isn't ready — the backend fallback below works on
+    // every device, so the dropdown always gets results.
 
     let cancelled = false;
 
+    // Each fetcher RETURNS an array (no state writes) so the caller can fall
+    // through to the next source when one yields nothing.
     const fetchNew = async () => {
       const places = window.google.maps.places;
       if (!sessionTokenRef.current && places.AutocompleteSessionToken) {
@@ -105,7 +112,6 @@ export default function LocationSearch({
         includedRegionCodes: ["in"],
         sessionToken: sessionTokenRef.current || undefined,
       });
-      if (cancelled) return true;
       const out = [];
       (suggestions || []).forEach((s) => {
         const pp = s.placePrediction;
@@ -114,8 +120,7 @@ export default function LocationSearch({
         const sec = (pp.secondaryText && pp.secondaryText.text) || "";
         out.push({ placePrediction: pp, place_id: pp.placeId, mainText: main, secondaryText: sec });
       });
-      setPredictions(out);
-      return true;
+      return out;
     };
 
     const fetchClassic = () =>
@@ -125,35 +130,49 @@ export default function LocationSearch({
           svc.getPlacePredictions(
             { input: q, componentRestrictions: { country: "in" } },
             (preds, status) => {
-              if (cancelled) return resolve(true);
               const OK = window.google.maps.places.PlacesServiceStatus?.OK || "OK";
-              if (status !== OK || !preds) { setPredictions([]); return resolve(true); }
-              const out = preds.map((p) => ({
+              if (status !== OK || !preds) return resolve([]);
+              resolve(preds.map((p) => ({
                 classicPlaceId: p.place_id,
                 place_id: p.place_id,
                 mainText: (p.structured_formatting && p.structured_formatting.main_text) || p.description,
                 secondaryText: (p.structured_formatting && p.structured_formatting.secondary_text) || "",
-              }));
-              setPredictions(out);
-              resolve(true);
+              })));
             }
           );
-        } catch (e) { resolve(false); }
+        } catch (e) { resolve([]); }
       });
+
+    // Device-independent fallback — our own server proxies Nominatim, so this
+    // works even when the client-side Google SDK is blocked (in-app browsers,
+    // referrer-restricted key, etc.). Results already carry lat/lon.
+    const fetchBackend = async () => {
+      try {
+        const { data } = await axios.get(`${API_BASE}/api/autocomplete`, {
+          params: { q }, timeout: 8000,
+        });
+        return (data?.results || []).map((r) => ({
+          backend: true,
+          lat: r.lat, lon: r.lon,
+          display_name: r.display_name,
+          mainText: r.name,
+          secondaryText: r.sub || "India",
+        }));
+      } catch (e) { return []; }
+    };
 
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        if (newPlacesReady()) {
-          try { await fetchNew(); return; }
-          catch (e) { /* fall back to classic below */ }
-        }
-        if (classicPlacesReady()) { await fetchClassic(); return; }
-        if (!cancelled) setPredictions([]);
+        let out = [];
+        if (newPlacesReady()) { try { out = await fetchNew(); } catch (e) {} }
+        if (!out.length && classicPlacesReady()) { try { out = await fetchClassic(); } catch (e) {} }
+        if (!out.length) { out = await fetchBackend(); }
+        if (!cancelled) setPredictions(out);
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }, 180);
+    }, 200);
 
     return () => {
       cancelled = true;
@@ -170,12 +189,14 @@ export default function LocationSearch({
     }
     if (predictions.length > 0) {
       return predictions.map((p) => ({
-        kind: "google",
+        kind: p.backend ? "backend" : "google",
         name: p.mainText,
         sub: p.secondaryText || "India",
         place_id: p.place_id,
         placePrediction: p.placePrediction,   // present for the NEW API only
         classicPlaceId: p.classicPlaceId,     // present for the CLASSIC API only
+        lat: p.lat, lon: p.lon,               // present for BACKEND results
+        display_name: p.display_name,
       }));
     }
     // If the SDK isn't available at all, offer a district match so the field
@@ -265,6 +286,12 @@ export default function LocationSearch({
   const pick = async (opt) => {
     if (opt.kind === "local") {
       onSelect({ display_name: opt.name, lat: opt.lat, lon: opt.lon });
+      setOpen(false);
+      return;
+    }
+    // BACKEND (Nominatim) result already carries coordinates — select directly.
+    if (opt.kind === "backend" || (opt.backend && opt.lat != null)) {
+      onSelect({ display_name: opt.display_name || opt.name, lat: opt.lat, lon: opt.lon });
       setOpen(false);
       return;
     }
