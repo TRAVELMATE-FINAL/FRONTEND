@@ -10,7 +10,8 @@
 // villages, localities, suburbs, bus/railway/metro stations, airports,
 // landmarks, tourist spots, colleges, IT parks, industrial/residential areas.
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useGoogleMaps } from "../../utils/googleMapsLoader";
 import "./LocationSearch.css";
 
@@ -28,11 +29,23 @@ const TN_DISTRICTS = [
   { name: "Thanjavur", lat: 10.787, lon: 79.1378 },
 ];
 
-// True once the SDK's new Places autocomplete is actually available.
-function placesReady() {
+// True once the SDK's NEW Places autocomplete is available.
+function newPlacesReady() {
   const p = window.google && window.google.maps && window.google.maps.places;
   return !!(p && p.AutocompleteSuggestion &&
     typeof p.AutocompleteSuggestion.fetchAutocompleteSuggestions === "function");
+}
+// True once the CLASSIC Places autocomplete service is available. This is far
+// more widely supported across mobile browsers / WebViews than the new API, so
+// it's our fallback — without it, some phones only ever saw the tiny hardcoded
+// district list.
+function classicPlacesReady() {
+  const p = window.google && window.google.maps && window.google.maps.places;
+  return !!(p && p.AutocompleteService);
+}
+// Either autocomplete path is usable.
+function placesReady() {
+  return newPlacesReady() || classicPlacesReady();
 }
 
 export default function LocationSearch({
@@ -46,13 +59,32 @@ export default function LocationSearch({
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(false);
   const wrapRef = useRef(null);
+  const inputRef = useRef(null);
+  const dropdownRef = useRef(null);
+  // Fixed-position coordinates for the portalled dropdown so it's never clipped
+  // by an ancestor's overflow/rounded corners or stacking context (the reason
+  // it wasn't fully visible on some phones).
+  const [coords, setCoords] = useState(null);
 
   const { isLoaded } = useGoogleMaps();
   const sessionTokenRef = useRef(null);
+  // Flips true once EITHER Places API is usable. Polled, because on slow phones
+  // the SDK reports isLoaded before the places library has finished attaching —
+  // and without a retry the field would stay stuck on the district fallback.
+  const [placesUsable, setPlacesUsable] = useState(false);
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (placesReady()) { setPlacesUsable(true); return; }
+    const id = setInterval(() => {
+      if (placesReady()) { setPlacesUsable(true); clearInterval(id); }
+    }, 300);
+    const stop = setTimeout(() => clearInterval(id), 10000);
+    return () => { clearInterval(id); clearTimeout(stop); };
+  }, [isLoaded]);
 
-  // Fetch India-wide suggestions as the user types. We check placesReady()
-  // LIVE (not via a ref set elsewhere) so a slow mobile load can't leave us
-  // stuck on the district fallback.
+  // Fetch India-wide suggestions as the user types. Prefers the new Places API,
+  // falls back to the classic AutocompleteService (supported on far more phones)
+  // so every device gets the full place list, not the tiny hardcoded fallback.
   useEffect(() => {
     const q = (value || "").trim();
     if (!q) {
@@ -61,31 +93,62 @@ export default function LocationSearch({
     }
     if (!isLoaded || !placesReady()) return;
 
-    const places = window.google.maps.places;
-    if (!sessionTokenRef.current && places.AutocompleteSessionToken) {
-      sessionTokenRef.current = new places.AutocompleteSessionToken();
-    }
-
     let cancelled = false;
+
+    const fetchNew = async () => {
+      const places = window.google.maps.places;
+      if (!sessionTokenRef.current && places.AutocompleteSessionToken) {
+        sessionTokenRef.current = new places.AutocompleteSessionToken();
+      }
+      const { suggestions } = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+        input: q,
+        includedRegionCodes: ["in"],
+        sessionToken: sessionTokenRef.current || undefined,
+      });
+      if (cancelled) return true;
+      const out = [];
+      (suggestions || []).forEach((s) => {
+        const pp = s.placePrediction;
+        if (!pp) return;
+        const main = (pp.mainText && pp.mainText.text) || (pp.text && pp.text.text) || "";
+        const sec = (pp.secondaryText && pp.secondaryText.text) || "";
+        out.push({ placePrediction: pp, place_id: pp.placeId, mainText: main, secondaryText: sec });
+      });
+      setPredictions(out);
+      return true;
+    };
+
+    const fetchClassic = () =>
+      new Promise((resolve) => {
+        try {
+          const svc = new window.google.maps.places.AutocompleteService();
+          svc.getPlacePredictions(
+            { input: q, componentRestrictions: { country: "in" } },
+            (preds, status) => {
+              if (cancelled) return resolve(true);
+              const OK = window.google.maps.places.PlacesServiceStatus?.OK || "OK";
+              if (status !== OK || !preds) { setPredictions([]); return resolve(true); }
+              const out = preds.map((p) => ({
+                classicPlaceId: p.place_id,
+                place_id: p.place_id,
+                mainText: (p.structured_formatting && p.structured_formatting.main_text) || p.description,
+                secondaryText: (p.structured_formatting && p.structured_formatting.secondary_text) || "",
+              }));
+              setPredictions(out);
+              resolve(true);
+            }
+          );
+        } catch (e) { resolve(false); }
+      });
+
     const t = setTimeout(async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        const { suggestions } = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input: q,
-          includedRegionCodes: ["in"], // India only
-          sessionToken: sessionTokenRef.current || undefined,
-        });
-        if (cancelled) return;
-        const out = [];
-        (suggestions || []).forEach((s) => {
-          const pp = s.placePrediction;
-          if (!pp) return;
-          const main = (pp.mainText && pp.mainText.text) || (pp.text && pp.text.text) || "";
-          const sec = (pp.secondaryText && pp.secondaryText.text) || "";
-          out.push({ placePrediction: pp, place_id: pp.placeId, mainText: main, secondaryText: sec });
-        });
-        setPredictions(out);
-      } catch (e) {
+        if (newPlacesReady()) {
+          try { await fetchNew(); return; }
+          catch (e) { /* fall back to classic below */ }
+        }
+        if (classicPlacesReady()) { await fetchClassic(); return; }
         if (!cancelled) setPredictions([]);
       } finally {
         if (!cancelled) setLoading(false);
@@ -96,7 +159,7 @@ export default function LocationSearch({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [value, isLoaded]);
+  }, [value, isLoaded, placesUsable]);
 
   const options = useMemo(() => {
     const q = (value || "").trim().toLowerCase();
@@ -111,7 +174,8 @@ export default function LocationSearch({
         name: p.mainText,
         sub: p.secondaryText || "India",
         place_id: p.place_id,
-        placePrediction: p.placePrediction,
+        placePrediction: p.placePrediction,   // present for the NEW API only
+        classicPlaceId: p.classicPlaceId,     // present for the CLASSIC API only
       }));
     }
     // If the SDK isn't available at all, offer a district match so the field
@@ -124,12 +188,61 @@ export default function LocationSearch({
     return [];
   }, [value, predictions]);
 
+  // Measure the input and decide where the dropdown sits (below by default,
+  // above when there isn't room — e.g. the input is near the bottom with the
+  // mobile keyboard open). Uses fixed coordinates in the viewport frame.
+  const recalcCoords = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    const spaceBelow = vh - r.bottom;
+    const spaceAbove = r.top;
+    const GAP = 6;
+    const below = spaceBelow >= 240 || spaceBelow >= spaceAbove;
+    const maxHeight = Math.max(
+      160,
+      Math.min(320, (below ? spaceBelow : spaceAbove) - GAP - 8)
+    );
+    setCoords({
+      left: Math.round(r.left),
+      width: Math.round(r.width),
+      below,
+      top: below ? Math.round(r.bottom + GAP) : undefined,
+      bottom: below ? undefined : Math.round(vh - r.top + GAP),
+      maxHeight: Math.round(maxHeight),
+    });
+  }, []);
+
+  // Recompute position whenever the dropdown is open, and keep it pinned to the
+  // input as the page scrolls or the viewport resizes (keyboard show/hide).
+  useEffect(() => {
+    if (!open) return;
+    recalcCoords();
+    const onMove = () => recalcCoords();
+    window.addEventListener("scroll", onMove, true); // capture: catch scrolls in any ancestor
+    window.addEventListener("resize", onMove);
+    return () => {
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+  }, [open, recalcCoords]);
+
+  // Keep it positioned as the option list length changes too.
+  useEffect(() => { if (open) recalcCoords(); }, [options.length, open, recalcCoords]);
+
   useEffect(() => {
     const onDocClick = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      const inWrap = wrapRef.current && wrapRef.current.contains(e.target);
+      const inDrop = dropdownRef.current && dropdownRef.current.contains(e.target);
+      if (!inWrap && !inDrop) setOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("touchstart", onDocClick);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("touchstart", onDocClick);
+    };
   }, []);
 
   // While the dropdown is open, lift the containing field ABOVE its siblings
@@ -153,6 +266,30 @@ export default function LocationSearch({
     if (opt.kind === "local") {
       onSelect({ display_name: opt.name, lat: opt.lat, lon: opt.lon });
       setOpen(false);
+      return;
+    }
+    // CLASSIC prediction → resolve coordinates via the Geocoder (widely
+    // supported), since there's no placePrediction.toPlace() here.
+    if (!opt.placePrediction && opt.classicPlaceId) {
+      const label = opt.sub && opt.sub !== "India" ? `${opt.name}, ${opt.sub}` : opt.name;
+      try {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ placeId: opt.classicPlaceId }, (res, status) => {
+          const OK = window.google.maps.GeocoderStatus?.OK || "OK";
+          if (status === OK && res && res[0]) {
+            const loc = res[0].geometry.location;
+            const lat = typeof loc.lat === "function" ? loc.lat() : loc.lat;
+            const lon = typeof loc.lng === "function" ? loc.lng() : loc.lng;
+            onSelect({ display_name: res[0].formatted_address || label, lat, lon });
+          } else {
+            onChange(label);
+          }
+          setOpen(false);
+        });
+      } catch (e) {
+        onChange(label);
+        setOpen(false);
+      }
       return;
     }
     try {
@@ -198,6 +335,7 @@ export default function LocationSearch({
   return (
     <div className="locsearch" ref={wrapRef}>
       <input
+        ref={inputRef}
         className="locsearch__input"
         type="text"
         placeholder={placeholder}
@@ -211,8 +349,20 @@ export default function LocationSearch({
         autoComplete="off"
       />
 
-      {open && options.length > 0 && (
-        <ul className="locsearch__dropdown" role="listbox">
+      {open && options.length > 0 && coords && createPortal(
+        <ul
+          ref={dropdownRef}
+          className="locsearch__dropdown locsearch__dropdown--portal"
+          role="listbox"
+          style={{
+            position: "fixed",
+            left: coords.left,
+            width: coords.width,
+            top: coords.below ? coords.top : undefined,
+            bottom: coords.below ? undefined : coords.bottom,
+            maxHeight: coords.maxHeight,
+          }}
+        >
           {options.map((opt, i) => {
             const itemKey = (opt.place_id || opt.name) + "_" + i;
             const isActive = i === highlight;
@@ -241,11 +391,25 @@ export default function LocationSearch({
               </li>
             );
           })}
-        </ul>
+        </ul>,
+        document.body
       )}
 
-      {open && value && options.length === 0 && (
-        <div className="locsearch__empty">{loading ? "Searching…" : "No matching place"}</div>
+      {open && value && options.length === 0 && coords && createPortal(
+        <div
+          ref={dropdownRef}
+          className="locsearch__empty locsearch__empty--portal"
+          style={{
+            position: "fixed",
+            left: coords.left,
+            width: coords.width,
+            top: coords.below ? coords.top : undefined,
+            bottom: coords.below ? undefined : coords.bottom,
+          }}
+        >
+          {loading ? "Searching…" : "No matching place"}
+        </div>,
+        document.body
       )}
     </div>
   );

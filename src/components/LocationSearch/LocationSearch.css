@@ -43,6 +43,16 @@
   box-sizing: border-box;
 }
 
+/* Portalled to <body> with fixed coordinates (set inline by JS). Reset the
+   base absolute rules so left/width/top from the inline style take effect, and
+   sit above every page layer so the list is fully visible on all phones. */
+.locsearch__dropdown--portal,
+.locsearch__empty--portal {
+  right: auto !important;
+  max-width: none !important;
+  z-index: 2147483000 !important;   /* above modals, maps, sticky bars */
+}
+
 .locsearch__option {
   display: flex;
   align-items: center;
