@@ -216,21 +216,32 @@ export default function LocationSearch({
     const el = inputRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const vh = window.innerHeight || document.documentElement.clientHeight;
-    const spaceBelow = vh - r.bottom;
-    const spaceAbove = r.top;
+    // Use the VISUAL viewport (the area ABOVE the on-screen keyboard). Many
+    // mobile browsers keep window.innerHeight unchanged when the keyboard opens
+    // and just overlay it, which caused the dropdown to be placed BEHIND the
+    // keyboard for lower fields (e.g. "To"). visualViewport reflects the real
+    // visible area, so we can flip the list above the input when needed.
+    const vv = window.visualViewport;
+    const visTop = vv ? vv.offsetTop : 0;
+    const visBottom = vv ? vv.offsetTop + vv.height : (window.innerHeight || document.documentElement.clientHeight);
     const GAP = 6;
-    const below = spaceBelow >= 240 || spaceBelow >= spaceAbove;
+    const spaceBelow = visBottom - r.bottom;   // room between input and keyboard/viewport bottom
+    const spaceAbove = r.top - visTop;         // room above the input
+    // Prefer below only if there's real room; otherwise open upward so the list
+    // is never hidden under the keyboard.
+    const below = spaceBelow >= 200 || spaceBelow >= spaceAbove;
     const maxHeight = Math.max(
-      160,
-      Math.min(320, (below ? spaceBelow : spaceAbove) - GAP - 8)
+      150,
+      Math.min(300, (below ? spaceBelow : spaceAbove) - GAP - 8)
     );
     setCoords({
       left: Math.round(r.left),
       width: Math.round(r.width),
       below,
       top: below ? Math.round(r.bottom + GAP) : undefined,
-      bottom: below ? undefined : Math.round(vh - r.top + GAP),
+      // Anchor upward using the layout-viewport bottom (fixed coords are in the
+      // layout frame); r.top is already in that frame.
+      bottom: below ? undefined : Math.round((window.innerHeight || document.documentElement.clientHeight) - r.top + GAP),
       maxHeight: Math.round(maxHeight),
     });
   }, []);
@@ -243,9 +254,18 @@ export default function LocationSearch({
     const onMove = () => recalcCoords();
     window.addEventListener("scroll", onMove, true); // capture: catch scrolls in any ancestor
     window.addEventListener("resize", onMove);
+    // The keyboard open/close fires visualViewport resize/scroll, not window resize.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", onMove);
+      window.visualViewport.addEventListener("scroll", onMove);
+    }
     return () => {
       window.removeEventListener("scroll", onMove, true);
       window.removeEventListener("resize", onMove);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", onMove);
+        window.visualViewport.removeEventListener("scroll", onMove);
+      }
     };
   }, [open, recalcCoords]);
 
