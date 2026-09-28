@@ -480,8 +480,10 @@ export default function LocationSearch({
             position: "fixed",
             left: coords.left,
             width: coords.width,
-            top: coords.below ? coords.top : undefined,
-            bottom: coords.below ? undefined : coords.bottom,
+            // Use "auto" (never undefined) so the base CSS top/bottom rules
+            // can't leak in and mis-place the list when it opens upward.
+            top: coords.below ? coords.top : "auto",
+            bottom: coords.below ? "auto" : coords.bottom,
             maxHeight: coords.maxHeight,
           }}
         >
@@ -525,8 +527,8 @@ export default function LocationSearch({
             position: "fixed",
             left: coords.left,
             width: coords.width,
-            top: coords.below ? coords.top : undefined,
-            bottom: coords.below ? undefined : coords.bottom,
+            top: coords.below ? coords.top : "auto",
+            bottom: coords.below ? "auto" : coords.bottom,
           }}
         >
           {loading ? "Searching…" : "No places found"}
