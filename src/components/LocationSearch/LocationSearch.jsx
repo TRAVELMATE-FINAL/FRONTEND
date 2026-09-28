@@ -510,8 +510,10 @@ export default function LocationSearch({
                     <circle cx="12" cy="10" r="3" />
                   </svg>
                 </span>
-                <span className="locsearch__name">{opt.name}</span>
-                {opt.sub && <span className="locsearch__sub">{opt.sub}</span>}
+                <span className="locsearch__text">
+                  <span className="locsearch__name">{opt.name}</span>
+                  {opt.sub && <span className="locsearch__sub">{opt.sub}</span>}
+                </span>
               </li>
             );
           })}
