@@ -221,15 +221,26 @@ export default function LocationSearch({
     // and just overlay it, which caused the dropdown to be placed BEHIND the
     // keyboard for lower fields (e.g. "To"). visualViewport reflects the real
     // visible area, so we can flip the list above the input when needed.
+    const ih = window.innerHeight || document.documentElement.clientHeight;
     const vv = window.visualViewport;
+    const hasVV = !!vv;
     const visTop = vv ? vv.offsetTop : 0;
-    const visBottom = vv ? vv.offsetTop + vv.height : (window.innerHeight || document.documentElement.clientHeight);
+    const visBottom = vv ? vv.offsetTop + vv.height : ih;
     const GAP = 6;
     const spaceBelow = visBottom - r.bottom;   // room between input and keyboard/viewport bottom
     const spaceAbove = r.top - visTop;         // room above the input
-    // Prefer below only if there's real room; otherwise open upward so the list
-    // is never hidden under the keyboard.
-    const below = spaceBelow >= 200 || spaceBelow >= spaceAbove;
+    let below;
+    if (hasVV) {
+      // Accurate: visualViewport already excludes the keyboard.
+      below = spaceBelow >= 200 || spaceBelow >= spaceAbove;
+    } else {
+      // Old Android / WebView without visualViewport: we can't detect the
+      // keyboard, so if the field sits in the lower half of the screen assume
+      // the keyboard will cover the area below and open the list UPWARD.
+      const inputMidY = (r.top + r.bottom) / 2;
+      const lowerHalf = inputMidY > ih * 0.5;
+      below = !lowerHalf && spaceBelow >= 200;
+    }
     const maxHeight = Math.max(
       150,
       Math.min(300, (below ? spaceBelow : spaceAbove) - GAP - 8)
