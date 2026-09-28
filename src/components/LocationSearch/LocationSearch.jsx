@@ -52,6 +52,64 @@ function placesReady() {
   return newPlacesReady() || classicPlacesReady();
 }
 
+// ── Fuzzy match scoring (client-side re-ranking) ────────────────────────────
+// The data source (Google/Photon) provides recall — including typo tolerance.
+// This scores each returned candidate against what the user typed so the
+// CLOSEST match is listed first. Case-insensitive. Handles: exact, prefix,
+// substring-anywhere, and misspellings (via edit distance).
+function levenshtein(a, b) {
+  a = a || ""; b = b || "";
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    let prevDiag = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = prev[j];
+      prev[j] = Math.min(
+        prev[j] + 1,          // deletion
+        prev[j - 1] + 1,      // insertion
+        prevDiag + (a[i - 1] === b[j - 1] ? 0 : 1) // substitution
+      );
+      prevDiag = tmp;
+    }
+  }
+  return prev[b.length];
+}
+
+// Higher score = closer match. Compares the query to the place name (and, more
+// weakly, its full label so "chennai central" still matches "chennai").
+function fuzzyScore(query, name, sub) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return 0;
+  const n = String(name || "").toLowerCase();
+  const full = (n + " " + String(sub || "").toLowerCase()).trim();
+  if (!n) return 0;
+
+  if (n === q) return 1000;                       // exact
+  if (n.startsWith(q)) return 900 - n.length;     // starts-with (shorter wins)
+  // any word in the name starts with the query
+  if (n.split(/[\s,]+/).some((w) => w.startsWith(q))) return 820 - n.length;
+  if (n.includes(q)) return 780 - n.indexOf(q);   // substring anywhere
+  if (full.includes(q)) return 700;               // appears in the full label
+
+  // Misspelling tolerance — compare against the name, and the best-matching
+  // single word of the name (so "banglore" ~ "bangalore").
+  const words = n.split(/[\s,]+/).filter(Boolean);
+  let best = levenshtein(q, n);
+  for (const w of words) best = Math.min(best, levenshtein(q, w));
+  const ref = Math.max(q.length, 1);
+  const sim = 1 - best / Math.max(ref, best || 1); // 0..1
+  // Accept as a fuzzy match when reasonably close.
+  if (sim >= 0.5 || best <= Math.max(2, Math.ceil(ref * 0.34))) {
+    return Math.round(400 * sim);
+  }
+  return -1; // not a plausible match
+}
+
 export default function LocationSearch({
   placeholder = "Search location",
   value = "",
@@ -188,7 +246,7 @@ export default function LocationSearch({
       }));
     }
     if (predictions.length > 0) {
-      return predictions.map((p) => ({
+      const mapped = predictions.map((p, i) => ({
         kind: p.backend ? "backend" : "google",
         name: p.mainText,
         sub: p.secondaryText || "India",
@@ -197,7 +255,13 @@ export default function LocationSearch({
         classicPlaceId: p.classicPlaceId,     // present for the CLASSIC API only
         lat: p.lat, lon: p.lon,               // present for BACKEND results
         display_name: p.display_name,
+        _i: i,                                 // original (source relevance) order
+        _score: fuzzyScore(value, p.mainText, p.secondaryText),
       }));
+      // Rank the closest / most similar matches first; keep the source order as
+      // a stable tiebreaker. No results are dropped — only reordered.
+      mapped.sort((a, b) => (b._score - a._score) || (a._i - b._i));
+      return mapped;
     }
     // If the SDK isn't available at all, offer a district match so the field
     // still works in degraded mode.
@@ -465,7 +529,7 @@ export default function LocationSearch({
             bottom: coords.below ? undefined : coords.bottom,
           }}
         >
-          {loading ? "Searching…" : "No matching place"}
+          {loading ? "Searching…" : "No places found"}
         </div>,
         document.body
       )}
