@@ -85,7 +85,7 @@ function Hero({ mode: modeProp, onModeChange }) {
         </div>
 
         {/* Prominent entry to the Bus Route lookup (separate feature). */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20, marginBottom: 28 }}>
           <button
             type="button"
             onClick={() => navigate('/bus-routes')}
