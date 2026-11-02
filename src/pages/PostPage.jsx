@@ -1651,6 +1651,25 @@ export default function TravelMatePost({ embedded = false } = {}) {
     };
   };
 
+  // Vehicle name / model validation — must be a real name, not blank, not just
+  // numbers or symbols. Allows real model names with digits (e.g. "Swift Dzire",
+  // "i20", "CB350", "XUV 500"). Returns "" when valid, else an error message.
+  const validateVehicleName = (raw) => {
+    const v = String(raw || "").trim();
+    if (v.length < 2) return "Please enter the vehicle name (e.g. Swift, Activa, City)";
+    if (v.length > 40) return "Vehicle name is too long (max 40 characters)";
+    // Only letters, numbers, spaces and a few common separators are allowed.
+    if (!/^[A-Za-z0-9][A-Za-z0-9 .&'-]*$/.test(v)) {
+      return "Vehicle name can't contain special characters";
+    }
+    // Must contain real letters — reject pure numbers / symbols / gibberish.
+    const letters = (v.match(/[A-Za-z]/g) || []).length;
+    if (letters < 2) return "Please enter a valid vehicle name (letters required, not just numbers)";
+    // Reject a single character repeated (e.g. "aaaa", "....").
+    if (/^(.)\1+$/.test(v.replace(/\s/g, ""))) return "Please enter a valid vehicle name";
+    return "";
+  };
+
   // Final publish — all vehicle fields are mandatory
   const publish = async () => {
     setError("");
@@ -1661,9 +1680,9 @@ export default function TravelMatePost({ embedded = false } = {}) {
       return;
     }
     // ── Vehicle name / model ──
-    if (!form.vehicleName || form.vehicleName.trim().length < 2) {
-      setError("Please enter the vehicle model / name");
-      return;
+    {
+      const vmsg = validateVehicleName(form.vehicleName);
+      if (vmsg) { setError(vmsg); return; }
     }
     // ── Vehicle colour ──
     if (!form.vehicleColor || form.vehicleColor.trim().length < 3) {

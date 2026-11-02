@@ -5,6 +5,7 @@ import Spinner from "../components/Spinner/Spinner.jsx";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import { formatTime12h } from "../utils/time.js";
+import { isSoundEnabled, setSoundEnabled, unlockNotificationAudio, playNotificationSound } from "../services/notificationSound";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -419,6 +420,7 @@ export default function ProfileSettings() {
   const [activeTab, setActiveTab] = useState("post"); // "booked" | "post"
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [notifSound, setNotifSound] = useState(() => isSoundEnabled());
   const [error, setError] = useState("");
   // Real bookings this user made (outgoing requests). Each carries its own
   // driver (owner) + payment status so the contact number can be shown only
@@ -991,6 +993,47 @@ export default function ProfileSettings() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* ── NOTIFICATION PREFERENCES ── */}
+            <div style={cardStyle}>
+              <div style={{ padding: "16px 20px 12px", fontSize: 15, fontWeight: 800, color: "#111827" }}>
+                Notifications
+              </div>
+              <div style={{ padding: "0 20px 18px" }}>
+                <label style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  gap: 12, cursor: "pointer",
+                }}>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#1a1a4e" }}>Notification sound</span>
+                    <span style={{ display: "block", fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+                      Play an alert sound when a new notification arrives while the app is open.
+                    </span>
+                  </span>
+                  <span
+                    role="switch"
+                    aria-checked={notifSound}
+                    onClick={() => {
+                      const next = !notifSound;
+                      setNotifSound(next);
+                      setSoundEnabled(next);
+                      if (next) { unlockNotificationAudio(); playNotificationSound(); } // preview
+                    }}
+                    style={{
+                      flexShrink: 0, width: 46, height: 28, borderRadius: 999,
+                      background: notifSound ? "#7c3aed" : "#d7dae8",
+                      position: "relative", transition: "background 0.15s ease",
+                    }}
+                  >
+                    <span style={{
+                      position: "absolute", top: 3, left: notifSound ? 21 : 3,
+                      width: 22, height: 22, borderRadius: "50%", background: "#fff",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.25)", transition: "left 0.15s ease",
+                    }} />
+                  </span>
+                </label>
               </div>
             </div>
 

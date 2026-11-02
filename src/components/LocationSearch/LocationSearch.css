@@ -41,6 +41,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;   /* momentum scroll on iOS Safari */
 }
 
 /* Portalled to <body> with fixed coordinates (set inline by JS). Reset the
@@ -56,14 +57,17 @@
 .locsearch__option {
   display: flex;
   align-items: flex-start;      /* pin aligns to first line of a wrapped name */
-  gap: 10px;
   padding: 11px 12px;
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   color: #0f172a;
   user-select: none;
+  touch-action: manipulation;   /* remove the 300ms tap delay on mobile Safari */
 }
+/* Use margin (not flex `gap`) to space the pin from the text, so spacing works
+   on older Android/Safari WebViews that don't support gap on flexboxes. */
+.locsearch__option > .locsearch__pin { margin-right: 10px; }
 
 /* Name + location stacked vertically so the full place name is always visible
    (it used to share one line with the location and get truncated). */

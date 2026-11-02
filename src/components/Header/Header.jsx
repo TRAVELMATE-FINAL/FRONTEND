@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import './Header.css';
 import { clearSession } from '../../services/session';
+import { playNotificationSound, armNotificationAudioUnlock } from '../../services/notificationSound';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 
 const API_BASE = import.meta.env.VITE_APP_URL || 'https://travelmate-backend-dzpq.onrender.com';
@@ -17,6 +18,12 @@ function Header() {
     () => { try { return !!localStorage.getItem('phone'); } catch { return false; } }
   );
   const [signOutOpen, setSignOutOpen] = useState(false);
+  // Set of unread notification ids already seen — null until the first poll so
+  // we don't chime for notifications that existed before the app opened.
+  const seenNotifIdsRef = useRef(null);
+
+  // Prepare audio to play after the user's first interaction (autoplay policy).
+  useEffect(() => { armNotificationAudioUnlock(); }, []);
 
   const doSignOut = () => {
     clearSession();          // removes phone + loginExpiry
@@ -56,6 +63,22 @@ function Header() {
           if (cancelled) return;
           const items = Array.isArray(data?.data) ? data.data : [];
           setUnreadCount(items.filter((n) => !n.read).length);
+
+          // ── New-notification chime (de-duplicated) ──────────────────
+          // Track which notification ids we've already seen. On the FIRST
+          // poll we just record them (so opening the app doesn't chime for
+          // old unreads). After that, a genuinely new UNREAD notification
+          // plays the alarm once. Each id can only trigger the sound once.
+          const unreadIds = items.filter((n) => !n.read).map((n) => String(n._id || n.id));
+          if (seenNotifIdsRef.current === null) {
+            seenNotifIdsRef.current = new Set(unreadIds); // first load — baseline only
+          } else {
+            const fresh = unreadIds.filter((id) => !seenNotifIdsRef.current.has(id));
+            if (fresh.length > 0) {
+              fresh.forEach((id) => seenNotifIdsRef.current.add(id));
+              playNotificationSound();
+            }
+          }
         })
         .catch(() => {
           // Silent — header shouldn't bother the user if the API is down
