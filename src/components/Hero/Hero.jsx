@@ -85,21 +85,32 @@ function Hero({ mode: modeProp, onModeChange }) {
         </div>
 
         {/* Prominent entry to the Bus Route lookup (separate feature). */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
           <button
             type="button"
             onClick={() => navigate('/bus-routes')}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: 'rgba(255,255,255,0.14)',
-              border: '1px solid rgba(255,255,255,0.45)',
-              color: '#fff', fontWeight: 700, fontSize: 14,
-              padding: '10px 18px', borderRadius: 999, cursor: 'pointer',
-              fontFamily: 'inherit', backdropFilter: 'blur(2px)',
-            }}
+            className="hero__busbtn"
           >
-            <span aria-hidden="true" style={{ fontSize: 16 }}>🚌</span>
-            Search Bus Route by Number
+            <span className="hero__busbtn-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10" />
+                <path d="M3 16h18" />
+                <path d="M6 16v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2" />
+                <path d="M20 16v2a1 1 0 0 1-1 1h0a1 1 0 0 1-1-1v-2" />
+                <path d="M4 10h16" />
+                <circle cx="8" cy="13" r="0.6" fill="currentColor" />
+                <circle cx="16" cy="13" r="0.6" fill="currentColor" />
+              </svg>
+            </span>
+            <span className="hero__busbtn-text">
+              Bus Route Finder
+              <span className="hero__busbtn-sub">Search any Tamil Nadu bus by number</span>
+            </span>
+            <svg className="hero__busbtn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
           </button>
         </div>
 
