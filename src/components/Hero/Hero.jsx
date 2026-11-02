@@ -84,6 +84,25 @@ function Hero({ mode: modeProp, onModeChange }) {
           </button>
         </div>
 
+        {/* Prominent entry to the Bus Route lookup (separate feature). */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+          <button
+            type="button"
+            onClick={() => navigate('/bus-routes')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: 'rgba(255,255,255,0.14)',
+              border: '1px solid rgba(255,255,255,0.45)',
+              color: '#fff', fontWeight: 700, fontSize: 14,
+              padding: '10px 18px', borderRadius: 999, cursor: 'pointer',
+              fontFamily: 'inherit', backdropFilter: 'blur(2px)',
+            }}
+          >
+            <span aria-hidden="true" style={{ fontSize: 16 }}>🚌</span>
+            Search Bus Route by Number
+          </button>
+        </div>
+
         {/* Search card — only rendered in Find mode. When the user clicks
             Post, the search card hides so the embedded PostPage form
             below can take over (no duplicate From/To/Date fields). */}
