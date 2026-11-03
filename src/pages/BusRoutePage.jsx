@@ -79,15 +79,64 @@ function BusRouteMap({ route }) {
     });
   }, []);
 
+  const mk = useCallback((map, pos, color, label, scale, title) => {
+    const g = window.google;
+    const marker = new g.maps.Marker({
+      position: pos, map, title: title || "",
+      label,
+      icon: { path: g.maps.SymbolPath.CIRCLE, scale, fillColor: color, fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
+      zIndex: 3,
+    });
+    layersRef.current.push(marker);
+  }, []);
+
   const onMapLoad = useCallback(async (map) => {
     mapRef.current = map;
     const g = window.google;
     clear();
     setStatus("plotting");
 
+    const REGION = ", Tamil Nadu, India";
+    const origin = String(route.from || "").trim() + REGION;
+    const destination = String(route.to || "").trim() + REGION;
+    const stopNames = (route.stops || []).map((s) => s.name).filter(Boolean);
+    const waypoints = stopNames.slice(0, 23).map((name) => ({ location: name + REGION, stopover: true }));
+
+    // ── 1) Preferred: a real road route via Directions. It geocodes the place
+    // names itself (no separate Geocoding API needed) and returns an actual
+    // road path, which is far more reliable than geocoding each ALL-CAPS name. ──
+    const ds = new g.maps.DirectionsService();
+    const routeReq = (wp) => new Promise((resolve) => {
+      ds.route(
+        { origin, destination, waypoints: wp, optimizeWaypoints: false, travelMode: g.maps.TravelMode.DRIVING },
+        (res, st) => resolve(st === "OK" ? res : null)
+      );
+    });
+    let result = await routeReq(waypoints);
+    if (!result && waypoints.length) result = await routeReq([]); // one bad stop name can fail the whole route → retry direct
+
+    if (result && result.routes && result.routes[0]) {
+      const renderer = new g.maps.DirectionsRenderer({
+        map,
+        suppressMarkers: true,
+        preserveViewport: false, // auto-fit to the route
+        polylineOptions: { strokeColor: "#7c3aed", strokeWeight: 5, strokeOpacity: 0.9 },
+      });
+      renderer.setDirections(result);
+      layersRef.current.push(renderer); // renderer.setMap(null) on cleanup
+      const legs = result.routes[0].legs || [];
+      if (legs.length) {
+        mk(map, legs[0].start_location, "#22c55e", { text: "A", color: "#fff", fontSize: "11px", fontWeight: "700" }, 9, route.from);
+        for (let i = 0; i < legs.length - 1; i++) mk(map, legs[i].end_location, "#7c3aed", undefined, 6); // stop markers
+        mk(map, legs[legs.length - 1].end_location, "#ef4444", { text: "B", color: "#fff", fontSize: "11px", fontWeight: "700" }, 9, route.to);
+      }
+      setStatus("ok");
+      return;
+    }
+
+    // ── 2) Fallback: geocode from/to/stops ourselves, markers + straight line. ──
     const seq = sequence();
     const geocoder = new g.maps.Geocoder();
-    // Resolve coordinates for each stop (use stored coords if present, else geocode).
     const points = [];
     for (const s of seq) {
       let lat = Number(s.lat), lon = Number(s.lon);
@@ -95,47 +144,28 @@ function BusRouteMap({ route }) {
         const geo = await geocode(geocoder, s.name);
         if (geo) { lat = geo.lat; lon = geo.lon; }
       }
-      if (Number.isFinite(lat) && Number.isFinite(lon)) {
-        points.push({ lat, lng: lon, name: s.name, kind: s.kind });
-      }
+      if (Number.isFinite(lat) && Number.isFinite(lon)) points.push({ lat, lng: lon, name: s.name, kind: s.kind });
     }
-
     if (points.length < 2) { setStatus("nocoords"); return; }
 
     const bounds = new g.maps.LatLngBounds();
     points.forEach((p, i) => {
-      const isStart = i === 0;
-      const isEnd = i === points.length - 1;
+      const isStart = i === 0, isEnd = i === points.length - 1;
       const color = isStart ? "#22c55e" : isEnd ? "#ef4444" : "#7c3aed";
-      const marker = new g.maps.Marker({
-        position: { lat: p.lat, lng: p.lng },
-        map,
-        title: p.name,
-        label: isStart ? { text: "A", color: "#fff", fontSize: "11px", fontWeight: "700" }
-             : isEnd   ? { text: "B", color: "#fff", fontSize: "11px", fontWeight: "700" }
-             : undefined,
-        icon: {
-          path: g.maps.SymbolPath.CIRCLE,
-          scale: isStart || isEnd ? 9 : 6,
-          fillColor: color, fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2,
-        },
-        zIndex: isStart || isEnd ? 3 : 2,
-      });
-      layersRef.current.push(marker);
+      mk(map, { lat: p.lat, lng: p.lng }, color,
+        isStart ? { text: "A", color: "#fff", fontSize: "11px", fontWeight: "700" }
+        : isEnd ? { text: "B", color: "#fff", fontSize: "11px", fontWeight: "700" } : undefined,
+        isStart || isEnd ? 9 : 6, p.name);
       bounds.extend({ lat: p.lat, lng: p.lng });
     });
-
     const line = new g.maps.Polyline({
       path: points.map((p) => ({ lat: p.lat, lng: p.lng })),
-      map,
-      strokeColor: "#7c3aed",
-      strokeOpacity: 0.9,
-      strokeWeight: 4,
+      map, strokeColor: "#7c3aed", strokeOpacity: 0.9, strokeWeight: 4,
     });
     layersRef.current.push(line);
     map.fitBounds(bounds, 40);
     setStatus("ok");
-  }, [sequence, geocode, clear]);
+  }, [route, sequence, geocode, clear, mk]);
 
   if (loadError || authFailed) {
     return <div style={mapMsgStyle}>Map unavailable right now — the route details above are still accurate.</div>;
