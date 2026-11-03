@@ -17,6 +17,7 @@ import UnlockContact from "./pages/UnlockContact";
 import NotificationsPage from "./pages/NotificationsPage";
 import RideRequests from "./pages/RideRequests";
 import BusRoutePage from "./pages/BusRoutePage";
+import LiveRidesPage from "./pages/LiveRidesPage";
 import ScrollToTop from "./components/ScrollToTop/ScrollToTop.jsx";
 
 export default function App() {
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/requests" element={<RideRequests />} />
         <Route path="/bus-routes" element={<BusRoutePage />} />
+        <Route path="/live-rides" element={<LiveRidesPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

@@ -371,3 +371,22 @@
   .hero__busbtn-icon { width: 34px; height: 34px; }
   .hero__busbtn-text { font-size: 14px; }
 }
+
+/* Row holding the two feature CTAs (Bus Route Finder + Live Rides). */
+.hero__feature-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+  margin-bottom: 28px;
+}
+.hero__feature-row .hero__busbtn { flex: 0 1 300px; }
+/* Live Rides icon uses a distinct green→teal gradient. */
+.hero__busbtn-icon--live {
+  background: linear-gradient(135deg, #16a34a 0%, #0ea5a4 100%);
+}
+@media (max-width: 480px) {
+  .hero__feature-row { gap: 10px; }
+  .hero__feature-row .hero__busbtn { flex: 1 1 100%; }
+}
