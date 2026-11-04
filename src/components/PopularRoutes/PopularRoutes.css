@@ -1,0 +1,82 @@
+/* =====================================================
+   POPULAR ROUTES — quick-search shortcut cards
+   ===================================================== */
+.poproutes {
+  background: var(--color-bg);
+  padding: var(--space-16) 0 var(--space-12);
+}
+
+.poproutes__header {
+  text-align: center;
+  margin-bottom: var(--space-10);
+}
+.poproutes__title {
+  font-size: var(--font-size-xl);
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--space-2);
+}
+.poproutes__subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.poproutes__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+.poproute {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: var(--shadow-sm);
+}
+
+.poproute__pts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.poproute__city {
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.poproute__arrow { color: var(--color-purple); flex-shrink: 0; }
+
+.poproute__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-purple);
+  white-space: nowrap;
+}
+.poproute__cta svg { transition: transform var(--t-base); }
+@media (pointer: fine) {
+  .poproute:hover .poproute__cta svg { transform: translateX(3px); }
+}
+
+@media (max-width: 900px) {
+  .poproutes__grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .poproutes { padding: var(--space-12) 0 var(--space-10); }
+  .poproutes__grid { grid-template-columns: 1fr; gap: var(--space-3); }
+  .poproute { padding: var(--space-4) var(--space-5); }
+}

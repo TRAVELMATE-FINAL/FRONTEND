@@ -18,6 +18,10 @@ import NotificationsPage from "./pages/NotificationsPage";
 import RideRequests from "./pages/RideRequests";
 import BusRoutePage from "./pages/BusRoutePage";
 import LiveRidesPage from "./pages/LiveRidesPage";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import ScrollToTop from "./components/ScrollToTop/ScrollToTop.jsx";
 
 export default function App() {
@@ -53,6 +57,13 @@ export default function App() {
         <Route path="/requests" element={<RideRequests />} />
         <Route path="/bus-routes" element={<BusRoutePage />} />
         <Route path="/live-rides" element={<LiveRidesPage />} />
+
+        {/* Informational pages (footer Useful Links) */}
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

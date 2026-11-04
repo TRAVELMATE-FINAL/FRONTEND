@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import Header from '../components/Header/Header.jsx';
 import Hero from '../components/Hero/Hero.jsx';
+import PopularRoutes from '../components/PopularRoutes/PopularRoutes.jsx';
 import HowItWorks from '../components/HowItWorks/HowItWorks.jsx';
 import WhyChoose from '../components/WhyChoose/WhyChoose.jsx';
+import CtaPost from '../components/CtaPost/CtaPost.jsx';
 import Footer from '../components/Footer/Footer.jsx';
 import PostPage from './PostPage.jsx';
 import './FindRide.css';
@@ -39,8 +41,10 @@ export default function FindRide() {
           </section>
         ) : (
           <>
+            <PopularRoutes />
             <HowItWorks />
             <WhyChoose />
+            <CtaPost />
           </>
         )}
       </main>

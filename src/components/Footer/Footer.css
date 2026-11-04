@@ -11,6 +11,32 @@
   gap: var(--space-10);
 }
 
+/* Brand block */
+.footer__logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: var(--space-3);
+}
+.footer__logo-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #fff;
+  background: linear-gradient(135deg, #ec1c8c 0%, #7c3aed 100%);
+}
+.footer__logo-text {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text-on-dark);
+}
+
 .footer__heading {
   color: var(--color-text-on-dark);
   font-size: var(--font-size-base);
@@ -46,19 +72,21 @@
 }
 
 .footer__social a {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--color-text-on-dark-muted);
-  transition: color var(--t-base), background var(--t-base);
+  background: rgba(255, 255, 255, 0.06);
+  transition: color var(--t-base), background var(--t-base), transform var(--t-base);
 }
 
 .footer__social a:hover {
-  color: var(--color-bg-darker);
-  background: var(--color-text-on-dark);
+  color: var(--color-primary-text);
+  background: var(--color-primary);
+  transform: translateY(-2px);
 }
 
 .footer__bottom {

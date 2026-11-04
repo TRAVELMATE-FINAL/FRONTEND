@@ -4,20 +4,37 @@ const STEPS = [
   {
     n: 1,
     color: 'step--pink',
-    title: 'Post or Find a Trip',
-    text: 'Search for available trips or post your own travel plans'
+    title: 'Search for a Ride',
+    text: 'Find rides based on your starting point, destination and date.',
+    icon: (
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" />
+        <path d="M21 21l-4.3-4.3" />
+      </svg>
+    )
   },
   {
     n: 2,
     color: 'step--green',
-    title: 'Unlock Contact Securely',
-    text: 'Pay a small fee to get verified contact details'
+    title: 'Choose Your Ride',
+    text: 'Select a suitable ride and your boarding / drop-off points.',
+    icon: (
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z" />
+        <circle cx="12" cy="10" r="2.5" />
+      </svg>
+    )
   },
   {
     n: 3,
     color: 'step--blue',
-    title: 'Travel Together',
-    text: 'Connect with your travel buddy and enjoy the journey'
+    title: 'Book and Travel',
+    text: 'Complete payment, confirm your booking and get driver & vehicle details.',
+    icon: (
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M20 6L9 17l-5-5" />
+      </svg>
+    )
   }
 ];
 
@@ -32,9 +49,10 @@ function HowItWorks() {
 
         <ol className="steps">
           {STEPS.map((step) => (
-            <li key={step.n} className="step">
-              <span className={`step__badge ${step.color}`} aria-hidden="true">
-                {step.n}
+            <li key={step.n} className="step card-hoverable">
+              <span className={`step__icon ${step.color}`} aria-hidden="true">
+                {step.icon}
+                <span className="step__num">{step.n}</span>
               </span>
               <h3 className="step__title">{step.title}</h3>
               <p className="step__text">{step.text}</p>

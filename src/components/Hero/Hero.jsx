@@ -56,11 +56,38 @@ function Hero({ mode: modeProp, onModeChange }) {
 
   return (
     <section className="hero">
-      {/* Decorative floating-icons background removed per request. */}
+      {/* Decorative travel illustration band — original artwork (no external
+          images). Sits behind the content and animates subtly. */}
+      <div className="hero__art" aria-hidden="true">
+        <svg className="hero__art-svg" viewBox="0 0 1440 320" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+          {/* layered hills */}
+          <path className="hero__art-hill hero__art-hill--back" d="M0 230 Q 240 150 480 210 T 960 190 T 1440 210 V320 H0 Z" />
+          <path className="hero__art-hill hero__art-hill--mid" d="M0 262 Q 300 200 620 250 T 1180 240 T 1440 258 V320 H0 Z" />
+          {/* dotted route line */}
+          <path className="hero__art-route" d="M60 300 C 360 220, 560 300, 820 250 S 1260 210, 1400 268" />
+          {/* city skyline */}
+          <g className="hero__art-city">
+            <rect x="150" y="196" width="26" height="70" rx="3" />
+            <rect x="184" y="176" width="20" height="90" rx="3" />
+            <rect x="212" y="206" width="30" height="60" rx="3" />
+            <rect x="1180" y="190" width="24" height="76" rx="3" />
+            <rect x="1210" y="172" width="18" height="94" rx="3" />
+            <rect x="1234" y="204" width="28" height="62" rx="3" />
+          </g>
+          {/* moving car along the route */}
+          <g className="hero__art-car">
+            <rect x="-26" y="-14" width="52" height="20" rx="7" />
+            <rect x="-14" y="-24" width="30" height="14" rx="5" />
+            <circle cx="-13" cy="8" r="6" className="hero__art-wheel" />
+            <circle cx="13" cy="8" r="6" className="hero__art-wheel" />
+          </g>
+        </svg>
+      </div>
 
       <div className="container hero__inner">
-        <h1 className="hero__title">Travel Together. Save More.</h1>
-        <p className="hero__subtitle">Find or share travel easily across cities</p>
+        <span className="hero__eyebrow">Carpool across your city</span>
+        <h1 className="hero__title">Share the Ride. Split the Cost.</h1>
+        <p className="hero__subtitle">Find a trusted carpool or post your own — pick your seats and stops, pay securely, and travel together.</p>
 
         {/* mode toggle: Find | Post */}
         <div className="hero__toggle" role="tablist" aria-label="Mode">

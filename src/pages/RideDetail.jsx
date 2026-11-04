@@ -118,6 +118,12 @@ export default function RideDetailsPage() {
   const [payConfirmOpen, setPayConfirmOpen] = useState(false);
   const [reqSentOpen, setReqSentOpen] = useState(false);
   const [activeRideStatus, setActiveRideStatus] = useState(null);
+  // Rider's chosen boarding / dropping point (along the route, in order) and
+  // how many seats to book. Defaulted to the full journey / 1 seat once the
+  // ride loads (see the effect below).
+  const [boarding, setBoarding] = useState("");
+  const [dropping, setDropping] = useState("");
+  const [seatCount, setSeatCount] = useState(1);
 
   useEffect(() => {
     const ph = localStorage.getItem("phone") || "";
@@ -182,7 +188,12 @@ export default function RideDetailsPage() {
       // 1) Create the Razorpay order + a hidden awaiting_payment request.
       const { data: order } = await axios.post(
         `${API_BASE}/api/rides/${rideId}/request-order`,
-        { riderPhone: ph, riderUserId: uid, userId: uid, message: "" },
+        {
+          riderPhone: ph, riderUserId: uid, userId: uid, message: "",
+          boardingPoint: boarding || undefined,
+          droppingPoint: dropping || undefined,
+          seatsRequested: seatCount || 1,
+        },
         { timeout: 12000 }
       );
       if (!order?.orderId) throw new Error(order?.message || "Could not start payment");
@@ -298,8 +309,13 @@ export default function RideDetailsPage() {
       setError((cur) => cur || "Backend is taking too long to respond. Please try again.");
     }, 10000);
 
+    // Pass the viewer's own phone so the backend can decide whether to reveal
+    // the driver's identity + vehicle details (only for a confirmed, paid
+    // booking). Before payment the API returns neutral, non-identifying data.
+    const viewerPh = (typeof window !== "undefined" && localStorage.getItem("phone")) || "";
     axios
       .get(`${API_BASE}/api/rides/${rideId}/details`, {
+        params: viewerPh ? { phone: viewerPh } : undefined,
         timeout: 8000,
         signal: ctrl.signal,
       })
@@ -332,7 +348,11 @@ export default function RideDetailsPage() {
       ctrl.abort();
       clearTimeout(safetyTimer);
     };
-  }, [rideId]);
+    // Re-fetch once the booking becomes confirmed + paid so the now-unlocked
+    // driver identity + vehicle details load in (the API only returns them
+    // to a confirmed, paid rider).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rideId, myReq?.status, myReq?.paymentStatus]);
 
   // Check whether the viewer has an active paid subscription — that's
   // what unlocks the contact number reveal. If they're the rider's
@@ -414,6 +434,22 @@ export default function RideDetailsPage() {
 
   const ride = data?.ride;
   const driver = data?.driver;
+
+  // Ordered route sequence: origin → intermediate stops → destination. Used
+  // for the boarding/dropping selectors (boarding must precede dropping) and
+  // the route timeline.
+  const routeSeq = ride
+    ? [ride.from, ...((ride.stops || []).map((s) => (s && s.name) || s).filter(Boolean)), ride.to]
+    : [];
+
+  // Seed the boarding/dropping defaults to the full journey once the ride is
+  // known. Runs unconditionally (stable hook order); no early returns above.
+  useEffect(() => {
+    if (!ride) return;
+    setBoarding((b) => b || ride.from || "");
+    setDropping((d) => d || ride.to || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ride?._id]);
 
   // ── Contact-number gate ──────────────────────────────────────
   // Reveal the full phone when ANY of these are true:
@@ -814,6 +850,11 @@ export default function RideDetailsPage() {
                 if (myReq?.status === "pending") {
                   return box("#fef9c3", "#fde68a", (
                     <div style={{ fontSize: 14, color: "#854d0e", fontWeight: 600 }}>
+                      {(boarding || dropping) && (
+                        <div style={{ marginBottom: 6, fontWeight: 700 }}>
+                          {boarding} → {dropping} · {seatCount} {seatCount === 1 ? "seat" : "seats"}
+                        </div>
+                      )}
                       Payment successful — your request has been sent. Waiting for the owner to respond (auto-expires with a refund if not answered within 1 hour).{" "}
                       <span onClick={() => navigate("/requests?tab=sent")} style={{ color: "#7c3aed", fontWeight: 700, cursor: "pointer" }}>View</span>
                     </div>
@@ -845,8 +886,85 @@ export default function RideDetailsPage() {
                     </div>
                   );
                 }
+                // Boarding options = every route point except the final
+                // destination; dropping options = every point strictly AFTER
+                // the chosen boarding (enforces boarding-before-dropping).
+                const boardIdx = Math.max(0, routeSeq.indexOf(boarding));
+                const boardOptions = routeSeq.slice(0, Math.max(1, routeSeq.length - 1));
+                const dropOptions = routeSeq.filter((_, i) => i > boardIdx);
+                const selFieldStyle = {
+                  width: "100%", border: "1.5px solid #e5e7eb", borderRadius: 10,
+                  padding: "10px 12px", fontSize: 14, fontFamily: "inherit", color: "#1a1a2e",
+                  background: "#fff", outline: "none", boxSizing: "border-box",
+                };
+                const selLabel = { fontSize: 12, fontWeight: 700, color: "#1a1a2e", marginBottom: 6, display: "block" };
                 return (
                   <div style={{ marginBottom: 12 }}>
+                    {/* ── Booking selection: boarding, dropping, seats ── */}
+                    <div style={{
+                      border: "1px solid #eef0f4", borderRadius: 12, padding: 14,
+                      marginBottom: 12, background: "#fafaff",
+                      display: "flex", flexDirection: "column", gap: 12,
+                    }}>
+                      <div>
+                        <label style={selLabel}>Boarding point</label>
+                        <select
+                          value={boarding}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setBoarding(v);
+                            // Keep dropping after boarding in route order.
+                            const bi = routeSeq.indexOf(v);
+                            const di = routeSeq.indexOf(dropping);
+                            if (di <= bi) setDropping(routeSeq[routeSeq.length - 1] || "");
+                          }}
+                          style={selFieldStyle}
+                        >
+                          {boardOptions.map((p, i) => <option key={`b${i}`} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={selLabel}>Dropping point</label>
+                        <select value={dropping} onChange={(e) => setDropping(e.target.value)} style={selFieldStyle}>
+                          {dropOptions.map((p, i) => <option key={`d${i}`} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={selLabel}>Seats</label>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <button type="button" aria-label="Fewer seats"
+                            onClick={() => setSeatCount((n) => Math.max(1, n - 1))}
+                            disabled={seatCount <= 1}
+                            style={{
+                              width: 36, height: 36, borderRadius: "50%", border: "none",
+                              background: seatCount <= 1 ? "#e5e7eb" : "#1a1a2e",
+                              color: seatCount <= 1 ? "#9ca3af" : "#fff",
+                              fontSize: 20, fontWeight: 700, lineHeight: 1,
+                              cursor: seatCount <= 1 ? "not-allowed" : "pointer", fontFamily: "inherit",
+                            }}>−</button>
+                          <span style={{ minWidth: 28, textAlign: "center", fontSize: 16, fontWeight: 800, color: "#1a1a2e" }}>{seatCount}</span>
+                          <button type="button" aria-label="More seats"
+                            onClick={() => setSeatCount((n) => Math.min(Math.max(1, seats), n + 1))}
+                            disabled={seatCount >= Math.max(1, seats)}
+                            style={{
+                              width: 36, height: 36, borderRadius: "50%", border: "none",
+                              background: seatCount >= Math.max(1, seats) ? "#e5e7eb" : "#1a1a2e",
+                              color: seatCount >= Math.max(1, seats) ? "#9ca3af" : "#fff",
+                              fontSize: 20, fontWeight: 700, lineHeight: 1,
+                              cursor: seatCount >= Math.max(1, seats) ? "not-allowed" : "pointer", fontFamily: "inherit",
+                            }}>+</button>
+                          <span style={{ fontSize: 12, color: "#6b7280", marginLeft: 2 }}>
+                            of {seats} available
+                          </span>
+                        </div>
+                        {Number(ride?.farePerSeat) > 0 && (
+                          <div style={{ marginTop: 8, fontSize: 13, color: "#374151" }}>
+                            Fare: <strong style={{ color: "#1a1a2e" }}>₹{Number(ride.farePerSeat) * seatCount}</strong>
+                            <span style={{ color: "#9ca3af" }}> ({seatCount} × ₹{Number(ride.farePerSeat)}, paid to driver)</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     <button type="button" onClick={() => setPayConfirmOpen(true)} disabled={reqBusy} style={{
                       width: "100%", background: "#f5c518", color: "#111", border: "none", borderRadius: 10,
                       padding: "12px 14px", fontWeight: 700, fontSize: 14, cursor: reqBusy ? "not-allowed" : "pointer", fontFamily: "inherit",

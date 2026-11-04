@@ -11,52 +11,83 @@
 
 .why-choose__title {
   font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--color-text-on-dark);
   margin-bottom: var(--space-2);
 }
 
 .why-choose__subtitle {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   color: var(--color-text-on-dark-muted);
 }
 
 .features {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-10);
+  gap: var(--space-5);
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .feature {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-4);
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
 }
 
 .feature__icon {
-  color: var(--color-text-on-dark);
-  margin-bottom: var(--space-4);
+  color: var(--color-primary);
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: rgba(255, 203, 5, 0.12);
+  border: 1px solid rgba(255, 203, 5, 0.22);
 }
 
+.feature__body { min-width: 0; }
+
 .feature__title {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  margin-bottom: var(--space-2);
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  margin-bottom: 4px;
 }
 
 .feature__text {
   font-size: var(--font-size-sm);
   color: var(--color-text-on-dark-muted);
-  max-width: 260px;
-  line-height: var(--line-height-loose);
+  line-height: var(--line-height-base);
+  margin: 0;
 }
 
+/* Dark-surface card hover (the global .card-hoverable shadow is tuned for
+   light backgrounds, so give these a brighter lift). */
+@media (pointer: fine) {
+  .feature.card-hoverable:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28) !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .features { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 760px) {
   .why-choose { padding: var(--space-16) 0; }
   .features {
     grid-template-columns: 1fr;
-    gap: var(--space-10);
+    gap: var(--space-4);
   }
 }

@@ -121,6 +121,12 @@ export default function RideRequests() {
                   {r.rider?.city && <div style={{ color: "#6b7280", fontSize: 13 }}>{r.rider.city}</div>}
                   <div style={{ marginTop: 6, fontSize: 14, color: "#374151" }}>{routeText(r)}</div>
                   <div style={{ fontSize: 12, color: "#9ca3af" }}>{whenText(r)}</div>
+                  {(r.boardingPoint || r.droppingPoint) && (
+                    <div style={{ marginTop: 6, fontSize: 13, color: "#1a1a2e", fontWeight: 600 }}>
+                      🧍 Boards: {r.boardingPoint || "—"} → Drops: {r.droppingPoint || "—"}
+                      {" · "}{r.seatsRequested || 1} {(r.seatsRequested || 1) === 1 ? "seat" : "seats"}
+                    </div>
+                  )}
                   {r.message && <div style={{ marginTop: 6, fontSize: 13, color: "#4b5563", fontStyle: "italic" }}>“{r.message}”</div>}
 
                   {r.status === "accepted" && r.rider?.phone && (
@@ -161,6 +167,12 @@ export default function RideRequests() {
                     <Badge status={r.status} />
                   </div>
                   <div style={{ fontSize: 12, color: "#9ca3af" }}>{whenText(r)}</div>
+                  {(r.boardingPoint || r.droppingPoint) && (
+                    <div style={{ marginTop: 6, fontSize: 13, color: "#1a1a2e", fontWeight: 600 }}>
+                      🧍 Boards: {r.boardingPoint || "—"} → Drops: {r.droppingPoint || "—"}
+                      {" · "}{r.seatsRequested || 1} {(r.seatsRequested || 1) === 1 ? "seat" : "seats"}
+                    </div>
+                  )}
 
                   {r.status === "accepted" && r.owner?.phone && (
                     <div style={{ marginTop: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 10, fontSize: 14 }}>

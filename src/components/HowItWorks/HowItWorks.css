@@ -10,49 +10,79 @@
 
 .how-it-works__title {
   font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--color-text);
   margin-bottom: var(--space-2);
 }
 
 .how-it-works__subtitle {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   color: var(--color-text-secondary);
 }
 
 .steps {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-10);
+  gap: var(--space-6);
+  counter-reset: step;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .step {
+  position: relative;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10) var(--space-6) var(--space-8);
+  box-shadow: var(--shadow-sm);
 }
 
-.step__badge {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-pill);
+/* Rounded icon tile with the step number badged on top */
+.step__icon {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-lg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.step__num {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  color: var(--color-text);
+  border: 2px solid currentColor;
+  font-size: 0.8rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.step--pink  { background: var(--color-step-1); }
-.step--green { background: var(--color-step-2); }
-.step--blue  { background: var(--color-step-3); }
+.step--pink  { background: linear-gradient(135deg, #f472b6, #ec4899); }
+.step--green { background: linear-gradient(135deg, #4ade80, #22c55e); }
+.step--blue  { background: linear-gradient(135deg, #60a5fa, #3b82f6); }
+.step--pink  .step__num { color: var(--color-step-1); }
+.step--green .step__num { color: var(--color-step-2); }
+.step--blue  .step__num { color: var(--color-step-3); }
 
 .step__title {
   font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
+  font-weight: 700;
   color: var(--color-text);
   margin-bottom: var(--space-2);
 }
@@ -68,6 +98,6 @@
   .how-it-works { padding: var(--space-16) 0; }
   .steps {
     grid-template-columns: 1fr;
-    gap: var(--space-10);
+    gap: var(--space-5);
   }
 }
