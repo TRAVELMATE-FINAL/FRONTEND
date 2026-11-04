@@ -6,6 +6,7 @@ import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import { formatTime12h } from "../utils/time.js";
 import { isSoundEnabled, setSoundEnabled, unlockNotificationAudio, playNotificationSound } from "../services/notificationSound";
+import { completeRide, cancelRide } from "../services/api";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -128,9 +129,10 @@ function localTodayISO() {
      state = "deleting"    → spinner inside the red button
    The parent owns no per-card state — each card manages its own UI
    state and only calls onDelete (which returns a Promise) on Yes. */
-const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => {
+const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete, onComplete, onCancelRide }) => {
   const [delState, setDelState] = useState("idle"); // idle | confirming | deleting
   const [delErr, setDelErr]     = useState("");
+  const rideStatus = ride.status || "active";
 
   const doDelete = async () => {
     setDelErr("");
@@ -168,6 +170,21 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{driverName}</span>
           <VerifiedBadge label={ride.vehicleModel || ride.vehicle || "Verified"} />
+          {rideStatus === "completed" && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#166534", background: "#dcfce7", borderRadius: 6, padding: "2px 7px" }}>
+              Completed
+            </span>
+          )}
+          {rideStatus === "cancelled" && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#991b1b", background: "#fee2e2", borderRadius: 6, padding: "2px 7px" }}>
+              Cancelled
+            </span>
+          )}
+          {rideStatus === "active" && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#854d0e", background: "#fef9c3", borderRadius: 6, padding: "2px 7px" }}>
+              ● Active
+            </span>
+          )}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
@@ -183,7 +200,7 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
         </div>
 
         {/* Seats + fare per seat */}
-        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 12px", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 12px", marginBottom: 6 }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", background: "#f3f4f6", borderRadius: 6, padding: "3px 8px" }}>
             {(typeof ride.remainingSeats === "number" ? ride.remainingSeats : ride.seatsAvailable) || 0} seat
             {((typeof ride.remainingSeats === "number" ? ride.remainingSeats : ride.seatsAvailable) || 0) === 1 ? "" : "s"} available
@@ -194,6 +211,44 @@ const PostedRideCard = ({ ride, driverName, driverPhoto, onEdit, onDelete }) => 
             </span>
           )}
         </div>
+
+        {/* Driver action buttons for active rides */}
+        {rideStatus === "active" && (
+          <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={async () => {
+                if (window.confirm("Complete this ride? This will end the ride and allow you to join or create other rides.")) {
+                  await onComplete(ride._id);
+                }
+              }}
+              style={{
+                background: "#16a34a", color: "#fff", border: "none",
+                borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700,
+                cursor: "pointer", fontFamily: "inherit"
+              }}
+              title="Complete ride"
+            >
+              ✓ Complete
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (window.confirm("Cancel this ride? Confirmed riders will be refunded.")) {
+                  await onCancelRide(ride._id);
+                }
+              }}
+              style={{
+                background: "#fff", color: "#dc2626", border: "1px solid #fecaca",
+                borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700,
+                cursor: "pointer", fontFamily: "inherit"
+              }}
+              title="Cancel ride"
+            >
+              ✕ Cancel
+            </button>
+          </div>
+        )}
 
         {/* Inline error message if delete failed (kept beside the card
             so it's impossible to miss — window.alert was unreliable). */}
@@ -511,6 +566,42 @@ export default function ProfileSettings() {
         "Could not delete the trip.";
       console.error("[delete] failed", { status, msg, error: e });
       return { ok: false, error: `${msg}${status ? ` (HTTP ${status})` : ""}` };
+    }
+  };
+
+  const handleComplete = async (rideId) => {
+    if (!rideId) return { ok: false, error: "Missing trip id" };
+    try {
+      const uid = localStorage.getItem("userId") || "";
+      await completeRide(rideId, phone, uid);
+      setData((d) => {
+        if (!d || !Array.isArray(d.rides)) return d;
+        return {
+          ...d,
+          rides: d.rides.map((r) => r._id === rideId ? { ...r, status: "completed" } : r)
+        };
+      });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e?.response?.data?.message || "Could not complete trip" };
+    }
+  };
+
+  const handleCancelRide = async (rideId) => {
+    if (!rideId) return { ok: false, error: "Missing trip id" };
+    try {
+      const uid = localStorage.getItem("userId") || "";
+      await cancelRide(rideId, phone, uid);
+      setData((d) => {
+        if (!d || !Array.isArray(d.rides)) return d;
+        return {
+          ...d,
+          rides: d.rides.map((r) => r._id === rideId ? { ...r, status: "cancelled" } : r)
+        };
+      });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e?.response?.data?.message || "Could not cancel trip" };
     }
   };
 
@@ -1108,6 +1199,8 @@ export default function ProfileSettings() {
                       driverPhoto={user?.photo}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
+                      onComplete={handleComplete}
+                      onCancelRide={handleCancelRide}
                     />
                   ));
                 })()}

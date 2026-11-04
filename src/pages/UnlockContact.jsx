@@ -42,6 +42,10 @@ async function publishPendingRide() {
   let payload;
   try { payload = JSON.parse(raw); } catch { return ""; }
   if (!payload || !payload.from || !payload.to) return "";
+  const phoneNow = (typeof localStorage !== "undefined" && localStorage.getItem("phone")) || "";
+  const userIdNow = (typeof localStorage !== "undefined" && localStorage.getItem("userId")) || "";
+  if (phoneNow) payload.userPhone = phoneNow;
+  if (userIdNow) payload.userId = userIdNow;
   try {
     const res = await axios.post(`${API_BASE}/api/rides`, payload);
     const newId = res.data?.data?._id || res.data?.data?.id || "";

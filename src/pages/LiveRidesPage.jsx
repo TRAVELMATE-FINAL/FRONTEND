@@ -14,6 +14,7 @@ import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import LiveMap from "../components/LiveMap/LiveMap.jsx";
 import { loadRazorpay } from "../utils/razorpay";
+import { checkUserActiveStatus } from "../services/api";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 const getPhone = () => { try { return localStorage.getItem("phone") || ""; } catch { return ""; } };
@@ -86,8 +87,7 @@ export default function LiveRidesPage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
-  const [showStart, setShowStart] = useState(false);
-  const [form, setForm] = useState({ vehicleType: "Car", vehicleModel: "", vehicleColor: "", plateNumber: "", from: "", to: "", departureTime: "", totalSeats: 4, farePerSeat: "" });
+  const [userActiveStatus, setUserActiveStatus] = useState(null);
   const watchRef = useRef(null);
 
   const myHostRide = rides.find((r) => r.isHost && r.status === "live");
@@ -97,8 +97,13 @@ export default function LiveRidesPage() {
   const load = useCallback(async () => {
     if (!phone) { setLoading(false); return; }
     try {
-      const { data } = await axios.get(`${API_BASE}/api/live-rides`, { params: { phone }, timeout: 9000 });
-      if (data?.success) setRides(data.data || []);
+      const uid = localStorage.getItem("userId") || "";
+      const [{ data: liveData }, activeSt] = await Promise.all([
+        axios.get(`${API_BASE}/api/live-rides`, { params: { phone }, timeout: 9000 }),
+        checkUserActiveStatus(phone, uid).catch(() => null),
+      ]);
+      if (liveData?.success) setRides(liveData.data || []);
+      if (activeSt) setUserActiveStatus(activeSt);
     } catch {} finally { setLoading(false); }
   }, [phone]);
 
@@ -132,41 +137,6 @@ export default function LiveRidesPage() {
   }, [myHostRide, startWatch]);
   useEffect(() => () => stopWatch(), [stopWatch]);
 
-  // ── Start a new live ride (requests GPS permission). ──
-  const startRide = () => {
-    setMsg("");
-    if (!phone) { navigate("/login"); return; }
-    if (!form.from.trim() || !form.to.trim()) { setMsg("Enter where you're starting from and going to."); return; }
-    if (!(Number(form.totalSeats) >= 1)) { setMsg("Enter the number of seats."); return; }
-    if (form.farePerSeat === "" || Number(form.farePerSeat) < 0) { setMsg("Enter the per-seat sharing amount."); return; }
-    if (!navigator.geolocation) { setMsg("Your device/browser doesn't support location."); return; }
-
-    setBusy(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude, longitude } = pos.coords;
-          const { data } = await axios.post(`${API_BASE}/api/live-rides`, {
-            hostPhone: phone,
-            vehicleType: form.vehicleType, vehicleModel: form.vehicleModel, vehicleColor: form.vehicleColor, plateNumber: form.plateNumber,
-            from: form.from, to: form.to, departureTime: form.departureTime,
-            totalSeats: Number(form.totalSeats), farePerSeat: Number(form.farePerSeat),
-            lat: latitude, lon: longitude,
-          }, { timeout: 10000 });
-          if (data?.success) {
-            setShowStart(false);
-            await load();
-            startWatch(data.data._id);
-          } else { setMsg(data?.message || "Could not start the ride."); }
-        } catch (e) {
-          setMsg(e.response?.data?.message || "Could not start the ride.");
-        } finally { setBusy(false); }
-      },
-      () => { setBusy(false); setMsg("Location permission is required to start live tracking. Please allow location access."); },
-      { enableHighAccuracy: true, timeout: 20000 }
-    );
-  };
-
   const stopRide = async (rideId) => {
     try {
       await axios.post(`${API_BASE}/api/live-rides/${rideId}/stop`, { hostPhone: phone }, { timeout: 9000 });
@@ -179,10 +149,24 @@ export default function LiveRidesPage() {
   const joinRide = async (ride) => {
     setMsg("");
     if (!phone) { navigate("/login"); return; }
+    if (userActiveStatus?.hasActiveCreatedRide) {
+      setMsg("You have already started a ride. You cannot join another ride until your current ride is completed or cancelled.");
+      return;
+    }
+    if (userActiveStatus?.hasActiveJoinedRide && String(userActiveStatus.activeJoinedRide?.rideId) !== String(ride._id)) {
+      setMsg("You have already joined an active ride. You cannot join another ride until your current ride is completed or cancelled.");
+      return;
+    }
+
     setBusy(true);
+    const uid = localStorage.getItem("userId") || "";
     try {
       await loadRazorpay();
-      const { data: order } = await axios.post(`${API_BASE}/api/live-rides/${ride._id}/join-order`, { riderPhone: phone }, { timeout: 12000 });
+      const { data: order } = await axios.post(`${API_BASE}/api/live-rides/${ride._id}/join-order`, {
+        riderPhone: phone,
+        riderUserId: uid,
+        userId: uid,
+      }, { timeout: 12000 });
       if (!order?.orderId) throw new Error(order?.message || "Could not start payment");
       const rzp = new window.Razorpay({
         key: order.key, amount: order.amount, currency: order.currency || "INR", order_id: order.orderId,
@@ -193,20 +177,28 @@ export default function LiveRidesPage() {
           try {
             const { data: v } = await axios.post(`${API_BASE}/api/live-rides/${ride._id}/join-verify`, {
               riderPhone: phone,
+              riderUserId: uid,
+              userId: uid,
               razorpay_order_id: resp.razorpay_order_id,
               razorpay_payment_id: resp.razorpay_payment_id,
               razorpay_signature: resp.razorpay_signature,
             }, { timeout: 12000 });
             if (v?.success) { setMsg("✅ Seat confirmed! You can now track this ride live below."); await load(); }
             else { setMsg(v?.message || "Could not confirm your seat."); }
-          } catch (e) { setMsg(e.response?.data?.message || "Payment verification failed. If charged, you'll be refunded."); }
+          } catch (e) {
+            setMsg(e.response?.data?.message || "Payment verification failed. If charged, you'll be refunded.");
+          }
           finally { setBusy(false); }
         },
       });
       rzp.on("payment.failed", () => { setMsg("Payment failed. Please try again."); setBusy(false); });
       rzp.open();
     } catch (e) {
-      setMsg(e.response?.data?.message || "Could not start the booking.");
+      if (e.response?.data?.code === "ACTIVE_RIDE_EXISTS" || e.response?.data?.code === "ACTIVE_JOINED_RIDE_EXISTS") {
+        setMsg(e.response?.data?.message || "You have already started a ride. You cannot join another ride until your current ride is completed or cancelled.");
+      } else {
+        setMsg(e.response?.data?.message || "Could not start the booking.");
+      }
       setBusy(false);
     }
   };
@@ -241,48 +233,43 @@ export default function LiveRidesPage() {
         {/* Host's own live ride */}
         {myHostRide && <TrackCard ride={myHostRide} phone={phone} isHost onStop={stopRide} />}
 
-        {/* Start a live ride (only if not already hosting) */}
-        {!myHostRide && (
-          <div style={card}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }} onClick={() => setShowStart((s) => !s)}>
-              <div style={{ fontWeight: 800, color: "#111827", fontSize: 15 }}>🚗 Start a live ride</div>
-              <span style={{ color: "#7c3aed", fontWeight: 700, fontSize: 13 }}>{showStart ? "Close" : "Start"}</span>
-            </div>
-            {showStart && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <div style={{ flex: "1 1 160px" }}><label style={label}>Vehicle type</label>
-                    <select style={input} value={form.vehicleType} onChange={(e) => setForm({ ...form, vehicleType: e.target.value })}>
-                      <option>Car</option><option>Bike</option><option>Van</option>
-                    </select>
-                  </div>
-                  <div style={{ flex: "1 1 160px" }}><label style={label}>Vehicle name</label>
-                    <input style={input} value={form.vehicleModel} onChange={(e) => setForm({ ...form, vehicleModel: e.target.value })} placeholder="e.g. Swift" /></div>
-                  <div style={{ flex: "1 1 120px" }}><label style={label}>Color</label>
-                    <input style={input} value={form.vehicleColor} onChange={(e) => setForm({ ...form, vehicleColor: e.target.value })} placeholder="White" /></div>
+        {/* Active created ride banner */}
+        {(userActiveStatus?.hasActiveCreatedRide || myHostRide) && (
+          <div style={{ ...card, background: "#fff7ed", border: "1.5px solid #fed7aa" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontWeight: 800, color: "#9a3412", fontSize: 15, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>⚠️</span> Active Ride in Progress
                 </div>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
-                  <div style={{ flex: "1 1 200px" }}><label style={label}>From</label>
-                    <input style={input} value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} placeholder="Starting point" /></div>
-                  <div style={{ flex: "1 1 200px" }}><label style={label}>To</label>
-                    <input style={input} value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} placeholder="Destination" /></div>
-                </div>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
-                  <div style={{ flex: "1 1 120px" }}><label style={label}>Departure time</label>
-                    <input style={input} value={form.departureTime} onChange={(e) => setForm({ ...form, departureTime: e.target.value })} placeholder="e.g. 6:30 PM" /></div>
-                  <div style={{ flex: "1 1 100px" }}><label style={label}>Total seats</label>
-                    <input style={input} type="number" min={1} max={20} value={form.totalSeats} onChange={(e) => setForm({ ...form, totalSeats: e.target.value })} /></div>
-                  <div style={{ flex: "1 1 120px" }}><label style={label}>₹ per seat</label>
-                    <input style={input} type="number" min={0} value={form.farePerSeat} onChange={(e) => setForm({ ...form, farePerSeat: e.target.value })} placeholder="0" /></div>
-                </div>
-                <button type="button" style={{ ...btnPrimary, marginTop: 14, width: "100%" }} disabled={busy} onClick={startRide}>
-                  {busy ? "Starting…" : "Allow location & Start tracking"}
-                </button>
-                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 8 }}>
-                  You'll be asked to allow location access. Your live GPS is shared only while the ride is active.
+                <div style={{ fontSize: 13, color: "#c2410c", marginTop: 4 }}>
+                  You have already started a ride. You cannot join another ride until your current ride is completed or cancelled.
                 </div>
               </div>
-            )}
+              <button
+                type="button"
+                style={{ ...btnPrimary, background: "#ea580c", color: "#fff" }}
+                onClick={() => navigate(`/ride-live?rideId=${userActiveStatus?.activeCreatedRide?._id || userActiveStatus?.activeCreatedRide?.rideId || myHostRide?._id || ""}`)}
+              >
+                View Active Ride →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Start a ride via Post Ride form */}
+        {!myHostRide && !userActiveStatus?.hasActiveCreatedRide && (
+          <div style={card}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontWeight: 800, color: "#111827", fontSize: 15 }}>🚗 Start a Ride</div>
+                <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+                  Use the Post Ride form to create your trip with full ride-sharing and live location tracking.
+                </div>
+              </div>
+              <button type="button" style={btnPrimary} onClick={() => navigate("/post-ride")}>
+                Post a Ride →
+              </button>
+            </div>
           </div>
         )}
 
@@ -301,7 +288,7 @@ export default function LiveRidesPage() {
         ) : available.length === 0 ? (
           <div style={{ ...card, textAlign: "center", color: "#6b7280" }}>No live rides available right now.</div>
         ) : (
-          available.map((r) => <AvailableCard key={r._id} ride={r} phone={phone} busy={busy} onJoin={joinRide} />)
+          available.map((r) => <AvailableCard key={r._id} ride={r} phone={phone} busy={busy} onJoin={joinRide} userActiveStatus={userActiveStatus} />)
         )}
       </div>
       <Footer />
@@ -310,7 +297,7 @@ export default function LiveRidesPage() {
 }
 
 // Discovery card with a "View live location" preview + Join (pay).
-function AvailableCard({ ride, phone, busy, onJoin }) {
+function AvailableCard({ ride, phone, busy, onJoin, userActiveStatus }) {
   const [showMap, setShowMap] = useState(false);
   const [loc, setLoc] = useState({ lat: ride.currentLat, lon: ride.currentLon, destLat: ride.destLat, destLon: ride.destLon, lastLocationAt: ride.lastLocationAt });
   const timerRef = useRef(null);
@@ -354,9 +341,20 @@ function AvailableCard({ ride, phone, busy, onJoin }) {
         <button type="button" style={btnGhost} onClick={() => setShowMap((s) => !s)}>
           {showMap ? "Hide live location" : "👁 View live location"}
         </button>
-        <button type="button" style={{ ...btnPrimary, flex: 1, minWidth: 140 }} disabled={busy} onClick={() => onJoin(ride)}>
-          {busy ? "Please wait…" : `Join ride · ₹${ride.farePerSeat}`}
-        </button>
+        {userActiveStatus?.hasActiveCreatedRide ? (
+          <button
+            type="button"
+            style={{ ...btnPrimary, flex: 1, minWidth: 140, background: "#ffedd5", color: "#c2410c", border: "1px solid #fed7aa", cursor: "not-allowed" }}
+            disabled
+            title="You have already started a ride. You cannot join another ride until your current ride is completed or cancelled."
+          >
+            ⚠️ Ride Active
+          </button>
+        ) : (
+          <button type="button" style={{ ...btnPrimary, flex: 1, minWidth: 140 }} disabled={busy} onClick={() => onJoin(ride)}>
+            {busy ? "Please wait…" : `Join ride · ₹${ride.farePerSeat}`}
+          </button>
+        )}
       </div>
     </div>
   );

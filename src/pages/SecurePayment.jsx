@@ -23,9 +23,11 @@ async function publishPendingRide() {
   try { payload = JSON.parse(raw); } catch { return { ok: true, id: "" }; }
   if (!payload || !payload.from || !payload.to) return { ok: true, id: "" };
 
-  // Re-stamp userPhone from the freshly-authenticated user.
+  // Re-stamp userPhone and userId from the freshly-authenticated user.
   const phoneNow = (typeof localStorage !== "undefined" && localStorage.getItem("phone")) || "";
+  const userIdNow = (typeof localStorage !== "undefined" && localStorage.getItem("userId")) || "";
   if (phoneNow) payload.userPhone = phoneNow;
+  if (userIdNow) payload.userId = userIdNow;
 
   try {
     const res = await axios.post(`${API_BASE}/api/rides`, payload);

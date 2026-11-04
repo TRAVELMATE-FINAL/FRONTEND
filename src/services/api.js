@@ -66,10 +66,9 @@ export const verifyOtp = async (phone, otp, password) => {
   if (password) body.password = password;
   const res = await API.post("/auth/verify-otp", body);
 
-  // 🔥 store phone after verify AND start a 14-day login session so the
-  // user isn't forced to log in again every visit (only after two weeks
-  // of inactivity).
-  startSession(phone);
+  // 🔥 store phone and userId after verify AND start a 14-day login session
+  const uid = res.data?.user?._id || "";
+  startSession(phone, uid);
 
   return res.data;
 };
@@ -86,7 +85,10 @@ export const getAccountStatus = async (phone) => {
 // accounts that haven't set a password yet — the caller then routes to OTP.
 export const loginWithPassword = async (phone, password) => {
   const res = await API.post("/auth/login", { phone, password });
-  if (res.data && res.data.user) startSession(phone); // real login only
+  if (res.data && res.data.user) {
+    const uid = res.data.user._id || "";
+    startSession(phone, uid); // real login only
+  }
   return res.data;
 };
 
@@ -178,5 +180,38 @@ export const verifyPlanPayment = async (payload) => {
   const phone = localStorage.getItem("phone");
   if (!phone) throw new Error("Login required");
   const res = await API.post("/plans/verify", { ...payload, phone });
+  return res.data;
+};
+
+// 🔹 CHECK USER ACTIVE RIDE STATUS (creator or joined)
+export const checkUserActiveStatus = async (phone, userId) => {
+  const p = phone || localStorage.getItem("phone") || "";
+  const u = userId || localStorage.getItem("userId") || "";
+  if (!p && !u) return { hasActiveCreatedRide: false, hasActiveJoinedRide: false };
+  try {
+    const res = await API.get("/rides/user-active-status", {
+      params: { phone: p, userId: u },
+      timeout: 7000,
+    });
+    return res.data;
+  } catch (err) {
+    console.warn("checkUserActiveStatus failed:", err?.message);
+    return { hasActiveCreatedRide: false, hasActiveJoinedRide: false };
+  }
+};
+
+// 🔹 COMPLETE RIDE (driver marks completed)
+export const completeRide = async (rideId, ownerPhone, userId) => {
+  const p = ownerPhone || localStorage.getItem("phone") || "";
+  const u = userId || localStorage.getItem("userId") || "";
+  const res = await API.post(`/rides/${rideId}/complete`, { ownerPhone: p, userId: u });
+  return res.data;
+};
+
+// 🔹 CANCEL RIDE (driver cancels ride)
+export const cancelRide = async (rideId, ownerPhone, userId) => {
+  const p = ownerPhone || localStorage.getItem("phone") || "";
+  const u = userId || localStorage.getItem("userId") || "";
+  const res = await API.post(`/rides/${rideId}/cancel`, { ownerPhone: p, userId: u });
   return res.data;
 };

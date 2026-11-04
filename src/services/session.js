@@ -19,11 +19,12 @@ const EXPIRY_KEY = "loginExpiry";
 // 14 days in milliseconds.
 export const SESSION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
-// Begin (or refresh) a logged-in session for `phone`. Called right after a
+// Begin (or refresh) a logged-in session for `phone` and optional `userId`. Called right after a
 // successful OTP verification. Sets the expiry to 14 days from now.
-export function startSession(phone) {
+export function startSession(phone, userId) {
   try {
     if (phone) localStorage.setItem(PHONE_KEY, phone);
+    if (userId) localStorage.setItem("userId", String(userId));
     localStorage.setItem(EXPIRY_KEY, String(Date.now() + SESSION_TTL_MS));
   } catch (e) {
     /* localStorage unavailable — ignore */
@@ -35,9 +36,18 @@ export function clearSession() {
   try {
     localStorage.removeItem(PHONE_KEY);
     localStorage.removeItem(EXPIRY_KEY);
+    localStorage.removeItem("userId");
   } catch (e) {
     /* ignore */
   }
+}
+
+export function getStoredUserId() {
+  try { return localStorage.getItem("userId") || ""; } catch { return ""; }
+}
+
+export function getStoredPhone() {
+  try { return localStorage.getItem("phone") || ""; } catch { return ""; }
 }
 
 // Core guard. Returns the phone if the session is still valid, otherwise

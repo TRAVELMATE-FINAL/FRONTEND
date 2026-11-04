@@ -11,6 +11,7 @@ import Footer from "../components/Footer/Footer.jsx";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
 import MapModal from "../components/RideMap/MapModal";
 import ConfirmModal from "../components/ConfirmModal/ConfirmModal";
+import { checkUserActiveStatus } from "../services/api";
 
 const API = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -1513,6 +1514,38 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack }) {
             />
           </div>
 
+          {/* ── Start Live Tracking toggle (same form, optional) ── */}
+          <div style={{
+            display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12,
+            background: form.liveTracking ? "#f0fdf4" : "#f9fafb",
+            border: `1px solid ${form.liveTracking ? "#bbf7d0" : "#e5e7eb"}`,
+            borderRadius:12, padding:"12px 14px", marginBottom:14,
+          }}>
+            <div style={{ minWidth:0 }}>
+              <div style={{ fontSize:14, fontWeight:800, color:"#14163a" }}>📍 Start Live Tracking</div>
+              <div style={{ fontSize:12, color:"#6b7280", marginTop:3 }}>
+                Share this vehicle's live GPS location so members can follow &amp; join it on the map.
+                Uses your seats &amp; the ₹ per-seat amount above as the sharing fee.
+              </div>
+            </div>
+            <span
+              role="switch"
+              aria-checked={!!form.liveTracking}
+              onClick={() => setForm((f) => ({ ...f, liveTracking: !f.liveTracking }))}
+              style={{
+                flexShrink:0, width:46, height:28, borderRadius:999,
+                background: form.liveTracking ? "#16a34a" : "#d7dae8",
+                position:"relative", cursor:"pointer", transition:"background 0.15s ease",
+              }}
+            >
+              <span style={{
+                position:"absolute", top:3, left: form.liveTracking ? 21 : 3,
+                width:22, height:22, borderRadius:"50%", background:"#fff",
+                boxShadow:"0 1px 3px rgba(0,0,0,0.25)", transition:"left 0.15s ease",
+              }} />
+            </span>
+          </div>
+
           {error && (
             <div style={{
               background:"#fef2f2", border:"1px solid #fecaca", color:"#dc2626",
@@ -1522,7 +1555,7 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack }) {
             </div>
           )}
 
-          {/* Publish Ride — yellow Figma button */}
+          {/* Publish / Start Live — yellow Figma button */}
           <button onClick={onPublish} type="button" disabled={publishing}
             style={{
               width:"100%", display:"block",
@@ -1534,7 +1567,7 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack }) {
               boxShadow: "0 4px 14px rgba(245, 197, 24, 0.30)",
               letterSpacing:"-0.1px",
             }}>
-            {publishing ? "Publishing…" : "Publish Trip"}
+            {publishing ? (form.liveTracking ? "Starting…" : "Publishing…") : (form.liveTracking ? "Allow location & Start Live Ride" : "Publish Trip")}
           </button>
         </div>
       </div>
@@ -1563,6 +1596,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
     stops: [],
     vehicleType: "Car", vehicleColor: "", vehicleName: "", plateNumber: "",
     seats: 1, farePerSeat: 0, notes: "",
+    liveTracking: false,
   });
 
   // Auto-fetch route when both coordinates are picked
@@ -1572,6 +1606,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
   const [routeLoading, setRouteLoading] = useState(false);
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [activeStatus, setActiveStatus] = useState(null);
   // Publish confirmation modal state: holds the ride payload + the active
   // plan's name/expiry so we can confirm before actually posting.
   const [publishConfirm, setPublishConfirm] = useState(null); // { payload, plan, endDate } | null
@@ -1581,6 +1616,15 @@ export default function TravelMatePost({ embedded = false } = {}) {
   const [routeSuggestedStops, setRouteSuggestedStops] = useState([]);
 
   const lastReqRef = useRef("");
+
+  useEffect(() => {
+    const phone = localStorage.getItem("phone") || "";
+    const userId = localStorage.getItem("userId") || "";
+    if (!phone && !userId) return;
+    checkUserActiveStatus(phone, userId).then((st) => {
+      setActiveStatus(st || null);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const f = form.fromCoords, t = form.toCoords;
@@ -1624,6 +1668,14 @@ export default function TravelMatePost({ embedded = false } = {}) {
   // Page 1 → Page 2 validation
   const goToVehicle = () => {
     setError("");
+    if (activeStatus?.hasActiveCreatedRide) {
+      setError("You have already started a ride. You cannot create another ride until your current ride is completed or cancelled.");
+      return;
+    }
+    if (activeStatus?.hasActiveJoinedRide) {
+      setError("You have already joined an active ride. You cannot create a ride until your current ride is completed or cancelled.");
+      return;
+    }
     if (!form.from.trim() || !form.to.trim()) { setError("Please enter both From and To"); return; }
     if (form.from.trim().toLowerCase() === form.to.trim().toLowerCase()) { setError("'From' and 'To' cannot be the same"); return; }
     if (!form.date) { setError("Please select a date"); return; }
@@ -1674,6 +1726,15 @@ export default function TravelMatePost({ embedded = false } = {}) {
   const publish = async () => {
     setError("");
 
+    if (activeStatus?.hasActiveCreatedRide) {
+      setError("You have already started a ride. You cannot create another ride until your current ride is completed or cancelled.");
+      return;
+    }
+    if (activeStatus?.hasActiveJoinedRide) {
+      setError("You have already joined an active ride. You cannot create a ride until your current ride is completed or cancelled.");
+      return;
+    }
+
     // ── Vehicle type (Car / Bike) ──
     if (!form.vehicleType) {
       setError("Please pick a vehicle type (Car or Bike)");
@@ -1701,6 +1762,63 @@ export default function TravelMatePost({ embedded = false } = {}) {
     if (!form.seats || form.seats < 1 || form.seats > 8) {
       setError("Seats must be between 1 and 8");
       return;
+    }
+
+    // ── LIVE TRACKING branch ─────────────────────────────────────────
+    // When the member turned on "Start Live Tracking", reuse this same form's
+    // data to create a LIVE RIDE (free to start; riders pay per seat to join)
+    // and begin GPS sharing — completely separate from the normal paid posting
+    // flow below, which stays exactly as before when the toggle is off.
+    if (form.liveTracking) {
+      if (!form.from?.trim() || !form.to?.trim()) {
+        setError("Enter where you're starting from and going to.");
+        return;
+      }
+      if (form.farePerSeat === "" || Number(form.farePerSeat) < 0) {
+        setError("Enter the ₹ sharing amount per seat for live sharing.");
+        return;
+      }
+      const userPhone = localStorage.getItem("phone") || "";
+      if (!/^\+?\d{10,13}$/.test(userPhone)) { navigate("/login"); return; }
+      if (!navigator.geolocation) { setError("Your device/browser doesn't support location."); return; }
+
+      setPublishing(true);
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          try {
+            const { latitude, longitude } = pos.coords;
+            const { data } = await axios.post(`${API}/api/live-rides`, {
+              hostPhone: userPhone,
+              userId: localStorage.getItem("userId") || "",
+              vehicleType: form.vehicleType,
+              vehicleModel: form.vehicleName.trim(),
+              vehicleColor: form.vehicleColor.trim(),
+              plateNumber: (form.plateNumber || "").toUpperCase().replace(/[\s-]/g, ""),
+              from: form.from.trim(),
+              to: form.to.trim(),
+              departureTime: form.time ? formatTime12h(form.time) : "",
+              totalSeats: Number(form.seats) || 1,
+              farePerSeat: Number(form.farePerSeat) || 0,
+              lat: latitude, lon: longitude,
+            }, { timeout: 10000 });
+            if (data?.success) {
+              navigate("/live-rides"); // tracking resumes there (GPS watch)
+            } else {
+              setError(data?.message || "Could not start the live ride.");
+              setPublishing(false);
+            }
+          } catch (e) {
+            setError(e.response?.data?.message || "Could not start the live ride.");
+            setPublishing(false);
+          }
+        },
+        () => {
+          setError("Location permission is required to start live tracking. Please allow location access.");
+          setPublishing(false);
+        },
+        { enableHighAccuracy: true, timeout: 20000 }
+      );
+      return; // skip the normal posted-ride / payment flow entirely
     }
 
     // Re-validate time vs. NOW — the user may have spent minutes on
@@ -1758,7 +1876,9 @@ export default function TravelMatePost({ embedded = false } = {}) {
     try {
       setPublishing(true);
       const userPhone = localStorage.getItem("phone") || "";
+      const userId = localStorage.getItem("userId") || "";
       const payload = {
+        userId,
         from: form.from.trim(),
         to: form.to.trim(),
         date: form.date,
@@ -1835,7 +1955,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
           // Active plan → confirm before publishing. The actual POST happens in
           // confirmPublish() when the user clicks "Yes, Publish Ride".
           setPublishConfirm({
-            payload: { ...payload, userPhone },
+            payload: { ...payload, userPhone, userId },
             plan: canRes.data.plan || "",
             endDate: canRes.data.endDate || null,
           });
@@ -1876,7 +1996,8 @@ export default function TravelMatePost({ embedded = false } = {}) {
       navigate(newId ? `/ride-live?rideId=${newId}` : "/ride-live");
     } catch (err) {
       setPublishConfirm(null);
-      setError(err?.response?.data?.message || "Could not publish your trip. Please try again.");
+      const errMsg = err?.response?.data?.message || "Could not publish your trip. Please try again.";
+      setError(errMsg);
       setPublishing(false);
     }
   };
@@ -1896,6 +2017,56 @@ export default function TravelMatePost({ embedded = false } = {}) {
     <>
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
       {!embedded && <Header />}
+
+      {activeStatus?.hasActiveCreatedRide && (
+        <div style={{
+          maxWidth: 720,
+          margin: "18px auto 0 auto",
+          padding: "16px 20px",
+          background: "#fff7ed",
+          border: "1.5px solid #f97316",
+          borderRadius: 14,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          boxShadow: "0 4px 14px rgba(249, 115, 22, 0.12)",
+          fontFamily: "'Poppins', sans-serif",
+          boxSizing: "border-box"
+        }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+            <span style={{ fontSize: 24, lineHeight: 1 }}>⚠️</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#9a3412" }}>
+                Active Ride in Progress
+              </div>
+              <div style={{ fontSize: 13, color: "#c2410c", marginTop: 4, lineHeight: 1.5 }}>
+                You have already started a ride{activeStatus.activeCreatedRide?.from ? ` (${activeStatus.activeCreatedRide.from} → ${activeStatus.activeCreatedRide.to})` : ""}.
+                You cannot create another ride until your current ride is completed or cancelled.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 4 }}>
+            <button
+              type="button"
+              onClick={() => navigate(`/ride-live?rideId=${activeStatus.activeCreatedRide?._id || activeStatus.activeCreatedRide?.rideId || ""}`)}
+              style={{
+                background: "#ea580c",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "8px 16px",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit"
+              }}
+            >
+              View Your Active Ride →
+            </button>
+          </div>
+        </div>
+      )}
+
       {step === 1 ? (
         <PostPage
           form={form} setForm={setForm}

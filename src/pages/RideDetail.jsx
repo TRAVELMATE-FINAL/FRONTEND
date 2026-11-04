@@ -12,6 +12,7 @@ import { enforceSession } from "../services/session";
 import { setPendingIntent, peekPendingIntent } from "../services/pendingIntent";
 import { loadRazorpay } from "../utils/razorpay";
 import ConfirmModal from "../components/ConfirmModal/ConfirmModal";
+import { checkUserActiveStatus } from "../services/api";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -116,6 +117,17 @@ export default function RideDetailsPage() {
   const [findDailyPrice, setFindDailyPrice] = useState(null);
   const [payConfirmOpen, setPayConfirmOpen] = useState(false);
   const [reqSentOpen, setReqSentOpen] = useState(false);
+  const [activeRideStatus, setActiveRideStatus] = useState(null);
+
+  useEffect(() => {
+    const ph = localStorage.getItem("phone") || "";
+    const uid = localStorage.getItem("userId") || "";
+    if (!ph && !uid) return;
+    checkUserActiveStatus(ph, uid).then((st) => {
+      setActiveRideStatus(st || null);
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     axios
@@ -154,13 +166,23 @@ export default function RideDetailsPage() {
       navigate("/login");
       return;
     }
+    const uid = localStorage.getItem("userId") || "";
+    if (activeRideStatus?.hasActiveCreatedRide) {
+      setReqMsg("You have already started a ride. You cannot join another ride until your current ride is completed or cancelled.");
+      return;
+    }
+    if (activeRideStatus?.hasActiveJoinedRide) {
+      setReqMsg("You have already joined an active ride. You cannot join another ride until your current ride is completed or cancelled.");
+      return;
+    }
+
     setReqBusy(true); setReqMsg("");
     try {
       await loadRazorpay();
       // 1) Create the Razorpay order + a hidden awaiting_payment request.
       const { data: order } = await axios.post(
         `${API_BASE}/api/rides/${rideId}/request-order`,
-        { riderPhone: ph, message: "" },
+        { riderPhone: ph, riderUserId: uid, userId: uid, message: "" },
         { timeout: 12000 }
       );
       if (!order?.orderId) throw new Error(order?.message || "Could not start payment");
@@ -182,6 +204,8 @@ export default function RideDetailsPage() {
               `${API_BASE}/api/rides/requests/${order.bookingId}/request-pay-verify`,
               {
                 riderPhone: ph,
+                riderUserId: uid,
+                userId: uid,
                 razorpay_order_id: resp.razorpay_order_id,
                 razorpay_payment_id: resp.razorpay_payment_id,
                 razorpay_signature: resp.razorpay_signature,
@@ -207,7 +231,9 @@ export default function RideDetailsPage() {
       });
       rzp.open();
     } catch (e) {
-      if (e.response?.status === 409) {
+      if (e.response?.data?.code === "ACTIVE_RIDE_EXISTS" || e.response?.data?.code === "ACTIVE_JOINED_RIDE_EXISTS") {
+        setReqMsg(e.response?.data?.message || "You have already started a ride. You cannot join another ride until your current ride is completed or cancelled.");
+      } else if (e.response?.status === 409) {
         setMyReq({ status: "pending" });
         setReqMsg(e.response?.data?.message || "You have already requested this ride.");
       } else {
@@ -396,7 +422,12 @@ export default function RideDetailsPage() {
   // Otherwise show the masked phone + Unlock Contact CTA.
   const viewerPhone =
     (typeof window !== "undefined" && localStorage.getItem("phone")) || "";
+  const viewerUserId =
+    (typeof window !== "undefined" && localStorage.getItem("userId")) || "";
   const isOwnRide = (() => {
+    if (viewerUserId && (ride?.userId || driver?._id)) {
+      if (String(ride?.userId) === String(viewerUserId) || String(driver?._id) === String(viewerUserId)) return true;
+    }
     if (!driver?.phone || !viewerPhone) return false;
     const onlyDigits = (s) => String(s).replace(/\D/g, "").slice(-10);
     return onlyDigits(driver.phone) === onlyDigits(viewerPhone);
@@ -680,6 +711,64 @@ export default function RideDetailsPage() {
                     <div style={{ fontSize: 14, color: "#374151" }}>
                       This is your ride. Manage requests in{" "}
                       <span onClick={() => navigate("/requests")} style={{ color: "#7c3aed", fontWeight: 700, cursor: "pointer" }}>Ride Requests</span>.
+                    </div>
+                  ));
+                }
+                if (activeRideStatus?.hasActiveCreatedRide) {
+                  return box("#fff7ed", "#fed7aa", (
+                    <div>
+                      <div style={{ fontSize: 13, color: "#9a3412", fontWeight: 700, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span>⚠️</span> Active Ride in Progress
+                      </div>
+                      <div style={{ fontSize: 13, color: "#c2410c", lineHeight: 1.5, marginBottom: 10 }}>
+                        You have already started a ride. You cannot join another ride until your current ride is completed or cancelled.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/ride-live?rideId=${activeRideStatus.activeCreatedRide?._id || activeRideStatus.activeCreatedRide?.rideId || ""}`)}
+                        style={{
+                          background: "#ea580c",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 8,
+                          padding: "8px 14px",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          fontFamily: "inherit"
+                        }}
+                      >
+                        View Your Active Ride →
+                      </button>
+                    </div>
+                  ));
+                }
+                if (activeRideStatus?.hasActiveJoinedRide && String(activeRideStatus.activeJoinedRide?.rideId) !== String(rideId)) {
+                  return box("#f0fdf4", "#bbf7d0", (
+                    <div>
+                      <div style={{ fontSize: 13, color: "#166534", fontWeight: 700, marginBottom: 4 }}>
+                        Active Booking in Progress
+                      </div>
+                      <div style={{ fontSize: 13, color: "#15803d", lineHeight: 1.5, marginBottom: 10 }}>
+                        You have already joined an active ride. You cannot join another ride until your current ride is completed or cancelled.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/ride-live?rideId=${activeRideStatus.activeJoinedRide?.rideId || ""}`)}
+                        style={{
+                          background: "#16a34a",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 8,
+                          padding: "8px 14px",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          fontFamily: "inherit"
+                        }}
+                      >
+                        View Your Joined Ride →
+                      </button>
                     </div>
                   ));
                 }

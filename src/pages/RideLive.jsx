@@ -5,6 +5,7 @@ import Spinner from "../components/Spinner/Spinner.jsx";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import { formatTime12h } from "../utils/time.js";
+import { completeRide, cancelRide } from "../services/api";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -106,6 +107,50 @@ export default function RideLive() {
   const seats      = typeof ride?.seatsAvailable === "number" ? ride.seatsAvailable : 0;
   const driverName = user?.fullName?.trim() || "Your trip";
 
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionMsg, setActionMsg] = useState("");
+
+  const viewerPhone = (typeof localStorage !== "undefined" && localStorage.getItem("phone")) || "";
+  const viewerUserId = (typeof localStorage !== "undefined" && localStorage.getItem("userId")) || "";
+  const isOwner = (() => {
+    if (viewerUserId && (ride?.userId || user?._id)) {
+      if (String(ride?.userId) === String(viewerUserId) || String(user?._id) === String(viewerUserId)) return true;
+    }
+    if (viewerPhone && (ride?.userPhone || user?.phone)) {
+      const digits = (s) => String(s).replace(/\D/g, "").slice(-10);
+      return digits(viewerPhone) === digits(ride?.userPhone || user?.phone);
+    }
+    return false;
+  })();
+
+  const handleComplete = async () => {
+    if (!window.confirm("Are you sure you want to complete this ride? This will end the ride and allow you to post or join rides again.")) return;
+    setActionBusy(true); setActionMsg("");
+    try {
+      await completeRide(rideId);
+      setRide((r) => ({ ...r, status: "completed" }));
+      setActionMsg("Ride marked as completed! You can now join or post other rides.");
+    } catch (e) {
+      setActionMsg(e.response?.data?.message || "Could not complete the ride.");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!window.confirm("Are you sure you want to cancel this ride? Confirmed riders will be refunded.")) return;
+    setActionBusy(true); setActionMsg("");
+    try {
+      await cancelRide(rideId);
+      setRide((r) => ({ ...r, status: "cancelled" }));
+      setActionMsg("Ride cancelled. Confirmed riders will be refunded.");
+    } catch (e) {
+      setActionMsg(e.response?.data?.message || "Could not cancel the ride.");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const handleViewRide = () => {
     // View Ride takes the rider to their own profile & posted-rides
     // page so they can see / manage everything they've published.
@@ -193,25 +238,119 @@ export default function RideLive() {
         {/* Success */}
         {!loading && !error && ride && (
           <>
-            {/* Checkmark circle */}
+            {/* Status indicator */}
             <div style={{
               width: 80, height: 80, borderRadius: "50%",
-              background: "linear-gradient(135deg, #f5c518 0%, #e6a800 100%)",
+              background: ride.status === "completed"
+                ? "linear-gradient(135deg, #16a34a 0%, #15803d 100%)"
+                : ride.status === "cancelled"
+                ? "linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)"
+                : "linear-gradient(135deg, #f5c518 0%, #e6a800 100%)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 24px", boxShadow: "0 4px 16px rgba(245,197,24,0.35)",
+              margin: "0 auto 24px",
+              boxShadow: ride.status === "completed"
+                ? "0 4px 16px rgba(22,163,74,0.35)"
+                : ride.status === "cancelled"
+                ? "0 4px 16px rgba(239,68,68,0.35)"
+                : "0 4px 16px rgba(245,197,24,0.35)",
             }}>
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-                <path d="M8 18l7 7 13-13" stroke="#fff" strokeWidth="3.2"
-                      strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              {ride.status === "cancelled" ? (
+                <span style={{ fontSize: 36, color: "#fff", fontWeight: 700, lineHeight: 1 }}>✕</span>
+              ) : (
+                <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                  <path d="M8 18l7 7 13-13" stroke="#fff" strokeWidth="3.2"
+                        strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
             </div>
 
             <h2 style={{ fontSize: 20, fontWeight: 700, color: "#111", margin: "0 0 8px" }}>
-              Your Trip is Live 🚗
+              {ride.status === "completed"
+                ? "Ride Completed ✅"
+                : ride.status === "cancelled"
+                ? "Ride Cancelled ❌"
+                : "Your Trip is Live 🚗"}
             </h2>
-            <p style={{ fontSize: 14, color: "#777", margin: "0 0 24px", lineHeight: 1.6 }}>
-              People can now discover and connect with your trip.
+            <p style={{ fontSize: 14, color: "#777", margin: "0 0 20px", lineHeight: 1.6 }}>
+              {ride.status === "completed"
+                ? "This ride has finished. You are now free to create or join other rides."
+                : ride.status === "cancelled"
+                ? "This ride was cancelled. Confirmed passengers have been refunded."
+                : "People can now discover and connect with your trip."}
             </p>
+
+            {actionMsg && (
+              <div style={{
+                background: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                color: "#166534",
+                borderRadius: 10,
+                padding: "10px 14px",
+                fontSize: 13,
+                fontWeight: 600,
+                marginBottom: 16
+              }}>
+                {actionMsg}
+              </div>
+            )}
+
+            {/* Driver Complete & Cancel controls */}
+            {isOwner && ride.status !== "completed" && ride.status !== "cancelled" && (
+              <div style={{
+                background: "#f8fafc",
+                border: "1.5px solid #e2e8f0",
+                borderRadius: 14,
+                padding: "16px 14px",
+                marginBottom: 20
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", marginBottom: 6 }}>
+                  Driver Controls
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12, lineHeight: 1.4 }}>
+                  You cannot join other rides while this ride is active. Mark it as completed when finished, or cancel it.
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    type="button"
+                    disabled={actionBusy}
+                    onClick={handleComplete}
+                    style={{
+                      flex: 1,
+                      background: "#16a34a",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 10,
+                      padding: "12px 10px",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: actionBusy ? "not-allowed" : "pointer",
+                      fontFamily: "inherit"
+                    }}
+                  >
+                    {actionBusy ? "Updating…" : "✓ Complete Ride"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionBusy}
+                    onClick={handleCancel}
+                    style={{
+                      flex: 1,
+                      background: "#fff",
+                      color: "#dc2626",
+                      border: "1.5.px solid #fecaca",
+                      borderRadius: 10,
+                      padding: "12px 10px",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: actionBusy ? "not-allowed" : "pointer",
+                      fontFamily: "inherit"
+                    }}
+                  >
+                    ✕ Cancel Ride
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Ride info card */}
             <div style={{
@@ -322,37 +461,64 @@ export default function RideLive() {
               </div>
             </div>
 
-            <button
-              onClick={handleViewRide}
-              style={{
-                width: "100%", background: "#f5c518", color: "#111",
-                border: "none", borderRadius: 10, padding: "15px",
-                fontWeight: 700, fontSize: 16, cursor: "pointer", marginBottom: 12,
-              }}
-            >
-              View Trip
-            </button>
+            {ride.status === "completed" || ride.status === "cancelled" ? (
+              <>
+                <button
+                  onClick={() => navigate("/find-ride")}
+                  style={{
+                    width: "100%", background: "#f5c518", color: "#111",
+                    border: "none", borderRadius: 10, padding: "15px",
+                    fontWeight: 700, fontSize: 16, cursor: "pointer", marginBottom: 12,
+                  }}
+                >
+                  Find Rides
+                </button>
+                <button
+                  onClick={() => navigate("/post-ride")}
+                  style={{
+                    width: "100%", background: "#fff", color: "#111",
+                    border: "1.5px solid #ddd", borderRadius: 10, padding: "14px",
+                    fontWeight: 600, fontSize: 16, cursor: "pointer", marginBottom: 16,
+                  }}
+                >
+                  Post a New Ride
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleViewRide}
+                  style={{
+                    width: "100%", background: "#f5c518", color: "#111",
+                    border: "none", borderRadius: 10, padding: "15px",
+                    fontWeight: 700, fontSize: 16, cursor: "pointer", marginBottom: 12,
+                  }}
+                >
+                  View Trip
+                </button>
 
-            <button
-              onClick={handleShare}
-              style={{
-                width: "100%", background: "#fff", color: "#111",
-                border: "1.5px solid #ddd", borderRadius: 10, padding: "14px",
-                fontWeight: 600, fontSize: 16, cursor: "pointer", marginBottom: 16,
-              }}
-            >
-              Share Trip
-            </button>
+                <button
+                  onClick={handleShare}
+                  style={{
+                    width: "100%", background: "#fff", color: "#111",
+                    border: "1.5px solid #ddd", borderRadius: 10, padding: "14px",
+                    fontWeight: 600, fontSize: 16, cursor: "pointer", marginBottom: 16,
+                  }}
+                >
+                  Share Trip
+                </button>
 
-            <button
-              onClick={handlePostReturn}
-              style={{
-                background: "none", border: "none", color: "#c4a020",
-                fontWeight: 600, fontSize: 14, cursor: "pointer", padding: 0,
-              }}
-            >
-              Post Return Trip
-            </button>
+                <button
+                  onClick={handlePostReturn}
+                  style={{
+                    background: "none", border: "none", color: "#c4a020",
+                    fontWeight: 600, fontSize: 14, cursor: "pointer", padding: 0,
+                  }}
+                >
+                  Post Return Trip
+                </button>
+              </>
+            )}
           </>
         )}
       </div>

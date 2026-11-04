@@ -10,6 +10,7 @@ import Spinner from "../components/Spinner/Spinner.jsx";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import { formatTime12h } from "../utils/time.js";
+import { checkUserActiveStatus } from "../services/api";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 
@@ -80,7 +81,7 @@ const Tag = ({ label }) => (
 );
 
 /* ── Live ride card — Figma redesign (template only; same data + logic) ── */
-const RideCard = ({ ride, onConnect, myBooking, onPay }) => {
+const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
   const [mapOpen, setMapOpen] = useState(false);
   // The viewer's own booking state for THIS ride (if any).
   const bookingConfirmed = myBooking?.status === "accepted";
@@ -340,6 +341,21 @@ const RideCard = ({ ride, onConnect, myBooking, onPay }) => {
               fontFamily: "inherit",
             }}>
             Ride Full
+          </button>
+        ) : userActiveStatus?.hasActiveCreatedRide ? (
+          <button
+            type="button"
+            onClick={() => onConnect(ride._id)}
+            style={{
+              background: "#ffedd5", color: "#c2410c", border: "1px solid #fed7aa",
+              borderRadius: "28px", padding: "13px 20px",
+              fontWeight: 700, fontSize: "14px", cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 6,
+              fontFamily: "inherit",
+            }}
+            title="You have already started a ride. You cannot join another ride until your current ride is completed or cancelled."
+          >
+            ⚠️ Ride Active
           </button>
         ) : (
           <button
@@ -702,6 +718,15 @@ export default function TravelMate() {
   // through /login → /otp → /profile-setup → /findrideplan (chain is
   // driven by pendingUnlockRideId breadcrumb set here).
   const handleConnect = async (rideId) => {
+    if (userActiveStatus?.hasActiveCreatedRide) {
+      alert("You have already started a ride. You cannot join another ride until your current ride is completed or cancelled.");
+      return;
+    }
+    if (userActiveStatus?.hasActiveJoinedRide && String(userActiveStatus.activeJoinedRide?.rideId) !== String(rideId)) {
+      alert("You have already joined an active ride. You cannot join another ride until your current ride is completed or cancelled.");
+      return;
+    }
+
     const phone = localStorage.getItem("phone") || "";
     const phoneLooksValid = /^\+?\d{10,13}$/.test(phone);
 
@@ -781,6 +806,16 @@ export default function TravelMate() {
   // for this ride, so a confirmed booking can show PAY NOW / Payment Completed
   // right on the card. Only fetched when the viewer is logged in.
   const [bookingByRide, setBookingByRide] = useState({});
+  const [userActiveStatus, setUserActiveStatus] = useState(null);
+
+  useEffect(() => {
+    const ph = localStorage.getItem("phone") || "";
+    const uid = localStorage.getItem("userId") || "";
+    if (!ph && !uid) return;
+    checkUserActiveStatus(ph, uid).then((st) => {
+      setUserActiveStatus(st || null);
+    }).catch(() => {});
+  }, [reloadKey]);
 
   // Sidebar filters (applied client-side to the rides list)
   // vehicleType + femaleOnly are independent — they combine with AND.
@@ -1361,6 +1396,50 @@ export default function TravelMate() {
             </div>
           )}
 
+          {userActiveStatus?.hasActiveCreatedRide && (
+            <div style={{
+              background: "#fff7ed",
+              border: "1.5px solid #f97316",
+              borderRadius: 16,
+              padding: "16px 20px",
+              marginBottom: 20,
+              color: "#9a3412",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 12,
+              fontFamily: "inherit"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 22 }}>⚠️</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>Active Ride in Progress</div>
+                  <div style={{ fontSize: 13, color: "#c2410c", marginTop: 2 }}>
+                    You have already started a ride. You cannot join another ride until your current ride is completed or cancelled.
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(`/ride-live?rideId=${userActiveStatus.activeCreatedRide?._id || userActiveStatus.activeCreatedRide?.rideId || ""}`)}
+                style={{
+                  background: "#ea580c",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "8px 14px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit"
+                }}
+              >
+                View Active Ride →
+              </button>
+            </div>
+          )}
+
           {!loading && !error && visibleRides.map((ride) => (
             <RideCard
               key={ride._id}
@@ -1368,6 +1447,7 @@ export default function TravelMate() {
               onConnect={handleConnect}
               myBooking={bookingByRide[String(ride._id)]}
               onPay={handlePay}
+              userActiveStatus={userActiveStatus}
             />
           ))}
         </div>
