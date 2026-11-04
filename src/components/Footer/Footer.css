@@ -58,7 +58,7 @@
 }
 
 .footer__list a:hover {
-  color: var(--color-text-on-dark);
+  color: var(--color-primary);
 }
 
 .footer__social {

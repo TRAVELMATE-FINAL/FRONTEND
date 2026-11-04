@@ -1149,27 +1149,28 @@ export default function TravelMate() {
           position: "relative",
           overflow: "hidden",
           background:
-            "radial-gradient(900px 400px at 50% -40%, #2a2a6e 0%, rgba(42,42,110,0) 60%), linear-gradient(170deg, #1a1a4e 0%, #16163a 100%)",
-          padding: "40px 48px 56px",
+            "linear-gradient(160deg, #e9e0fb 0%, #efe6fb 48%, #fbe3f0 100%)",
+          borderBottom: "1px solid rgba(124,58,237,0.10)",
+          padding: "34px 48px 44px",
         }}
       >
-        {/* Decorative route illustration — consistent with the homepage hero. */}
+        {/* Decorative route illustration — soft purple on the lavender header. */}
         <div aria-hidden="true" style={{
-          position: "absolute", left: 0, right: 0, bottom: 0, height: 120,
-          pointerEvents: "none", opacity: 0.6, overflow: "hidden",
+          position: "absolute", left: 0, right: 0, bottom: 0, height: 110,
+          pointerEvents: "none", opacity: 0.7, overflow: "hidden",
           WebkitMaskImage: "linear-gradient(to bottom, transparent, #000 60%)",
           maskImage: "linear-gradient(to bottom, transparent, #000 60%)",
         }}>
           <svg viewBox="0 0 1440 120" preserveAspectRatio="xMidYMax slice" style={{ width: "100%", height: "100%", display: "block" }}>
-            <path d="M0 96 Q 360 40 720 80 T 1440 72 V120 H0 Z" fill="rgba(124,58,237,0.16)" />
-            <path d="M40 108 C 360 60, 620 108, 860 78 S 1260 56, 1400 96" fill="none" stroke="rgba(255,203,5,0.5)" strokeWidth="3" strokeLinecap="round" strokeDasharray="2 14" />
+            <path d="M0 96 Q 360 40 720 80 T 1440 72 V120 H0 Z" fill="rgba(124,58,237,0.10)" />
+            <path d="M40 108 C 360 60, 620 108, 860 78 S 1260 56, 1400 96" fill="none" stroke="rgba(124,58,237,0.38)" strokeWidth="3" strokeLinecap="round" strokeDasharray="2 14" />
           </svg>
         </div>
 
         {/* Heading above the search bar */}
-        <div style={{ position: "relative", zIndex: 2, textAlign: "center", marginBottom: 20 }}>
-          <h1 style={{ color: "#fff", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>Find your ride</h1>
-          <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 14, margin: "6px 0 0" }}>
+        <div style={{ position: "relative", zIndex: 2, textAlign: "center", marginBottom: 18 }}>
+          <h1 style={{ color: "#2a1a66", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>Find your ride</h1>
+          <p style={{ color: "#6b5a98", fontSize: 14, margin: "6px 0 0" }}>
             Enter where you're starting from and where you're headed
           </p>
         </div>
@@ -1316,29 +1317,29 @@ export default function TravelMate() {
         <form className="ff-search-bar" onSubmit={handleSearch} style={{ display: "flex", justifyContent: "center" }}>
         <div className="ff-search-card" style={{
           background: "#ffffff",
-          borderRadius: "22px",
-          padding: "18px 18px",
+          borderRadius: "16px",
+          padding: "10px 10px",
           display: "flex",
           alignItems: "center",
-          gap: "14px",
+          gap: "10px",
           width: "100%",
-          maxWidth: "1180px",
-          boxShadow: "0 12px 36px rgba(0, 0, 0, 0.18)",
+          maxWidth: "860px",
+          boxShadow: "0 12px 30px rgba(15, 15, 46, 0.12)",
         }}>
           {/* From — Tamil Nadu district autocomplete */}
           <div className="ff-field ff-field--from" style={{
             background: "#fff",
-            borderRadius: "16px",
-            padding: "0 20px",
-            height: 64,
+            border: "1px solid #e5e7eb",
+            borderRadius: "12px",
+            padding: "0 14px",
+            height: 48,
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            gap: "10px",
             flex: "1 1 0",
             minWidth: 0,
             position: "relative",
             boxSizing: "border-box",
-            boxShadow: "0 2px 8px rgba(15, 15, 46, 0.04)",
           }}>
             {/* Open-circle pin icon — matches Figma "From" glyph */}
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7a8294" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1357,17 +1358,17 @@ export default function TravelMate() {
           {/* To — Tamil Nadu district autocomplete */}
           <div className="ff-field ff-field--to" style={{
             background: "#fff",
-            borderRadius: "16px",
-            padding: "0 20px",
-            height: 64,
+            border: "1px solid #e5e7eb",
+            borderRadius: "12px",
+            padding: "0 14px",
+            height: 48,
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            gap: "10px",
             flex: "1 1 0",
             minWidth: 0,
             position: "relative",
             boxSizing: "border-box",
-            boxShadow: "0 2px 8px rgba(15, 15, 46, 0.04)",
           }}>
             {/* Map-pin glyph for "To" */}
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7a8294" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1389,15 +1390,15 @@ export default function TravelMate() {
             background: "#f5c518",
             color: "#111",
             border: "none",
-            borderRadius: "16px",
-            padding: "0 32px",
-            height: 64,
+            borderRadius: "12px",
+            padding: "0 26px",
+            height: 48,
             fontWeight: 700,
-            fontSize: "16px",
+            fontSize: "15px",
             cursor: "pointer",
             whiteSpace: "nowrap",
             flex: "0 0 auto",
-            minWidth: 160,
+            minWidth: 130,
             boxSizing: "border-box",
             display: "flex",
             alignItems: "center",
