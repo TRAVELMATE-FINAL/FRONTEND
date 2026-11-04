@@ -4,6 +4,7 @@ import Hero from '../components/Hero/Hero.jsx';
 import PopularRoutes from '../components/PopularRoutes/PopularRoutes.jsx';
 import HowItWorks from '../components/HowItWorks/HowItWorks.jsx';
 import WhyChoose from '../components/WhyChoose/WhyChoose.jsx';
+import Faq from '../components/Faq/Faq.jsx';
 import CtaPost from '../components/CtaPost/CtaPost.jsx';
 import Footer from '../components/Footer/Footer.jsx';
 import PostPage from './PostPage.jsx';
@@ -44,6 +45,7 @@ export default function FindRide() {
             <PopularRoutes />
             <HowItWorks />
             <WhyChoose />
+            <Faq />
             <CtaPost />
           </>
         )}
