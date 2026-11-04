@@ -142,12 +142,12 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
 
   return (
     <div className="ff-ride-card" style={{
-      background: "#ffffff",
+      background: "#1a1a4e",
       borderRadius: "20px",
       padding: "22px 24px 20px",
       display: "flex", flexDirection: "column", gap: "16px",
-      border: "1px solid #eef0f4",
-      boxShadow: "0 10px 30px rgba(15, 15, 46, 0.07)",
+      border: "1px solid rgba(255,255,255,0.06)",
+      boxShadow: "0 10px 30px rgba(15, 15, 46, 0.18)",
     }}>
       <div className="ff-ride-row" style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "14px", minWidth: 0 }}>
@@ -166,7 +166,7 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ color: "#1a1a2e", fontWeight: 700, fontSize: "17px",
+                <span style={{ color: "#ffffff", fontWeight: 700, fontSize: "17px",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{driver}</span>
                 {/* Green verified tick — same as Figma */}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -174,32 +174,32 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
                   <polyline points="4.5,8 7,10.5 11.5,5.5" stroke="white" strokeWidth="1.7" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <div style={{ color: "#8a90a6", fontSize: "13px", marginTop: 1, fontWeight: 500 }}>
-                <span style={{ color: "#f5a623" }}>★</span> 4.9 &nbsp;•&nbsp; Verified rider
+              <div style={{ color: "#a5acc4", fontSize: "13px", marginTop: 1, fontWeight: 500 }}>
+                <span style={{ color: "#ffcb05" }}>★</span> 4.9 &nbsp;•&nbsp; Verified rider
               </div>
             </div>
           </div>
 
-          {/* Route — bold dark */}
-          <div style={{ color: "#1a1a2e", fontWeight: 800, fontSize: "21px", letterSpacing: "-0.3px", lineHeight: 1.25 }}>
-            {ride.from} <span style={{ color: "#7c3aed" }}>→</span> {ride.to}
+          {/* Route — bold white with yellow arrow */}
+          <div style={{ color: "#ffffff", fontWeight: 800, fontSize: "21px", letterSpacing: "-0.3px", lineHeight: 1.25 }}>
+            {ride.from} <span style={{ color: "#ffcb05" }}>→</span> {ride.to}
           </div>
 
           {/* Via — intermediate stops so passengers see the full journey */}
           {Array.isArray(ride.stops) && ride.stops.length > 0 && (
-            <div style={{ color: "#6b7280", fontSize: "13px", fontWeight: 500, marginTop: "-4px" }}>
+            <div style={{ color: "rgba(255,255,255,0.72)", fontSize: "13px", fontWeight: 500, marginTop: "-4px" }}>
               Via: {ride.stops.map((s) => (s && s.name) || s).filter(Boolean).join(" • ")}
             </div>
           )}
 
-          {/* Date / time line — purple accent chip */}
+          {/* Date / time line — soft chip on navy */}
           <div style={{
             display: "inline-flex", alignSelf: "flex-start", alignItems: "center", gap: "8px",
-            color: "#5b21b6", fontSize: "14px", fontWeight: 700,
-            background: "#f3effe", border: "1px solid #e7defc",
+            color: "#d6dafc", fontSize: "14px", fontWeight: 700,
+            background: "#2b2b63",
             padding: "6px 12px", borderRadius: 999,
           }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffcb05" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
             {dateLabel} &nbsp;•&nbsp; {formatTime12h(ride.time)}
@@ -210,7 +210,7 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             <div>
               <span style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
-                background: "#f1f0fb", color: "#4b4b7a", border: "1px solid #e7e5f7",
+                background: "#2b2b63", color: "#d6dafc",
                 fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 999,
               }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -227,9 +227,8 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               {tagsRaw.slice(0, 5).map((t, i) => (
                 <span key={i} style={{
-                  background: "#f1f0fb",
-                  color: "#4b4b7a",
-                  border: "1px solid #e7e5f7",
+                  background: "#2b2b63",
+                  color: "#d6dafc",
                   fontSize: 12, fontWeight: 600,
                   padding: "5px 14px",
                   borderRadius: 999,
@@ -251,7 +250,7 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             position: "relative",
             width: "220px", height: "200px", flexShrink: 0,
             borderRadius: "14px", overflow: "hidden",
-            border: "1px solid #eef0f4",
+            border: "1px solid rgba(255,255,255,0.08)",
             cursor: "pointer",
           }}
         >
@@ -277,12 +276,12 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
       <div style={{
         display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px",
         padding: "14px 0 4px", marginTop: "2px",
-        borderTop: "1px solid #eef0f4",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
       }}>
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 5,
           fontSize: 12.5, fontWeight: 700, padding: "5px 11px", borderRadius: 999,
-          background: "#f3f4f6", color: "#374151",
+          background: "#2b2b63", color: "#d6dafc",
         }}>
           {rideFull && confirmedUsers > 0
             ? "All seats confirmed"
@@ -291,9 +290,8 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 5,
           fontSize: 12.5, fontWeight: 700, padding: "5px 11px", borderRadius: 999,
-          background: availableSeats > 0 ? "#dcfce7" : "#fee2e2",
-          color: availableSeats > 0 ? "#166534" : "#991b1b",
-          border: "1px solid " + (availableSeats > 0 ? "#bbf7d0" : "#fecaca"),
+          background: availableSeats > 0 ? "#133a26" : "#4a1620",
+          color: availableSeats > 0 ? "#7ef0a2" : "#ff9c9c",
         }}>
           {availableSeats} {availableSeats === 1 ? "seat" : "seats"} left
         </span>
@@ -301,7 +299,7 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
           <span style={{
             display: "inline-flex", alignItems: "center", gap: 5,
             fontSize: 12.5, fontWeight: 700, padding: "5px 11px", borderRadius: 999,
-            background: "#fff8e1", color: "#8a6d00", border: "1px solid #ffe8a3",
+            background: "#3a310f", color: "#ffd93d",
           }}>
             ₹{Number(ride.farePerSeat)} / seat
           </span>
@@ -726,6 +724,55 @@ const FilterPanel = ({ filters, setFilters, onApply, onReset }) => {
   );
 };
 
+/* ── Horizontal filter bar (option 2: filters on top) ──
+   Same data + logic as FilterPanel; just a compact top row of pill controls
+   bound to the shared `filters` state. */
+const FilterBar = ({ filters, setFilters }) => {
+  const { vehicleType = "", femaleOnly = false, departTime, amenity, minSeats } = filters;
+  const set = (patch) => setFilters((f) => ({ ...f, ...patch }));
+  const chip = (active) => ({
+    display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer",
+    fontFamily: "inherit", fontSize: 13, fontWeight: 600,
+    padding: "8px 14px", borderRadius: 999,
+    border: "1px solid " + (active ? "#1a1a2e" : "#e5e7eb"),
+    background: active ? "#1a1a2e" : "#fff",
+    color: active ? "#fff" : "#374151",
+    transition: "all 0.15s",
+  });
+  const stepBtn = {
+    width: 24, height: 24, borderRadius: "50%", border: "none",
+    background: "#1a1a2e", color: "#fff", cursor: "pointer",
+    fontFamily: "inherit", fontSize: 15, lineHeight: 1,
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+  };
+  return (
+    <div style={{
+      background: "#fff", border: "1px solid #eef0f4", borderRadius: 16,
+      padding: "12px 14px", marginBottom: 18,
+      display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center",
+      boxShadow: "0 4px 16px rgba(15,15,46,0.05)",
+    }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.07em", textTransform: "uppercase", marginRight: 2 }}>Filters</span>
+      <button type="button" style={chip(vehicleType === "car")} onClick={() => set({ vehicleType: vehicleType === "car" ? "" : "car" })}>Car</button>
+      <button type="button" style={chip(vehicleType === "bike")} onClick={() => set({ vehicleType: vehicleType === "bike" ? "" : "bike" })}>Bike</button>
+      <button type="button" style={chip(femaleOnly)} onClick={() => set({ femaleOnly: !femaleOnly })}>Female rider</button>
+      <button type="button" style={chip(amenity === "pets")} onClick={() => set({ amenity: amenity === "pets" ? "" : "pets" })}>Pets</button>
+      <button type="button" style={chip(amenity === "no-smoking")} onClick={() => set({ amenity: amenity === "no-smoking" ? "" : "no-smoking" })}>No smoking</button>
+      <button type="button" style={chip(amenity === "smoking")} onClick={() => set({ amenity: amenity === "smoking" ? "" : "smoking" })}>Smoking</button>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, border: "1px solid #e5e7eb", borderRadius: 999, padding: "4px 10px" }}>
+        <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 600 }}>Seats</span>
+        <button type="button" aria-label="Fewer seats" style={stepBtn} onClick={() => set({ minSeats: Math.max(0, (minSeats || 0) - 1) })}>−</button>
+        <span style={{ fontSize: 13, fontWeight: 700, minWidth: 14, textAlign: "center" }}>{minSeats || 0}</span>
+        <button type="button" aria-label="More seats" style={stepBtn} onClick={() => set({ minSeats: Math.min(8, (minSeats || 0) + 1) })}>+</button>
+      </span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 13, color: "#6b7280", fontWeight: 600 }}>After</span>
+        <Time12hPicker value={departTime} onChange={(v) => set({ departTime: v })} />
+      </span>
+    </div>
+  );
+};
+
 /* ── Main ── */
 export default function TravelMate() {
   const navigate = useNavigate();
@@ -826,6 +873,8 @@ export default function TravelMate() {
   // right on the card. Only fetched when the viewer is logged in.
   const [bookingByRide, setBookingByRide] = useState({});
   const [userActiveStatus, setUserActiveStatus] = useState(null);
+  // Result sort order for the toolbar: earliest | fare | seats
+  const [sortBy, setSortBy] = useState("earliest");
 
   useEffect(() => {
     const ph = localStorage.getItem("phone") || "";
@@ -889,6 +938,18 @@ export default function TravelMate() {
     if (filters.minSeats > 0 && (r.seatsAvailable || 0) < filters.minSeats) return false;
 
     return true;
+  });
+
+  // Free seats on a ride, preferring live backend figures.
+  const seatsOf = (r) =>
+    typeof r.remainingSeats === "number" ? r.remainingSeats
+    : typeof r.seatsAvailable === "number" ? r.seatsAvailable : 0;
+
+  // Apply the toolbar sort on top of the filtered list.
+  const sortedRides = [...visibleRides].sort((a, b) => {
+    if (sortBy === "fare") return (Number(a.farePerSeat) || 0) - (Number(b.farePerSeat) || 0);
+    if (sortBy === "seats") return seatsOf(b) - seatsOf(a);
+    return `${a.date || ""} ${a.time || ""}`.localeCompare(`${b.date || ""} ${b.time || ""}`);
   });
 
   // Mirror URL params back into local state whenever they change so
@@ -1234,24 +1295,13 @@ export default function TravelMate() {
             }
           }
 
-          /* ── Body flex (filter panel + cards) — stack on mobile ── */
-          @media (max-width: 1024px) {
-            .ff-body-flex { padding: 18px 20px 40px !important; gap: 16px !important; }
-            .ff-body-flex > div:first-child { width: 220px !important; padding: 18px !important; }
-          }
+          /* ── Results body (full width; filters live in the top bar) ── */
+          .ff-cards-col { width: 100%; }
           @media (max-width: 720px) {
-            .ff-body-flex {
-              flex-direction: column !important;
-              align-items: stretch !important;
-              padding: 14px 12px 40px !important;
-              gap: 14px !important;
-            }
-            .ff-body-flex > div:first-child { width: 100% !important; padding: 18px !important; }
-            .ff-cards-col { max-width: 100% !important; width: 100% !important; }
+            .ff-body-flex { padding: 10px 12px 44px !important; }
           }
           @media (max-width: 480px) {
-            .ff-body-flex { padding: 12px 10px 36px !important; gap: 12px !important; }
-            .ff-body-flex > div:first-child { padding: 16px !important; }
+            .ff-body-flex { padding: 8px 10px 36px !important; }
           }
 
           /* ── Ride card — stack route info above the map ── */
@@ -1362,39 +1412,38 @@ export default function TravelMate() {
       </form>
       </section>
 
-      {/* Active filter chip — shows whatever combination is active
-          (From-only, To-only, Date-only, or any mix) */}
+      {/* Results toolbar (count + sort) + horizontal filter bar — option 2 */}
       {(queryFrom || queryTo) && (
-        <div style={{ padding: "12px 48px 0", display: "flex", justifyContent: "center" }}>
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            background: "#fff", borderRadius: 14, padding: "10px 16px",
-            border: "1px solid #e5e7eb",
-            fontSize: 13, color: "#1a1a2e", fontWeight: 500,
-            maxWidth: 875, width: "100%",
-          }}>
-            <div>
-              Showing trips
-              {queryFrom && <> from <b>{queryFrom}</b></>}
-              {queryTo   && <> to <b>{queryTo}</b></>}
+        <div style={{ maxWidth: 1180, margin: "0 auto", width: "100%", padding: "16px clamp(12px,4vw,48px) 0", boxSizing: "border-box" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 14 }}>
+            <div style={{ fontSize: 14, color: "#374151" }}>
+              {!loading && !error && (
+                <><b style={{ color: "#1a1a2e", fontWeight: 800 }}>{sortedRides.length}</b> {sortedRides.length === 1 ? "ride" : "rides"} </>
+              )}
+              <span style={{ color: "#6b7280" }}>{queryFrom || "Anywhere"} → {queryTo || "Anywhere"}</span>
             </div>
-            <button onClick={clearFilter} style={{
-              background: "transparent", border: "none", color: "#7c3aed",
-              fontWeight: 600, cursor: "pointer", fontSize: 13,
-            }}>Clear filter</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6b7280", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 999, padding: "7px 12px" }}>
+                Sort
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ border: "none", background: "transparent", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: "#1a1a2e", cursor: "pointer", outline: "none" }}>
+                  <option value="earliest">Earliest</option>
+                  <option value="fare">Lowest fare</option>
+                  <option value="seats">Most seats</option>
+                </select>
+              </span>
+              <button onClick={clearFilter} style={{ background: "transparent", border: "none", color: "#7c3aed", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Clear</button>
+            </div>
           </div>
+          <FilterBar filters={filters} setFilters={setFilters} />
         </div>
       )}
 
-      {/* Body — filter panel + cards list */}
+      {/* Body — full-width results (filters now live in the top bar) */}
       <div className="ff-body-flex" style={{
-        padding: "20px 48px 60px",
-        display: "flex", gap: "20px",
-        justifyContent: "center",
-        alignItems: "flex-start"
+        maxWidth: 1180, margin: "0 auto", width: "100%",
+        padding: "6px clamp(12px,4vw,48px) 60px", boxSizing: "border-box",
       }}>
-        <FilterPanel filters={filters} setFilters={setFilters} onApply={applyFilters} onReset={resetFilters} />
-        <div id="ff-cards" className="ff-cards-col" style={{ display: "flex", flexDirection: "column", gap: "20px", flex: 1, maxWidth: "640px" }}>
+        <div id="ff-cards" className="ff-cards-col" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           {loading && <LoadingRides />}
 
           {!loading && error && (
@@ -1503,16 +1552,24 @@ export default function TravelMate() {
             </div>
           )}
 
-          {!loading && !error && visibleRides.map((ride) => (
-            <RideCard
-              key={ride._id}
-              ride={ride}
-              onConnect={handleConnect}
-              myBooking={bookingByRide[String(ride._id)]}
-              onPay={handlePay}
-              userActiveStatus={userActiveStatus}
-            />
-          ))}
+          {!loading && !error && sortedRides.length > 0 && (
+            <div className="ff-cards-grid" style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 440px), 1fr))",
+              gap: "20px",
+            }}>
+              {sortedRides.map((ride) => (
+                <RideCard
+                  key={ride._id}
+                  ride={ride}
+                  onConnect={handleConnect}
+                  myBooking={bookingByRide[String(ride._id)]}
+                  onPay={handlePay}
+                  userActiveStatus={userActiveStatus}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
