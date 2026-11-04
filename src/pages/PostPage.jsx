@@ -9,6 +9,7 @@ import { scrollAllToTopPersistent } from "../utils/scrollToTop";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
 import LocationSearch from "../components/LocationSearch/LocationSearch";
+import BusRouteMap from "../components/BusRouteMap/BusRouteMap.jsx";
 import MapModal from "../components/RideMap/MapModal";
 import ConfirmModal from "../components/ConfirmModal/ConfirmModal";
 import { checkUserActiveStatus } from "../services/api";
@@ -141,6 +142,174 @@ function Time12Picker({ value, onChange, min }) {
 /* ─────────────────────────────────────────
    PAGE 1 — Post (Figma redesign — vertical stack)
 ───────────────────────────────────────── */
+/* ── Bus-number route picker ───────────────────────────────────────────
+   Driver enters a registered bus number → we fetch the admin bus route and let
+   them pick boarding/dropping points. "Use this route" fills the SAME ride
+   fields (from/to/coords/stops) the manual flow uses, so Find Ride searches
+   both consistently. If the number isn't found, the driver just uses the
+   manual map/fields below. Uses the shared BusRouteMap (no duplicate map). */
+function BusRoutePicker({ setForm }) {
+  const API = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
+  const [open, setOpen] = useState(false);
+  const [num, setNum] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [route, setRoute] = useState(null);
+  const [bIdx, setBIdx] = useState(0);
+  const [dIdx, setDIdx] = useState(1);
+  const [applied, setApplied] = useState(false);
+
+  const seq = route
+    ? [
+        { name: route.from, lat: route.fromLat, lon: route.fromLon },
+        ...(route.stops || []).map((s) => ({ name: s.name, lat: s.lat, lon: s.lon })),
+        { name: route.to, lat: route.toLat, lon: route.toLon },
+      ]
+    : [];
+
+  const fetchRoute = async () => {
+    const key = String(num || "").trim();
+    if (!key) { setErr("Please enter a bus number."); return; }
+    setLoading(true); setErr(""); setRoute(null); setApplied(false);
+    try {
+      const { data } = await axios.get(`${API}/api/bus-routes/${encodeURIComponent(key)}`, { timeout: 9000 });
+      if (data?.success && data.data) {
+        setRoute(data.data);
+        setBIdx(0);
+        setDIdx((data.data.stops?.length || 0) + 1);
+      } else {
+        setErr(data?.message || "No route found for this bus number.");
+      }
+    } catch (e) {
+      setErr(
+        e.response?.status === 404
+          ? (e.response?.data?.message || `No route found for bus number "${key}".`)
+          : "Couldn't fetch the bus route. Please check your connection and try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const previewRoute = route && seq.length > 1 && dIdx > bIdx
+    ? {
+        from: seq[bIdx]?.name, fromLat: seq[bIdx]?.lat, fromLon: seq[bIdx]?.lon,
+        to: seq[dIdx]?.name, toLat: seq[dIdx]?.lat, toLon: seq[dIdx]?.lon,
+        stops: seq.slice(bIdx + 1, dIdx),
+      }
+    : null;
+
+  const apply = () => {
+    if (!previewRoute || bIdx >= dIdx) return;
+    const coordOf = (p) => (p && p.lat != null && p.lon != null) ? { lat: Number(p.lat), lon: Number(p.lon) } : null;
+    setForm((f) => ({
+      ...f,
+      from: seq[bIdx].name,
+      fromCoords: coordOf(seq[bIdx]),
+      to: seq[dIdx].name,
+      toCoords: coordOf(seq[dIdx]),
+      stops: seq.slice(bIdx + 1, dIdx).map((s) => ({ name: s.name, lat: s.lat ?? null, lon: s.lon ?? null })),
+    }));
+    setApplied(true);
+  };
+
+  const selStyle = {
+    width: "100%", border: "1.5px solid #e5e7eb", borderRadius: 10,
+    padding: "10px 12px", fontSize: 14, fontFamily: "inherit", color: "#1a1a2e",
+    background: "#fff", outline: "none", boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ marginBottom: 16, border: "1px solid #e7defc", background: "#faf7ff", borderRadius: 12, overflow: "hidden" }}>
+      <button type="button" onClick={() => setOpen((o) => !o)} style={{
+        width: "100%", display: "flex", alignItems: "center", gap: 10,
+        background: "transparent", border: "none", cursor: "pointer",
+        padding: "13px 14px", fontFamily: "inherit", textAlign: "left",
+      }}>
+        <span style={{
+          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          color: "#fff", background: "linear-gradient(135deg,#ec1c8c,#7c3aed)",
+        }} aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10" /><path d="M3 16h18M4 10h16" />
+            <circle cx="8" cy="13" r="0.6" fill="currentColor" /><circle cx="16" cy="13" r="0.6" fill="currentColor" />
+          </svg>
+        </span>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#1a1a2e" }}>Have a bus number? Auto-fill the route</span>
+          <span style={{ display: "block", fontSize: 12, color: "#8a8fb0" }}>Enter a registered bus number to load its route</span>
+        </span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {open && (
+        <div style={{ padding: "0 14px 14px" }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={num}
+              onChange={(e) => setNum(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); fetchRoute(); } }}
+              placeholder="e.g. 70 or M70"
+              style={{ ...selStyle, flex: 1 }}
+            />
+            <button type="button" onClick={fetchRoute} disabled={loading} style={{
+              background: "#7c3aed", color: "#fff", border: "none", borderRadius: 10,
+              padding: "0 18px", fontWeight: 700, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit",
+            }}>{loading ? "…" : "Fetch"}</button>
+          </div>
+
+          {err && (
+            <div style={{ marginTop: 10, fontSize: 13, color: "#9a3412", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "10px 12px" }}>
+              {err} You can enter the route manually below.
+            </div>
+          )}
+
+          {route && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 13, color: "#374151", marginBottom: 10 }}>
+                Bus <strong>{route.busNumber}</strong>{route.operator ? ` · ${route.operator}` : ""}: <strong>{route.from}</strong> → <strong>{route.to}</strong>
+              </div>
+              <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 160px", minWidth: 0 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#1a1a2e", display: "block", marginBottom: 5 }}>Boarding point</label>
+                  <select value={bIdx} onChange={(e) => {
+                    const v = Number(e.target.value); setBIdx(v); if (dIdx <= v) setDIdx(seq.length - 1);
+                  }} style={selStyle}>
+                    {seq.slice(0, seq.length - 1).map((p, i) => <option key={i} value={i}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: "1 1 160px", minWidth: 0 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#1a1a2e", display: "block", marginBottom: 5 }}>Dropping point</label>
+                  <select value={dIdx} onChange={(e) => setDIdx(Number(e.target.value))} style={selStyle}>
+                    {seq.map((p, i) => i > bIdx ? <option key={i} value={i}>{p.name}</option> : null)}
+                  </select>
+                </div>
+              </div>
+
+              {previewRoute && <BusRouteMap route={previewRoute} height={220} />}
+
+              <button type="button" onClick={apply} style={{
+                marginTop: 12, width: "100%", background: "#f5c518", color: "#111", border: "none",
+                borderRadius: 10, padding: "12px 14px", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "inherit",
+              }}>
+                {applied ? "✓ Route applied — continue below" : "Use this route"}
+              </button>
+              {applied && (
+                <div style={{ marginTop: 8, fontSize: 12, color: "#166534" }}>
+                  Boarding/dropping and stops filled below. Fill the date, time and seats to finish.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PostPage({ form, setForm, route, distance, duration, routeLoading, error, onNext, onRouteCalculated, onRouteStopsCalculated, routeSuggestedStops }) {
   const [stopInput, setStopInput] = useState("");
   const [mapOpen, setMapOpen] = useState(false);
@@ -296,6 +465,9 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
           boxShadow:"0 4px 18px rgba(0,0,0,0.06)",
           padding: "22px 22px 6px",
         }}>
+
+          {/* Bus-number route auto-fill (optional). Falls back to manual below. */}
+          <BusRoutePicker setForm={setForm} />
 
           {/* From — same map-pin glyph as Hero, violet for the starting point */}
           {fieldBlock(
