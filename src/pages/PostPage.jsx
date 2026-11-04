@@ -2056,7 +2056,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
                 Active Ride in Progress
               </div>
               <div style={{ fontSize: 13, color: "#c2410c", marginTop: 4, lineHeight: 1.5 }}>
-                You have already started a ride{activeStatus.activeCreatedRide?.from ? ` (${activeStatus.activeCreatedRide.from} → ${activeStatus.activeCreatedRide.to})` : ""}.
+                You have already started a ride{activeStatus.activeRide?.from ? ` (${activeStatus.activeRide.from} → ${activeStatus.activeRide.to})` : ""}.
                 You cannot create another ride until your current ride is completed or cancelled.
               </div>
             </div>
@@ -2064,7 +2064,11 @@ export default function TravelMatePost({ embedded = false } = {}) {
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 4 }}>
             <button
               type="button"
-              onClick={() => navigate(`/ride-live?rideId=${activeStatus.activeCreatedRide?._id || activeStatus.activeCreatedRide?.rideId || ""}`)}
+              onClick={() => {
+                const id = activeStatus.activeRideId || activeStatus.activeRide?._id || "";
+                if (!id) { navigate(activeStatus.activeType === "live" ? "/live-rides" : "/find-friend"); return; }
+                navigate(activeStatus.activeType === "live" ? `/live-rides?rideId=${id}` : `/ride-live?rideId=${id}`);
+              }}
               style={{
                 background: "#ea580c",
                 color: "#fff",

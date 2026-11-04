@@ -1154,19 +1154,6 @@ export default function TravelMate() {
           padding: "34px 48px 44px",
         }}
       >
-        {/* Decorative route illustration — soft purple on the lavender header. */}
-        <div aria-hidden="true" style={{
-          position: "absolute", left: 0, right: 0, bottom: 0, height: 110,
-          pointerEvents: "none", opacity: 0.7, overflow: "hidden",
-          WebkitMaskImage: "linear-gradient(to bottom, transparent, #000 60%)",
-          maskImage: "linear-gradient(to bottom, transparent, #000 60%)",
-        }}>
-          <svg viewBox="0 0 1440 120" preserveAspectRatio="xMidYMax slice" style={{ width: "100%", height: "100%", display: "block" }}>
-            <path d="M0 96 Q 360 40 720 80 T 1440 72 V120 H0 Z" fill="rgba(124,58,237,0.10)" />
-            <path d="M40 108 C 360 60, 620 108, 860 78 S 1260 56, 1400 96" fill="none" stroke="rgba(124,58,237,0.38)" strokeWidth="3" strokeLinecap="round" strokeDasharray="2 14" />
-          </svg>
-        </div>
-
         {/* Heading above the search bar */}
         <div style={{ position: "relative", zIndex: 2, textAlign: "center", marginBottom: 18 }}>
           <h1 style={{ color: "#2a1a66", fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>Find your ride</h1>
@@ -1535,7 +1522,11 @@ export default function TravelMate() {
               </div>
               <button
                 type="button"
-                onClick={() => navigate(`/ride-live?rideId=${userActiveStatus.activeCreatedRide?._id || userActiveStatus.activeCreatedRide?.rideId || ""}`)}
+                onClick={() => {
+                  const id = userActiveStatus.activeRideId || userActiveStatus.activeRide?._id || "";
+                  if (!id) { navigate(userActiveStatus.activeType === "live" ? "/live-rides" : "/find-friend"); return; }
+                  navigate(userActiveStatus.activeType === "live" ? `/live-rides?rideId=${id}` : `/ride-live?rideId=${id}`);
+                }}
                 style={{
                   background: "#ea580c",
                   color: "#fff",

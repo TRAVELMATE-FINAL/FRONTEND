@@ -61,11 +61,6 @@ function Hero({ mode: modeProp, onModeChange }) {
       {/* Clean, professional background — soft brand glows + a faint dotted
           route line. No scenery/vehicles, so the headline stays the focus. */}
       <div className="hero__bg" aria-hidden="true" />
-      <div className="hero__art" aria-hidden="true">
-        <svg className="hero__art-svg" viewBox="0 0 1440 120" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
-          <path className="hero__art-route" d="M40 96 C 380 70, 560 108, 820 82 S 1240 56, 1420 92" />
-        </svg>
-      </div>
 
       <div className="container hero__inner">
         <span className="hero__eyebrow">Carpool across your city</span>
