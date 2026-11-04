@@ -142,11 +142,12 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
 
   return (
     <div className="ff-ride-card" style={{
-      background: "#1c1c3d",            // deep indigo to match Figma
-      borderRadius: "22px",
+      background: "#ffffff",
+      borderRadius: "20px",
       padding: "22px 24px 20px",
       display: "flex", flexDirection: "column", gap: "16px",
-      boxShadow: "0 6px 26px rgba(15, 15, 46, 0.12)",
+      border: "1px solid #eef0f4",
+      boxShadow: "0 10px 30px rgba(15, 15, 46, 0.07)",
     }}>
       <div className="ff-ride-row" style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "14px", minWidth: 0 }}>
@@ -165,7 +166,7 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ color: "#ffffff", fontWeight: 700, fontSize: "17px",
+                <span style={{ color: "#1a1a2e", fontWeight: 700, fontSize: "17px",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{driver}</span>
                 {/* Green verified tick — same as Figma */}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -173,27 +174,32 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
                   <polyline points="4.5,8 7,10.5 11.5,5.5" stroke="white" strokeWidth="1.7" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <div style={{ color: "#a5acc4", fontSize: "13px", marginTop: 1, fontWeight: 500 }}>
-                ★ 4.9 &nbsp;•&nbsp; {ride.viewCount ? ride.viewCount : 45} trips
+              <div style={{ color: "#8a90a6", fontSize: "13px", marginTop: 1, fontWeight: 500 }}>
+                <span style={{ color: "#f5a623" }}>★</span> 4.9 &nbsp;•&nbsp; Verified rider
               </div>
             </div>
           </div>
 
-          {/* Route — bold white */}
-          <div style={{ color: "#ffffff", fontWeight: 700, fontSize: "22px", letterSpacing: "-0.2px" }}>
-            {ride.from} → {ride.to}
+          {/* Route — bold dark */}
+          <div style={{ color: "#1a1a2e", fontWeight: 800, fontSize: "21px", letterSpacing: "-0.3px", lineHeight: 1.25 }}>
+            {ride.from} <span style={{ color: "#7c3aed" }}>→</span> {ride.to}
           </div>
 
           {/* Via — intermediate stops so passengers see the full journey */}
           {Array.isArray(ride.stops) && ride.stops.length > 0 && (
-            <div style={{ color: "rgba(255,255,255,0.72)", fontSize: "13px", fontWeight: 500, marginTop: "2px" }}>
+            <div style={{ color: "#6b7280", fontSize: "13px", fontWeight: 500, marginTop: "-4px" }}>
               Via: {ride.stops.map((s) => (s && s.name) || s).filter(Boolean).join(" • ")}
             </div>
           )}
 
-          {/* Yellow date / time line */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#f5c518", fontSize: "15px", fontWeight: 600 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f5c518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {/* Date / time line — purple accent chip */}
+          <div style={{
+            display: "inline-flex", alignSelf: "flex-start", alignItems: "center", gap: "8px",
+            color: "#5b21b6", fontSize: "14px", fontWeight: 700,
+            background: "#f3effe", border: "1px solid #e7defc",
+            padding: "6px 12px", borderRadius: 999,
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
             {dateLabel} &nbsp;•&nbsp; {formatTime12h(ride.time)}
@@ -204,7 +210,7 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             <div>
               <span style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
-                background: "#2b2b50", color: "#d6dafc",
+                background: "#f1f0fb", color: "#4b4b7a", border: "1px solid #e7e5f7",
                 fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 999,
               }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -221,8 +227,9 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               {tagsRaw.slice(0, 5).map((t, i) => (
                 <span key={i} style={{
-                  background: "#2b2b50",
-                  color: "#d6dafc",
+                  background: "#f1f0fb",
+                  color: "#4b4b7a",
+                  border: "1px solid #e7e5f7",
                   fontSize: 12, fontWeight: 600,
                   padding: "5px 14px",
                   borderRadius: 999,
@@ -244,7 +251,7 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             position: "relative",
             width: "220px", height: "200px", flexShrink: 0,
             borderRadius: "14px", overflow: "hidden",
-            border: "1px solid rgba(255,255,255,0.08)",
+            border: "1px solid #eef0f4",
             cursor: "pointer",
           }}
         >
@@ -268,30 +275,35 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
       {/* Confirmed passengers + available seats — always visible on the card,
           straight from live backend data (no hardcoded values). */}
       <div style={{
-        display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 20px",
-        padding: "10px 0", marginTop: "4px",
-        borderTop: "1px solid rgba(255,255,255,0.08)",
+        display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px",
+        padding: "14px 0 4px", marginTop: "2px",
+        borderTop: "1px solid #eef0f4",
       }}>
-        <span style={{ fontSize: 13, color: "#b9bee0", fontWeight: 500 }}>
-          <strong style={{ color: "#ffffff", fontWeight: 800 }}>
-            {rideFull && confirmedUsers > 0
-              ? "All Users"
-              : `${confirmedUsers} ${confirmedUsers === 1 ? "User" : "Users"}`}
-          </strong>{" "}
-          Confirmed
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 5,
+          fontSize: 12.5, fontWeight: 700, padding: "5px 11px", borderRadius: 999,
+          background: "#f3f4f6", color: "#374151",
+        }}>
+          {rideFull && confirmedUsers > 0
+            ? "All seats confirmed"
+            : `${confirmedUsers} confirmed`}
         </span>
-        <span style={{ fontSize: 13, color: "#b9bee0", fontWeight: 500 }}>
-          Available Seats:{" "}
-          <strong style={{ color: availableSeats > 0 ? "#7ef0a2" : "#ff8a8a", fontWeight: 800 }}>
-            {availableSeats}
-          </strong>
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 5,
+          fontSize: 12.5, fontWeight: 700, padding: "5px 11px", borderRadius: 999,
+          background: availableSeats > 0 ? "#dcfce7" : "#fee2e2",
+          color: availableSeats > 0 ? "#166534" : "#991b1b",
+          border: "1px solid " + (availableSeats > 0 ? "#bbf7d0" : "#fecaca"),
+        }}>
+          {availableSeats} {availableSeats === 1 ? "seat" : "seats"} left
         </span>
         {Number(ride.farePerSeat) > 0 && (
-          <span style={{ fontSize: 13, color: "#b9bee0", fontWeight: 500 }}>
-            Fare/Seat:{" "}
-            <strong style={{ color: "#ffd93d", fontWeight: 800 }}>
-              ₹{Number(ride.farePerSeat)}
-            </strong>
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            fontSize: 12.5, fontWeight: 700, padding: "5px 11px", borderRadius: 999,
+            background: "#fff8e1", color: "#8a6d00", border: "1px solid #ffe8a3",
+          }}>
+            ₹{Number(ride.farePerSeat)} / seat
           </span>
         )}
       </div>

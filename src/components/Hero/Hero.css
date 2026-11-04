@@ -18,30 +18,36 @@
 .hero__art {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  height: 220px;
+  height: 60%;
+  min-height: 300px;
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.9;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 42%);
-          mask-image: linear-gradient(to bottom, transparent 0%, #000 42%);
+  opacity: 0.95;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 38%);
+          mask-image: linear-gradient(to bottom, transparent 0%, #000 38%);
 }
 .hero__art-svg { width: 100%; height: 100%; display: block; }
-.hero__art-hill--back { fill: rgba(124, 58, 237, 0.16); }
-.hero__art-hill--mid  { fill: rgba(236, 28, 140, 0.14); }
+.hero__art-sun { fill: rgba(255, 203, 5, 0.10); }
+.hero__art-hill--far  { fill: rgba(99, 102, 241, 0.12); }
+.hero__art-hill--back { fill: rgba(124, 58, 237, 0.18); }
+.hero__art-hill--mid  { fill: rgba(236, 28, 140, 0.16); }
+.hero__art-trees path { fill: rgba(126, 231, 160, 0.22); }
+.hero__art-trees rect { fill: rgba(126, 231, 160, 0.18); }
 .hero__art-city rect  { fill: rgba(255, 255, 255, 0.06); }
+.hero__art-road { fill: rgba(255, 255, 255, 0.05); }
 .hero__art-route {
   fill: none;
-  stroke: rgba(255, 203, 5, 0.55);
+  stroke: rgba(255, 203, 5, 0.6);
   stroke-width: 3;
   stroke-linecap: round;
   stroke-dasharray: 2 14;
 }
 .hero__art-car {
-  /* ride the dotted route: offset-path follows the same curve */
-  offset-path: path('M60 300 C 360 220, 560 300, 820 250 S 1260 210, 1400 268');
+  /* ride the road: offset-path matches the dashed centre line exactly */
+  offset-path: path('M40 338 C 380 312, 560 352, 820 326 S 1240 300, 1420 336');
   offset-rotate: auto;
-  animation: hero-drive 10s linear infinite;
+  animation: hero-drive 11s linear infinite;
 }
 .hero__art-car rect { fill: #ffcb05; }
 .hero__art-car .hero__art-wheel { fill: #14163a; stroke: #ffcb05; stroke-width: 2; }

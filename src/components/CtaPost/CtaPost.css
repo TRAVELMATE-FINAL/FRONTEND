@@ -60,7 +60,10 @@
   .cta-post__btn:hover svg { transform: translateX(3px); }
 }
 
+.cta-post__inner { box-sizing: border-box; max-width: 100%; }
+
 @media (max-width: 760px) {
+  .cta-post { padding: var(--space-10) 0 var(--space-12); }
   .cta-post__inner {
     flex-direction: column;
     align-items: flex-start;
@@ -68,5 +71,14 @@
     padding: var(--space-8);
     gap: var(--space-5);
   }
+  .cta-post__title { font-size: var(--font-size-lg); }
+  .cta-post__subtitle { max-width: 100%; }
   .cta-post__btn { width: 100%; justify-content: center; }
+}
+
+@media (max-width: 420px) {
+  .cta-post__inner { padding: var(--space-6); border-radius: var(--radius-xl); }
+  .cta-post__title { font-size: 1.3rem; }
+  .cta-post__subtitle { font-size: var(--font-size-sm); }
+  .cta-post__btn { padding: 13px 18px; font-size: var(--font-size-sm); }
 }

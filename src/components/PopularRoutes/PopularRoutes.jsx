@@ -24,20 +24,22 @@ function PopularRoutes() {
       .then(({ data }) => {
         if (cancelled) return;
         const rides = Array.isArray(data?.data) ? data.data : [];
+        const seatsOf = (r) =>
+          typeof r.remainingSeats === 'number'
+            ? r.remainingSeats
+            : typeof r.seatsAvailable === 'number'
+            ? r.seatsAvailable
+            : 0;
         // Only active rides that still have seats (accepting bookings).
         const bookable = rides.filter((r) => {
           const statusOk = !r.status || r.status === 'active';
-          const seatsLeft =
-            typeof r.remainingSeats === 'number'
-              ? r.remainingSeats
-              : typeof r.seatsAvailable === 'number'
-              ? r.seatsAvailable
-              : 0;
+          const seatsLeft = seatsOf(r);
           const notFull = typeof r.isFull === 'boolean' ? !r.isFull : seatsLeft > 0;
           return statusOk && notFull && seatsLeft > 0 && r.from && r.to;
         });
 
-        // Group by route (start → destination).
+        // Group by route (start → destination). The API returns rides newest
+        // first, so Map insertion order already reflects "most recent first".
         const map = new Map();
         for (const r of bookable) {
           const from = String(r.from).trim();
@@ -46,13 +48,14 @@ function PopularRoutes() {
           const existing = map.get(key);
           if (existing) {
             existing.count += 1;
+            existing.seats += seatsOf(r);
           } else {
-            map.set(key, { from, to, count: 1 });
+            map.set(key, { from, to, count: 1, seats: seatsOf(r) });
           }
         }
 
-        // Most rides first; cap at 6 cards.
-        const list = [...map.values()].sort((a, b) => b.count - a.count).slice(0, 6);
+        // Keep most-recently-posted routes first; cap at 6 cards.
+        const list = [...map.values()].slice(0, 6);
         setRoutes(list);
         setFailed(false);
         setLoading(false);
@@ -82,35 +85,19 @@ function PopularRoutes() {
   const go = (from, to) =>
     navigate(`/find-friend?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
 
-  // Hide the whole section only on hard failure (keep the homepage clean).
-  if (failed) return null;
+  // Show this section ONLY when there are real, available customer rides.
+  // While loading, or on failure, or when nothing's available → render nothing.
+  if (loading || failed || routes.length === 0) return null;
 
   return (
     <section className="poproutes">
       <div className="container">
         <header className="poproutes__header">
           <h2 className="poproutes__title">Recent rides</h2>
-          <p className="poproutes__subtitle">Routes posted by riders — tap one to see available rides</p>
+          <p className="poproutes__subtitle">Latest routes posted by riders — tap one to see available rides</p>
         </header>
 
-        {loading ? (
-          <div className="poproutes__grid">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="poproute poproute--skeleton" aria-hidden="true">
-                <span className="poproute__skelbar" />
-                <span className="poproute__skelpill" />
-              </div>
-            ))}
-          </div>
-        ) : routes.length === 0 ? (
-          <div className="poproutes__empty">
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M5 11l1.4-3.7A2 2 0 0 1 8.3 6h7.4a2 2 0 0 1 1.9 1.3L19 11" />
-              <path d="M3 16h18M6 16v2M18 16v2M5 11h14a2 2 0 0 1 2 2v3H3v-3a2 2 0 0 1 2-2z" />
-            </svg>
-            <p>No rides are available right now. Be the first — post a ride and others can join you.</p>
-          </div>
-        ) : (
+        {(
           <div className="poproutes__grid">
             {routes.map((r) => (
               <button
@@ -129,7 +116,8 @@ function PopularRoutes() {
                 </span>
                 <span className="poproute__meta">
                   <span className="poproute__count">
-                    {r.count} {r.count === 1 ? 'ride' : 'rides'} available
+                    {r.seats} {r.seats === 1 ? 'seat' : 'seats'} available
+                    <span className="poproute__sub">· {r.count} {r.count === 1 ? 'ride' : 'rides'}</span>
                   </span>
                   <span className="poproute__cta">
                     View
