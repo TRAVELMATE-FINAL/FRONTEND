@@ -468,6 +468,25 @@ export default function RideDetailsPage() {
     >
       <Header />
 
+      {/* Polish: scoped interaction feedback for the detail/booking CTAs and
+          cards. Purely visual (hover lift, soft shadow) — no logic change. */}
+      <style>{`
+        @media (pointer: fine) {
+          .ride-detail-page button:not(:disabled):hover {
+            transform: translateY(-2px);
+            filter: brightness(1.04);
+          }
+          .ride-detail-page button:not(:disabled):active { transform: translateY(0); }
+          .ride-detail-grid > div > div {
+            transition: box-shadow 220ms ease, transform 220ms ease;
+          }
+          .ride-detail-grid > div > div:hover {
+            box-shadow: 0 12px 30px rgba(15, 15, 46, 0.10);
+          }
+        }
+        .ride-detail-page button { transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease; }
+      `}</style>
+
       {/* Loading / error states */}
       {loading && (
         <div style={{ flex: 1, padding: "60px 20px" }}>
@@ -925,6 +944,21 @@ export default function RideDetailsPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Intermediate stops (in travel order) */}
+                {Array.isArray(ride.stops) && ride.stops.map((s, i) => (
+                  <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#7c3aed", border: "2px solid #fff", boxShadow: "0 0 0 1px #7c3aed" }} />
+                      <div style={{ width: 2, height: 32, background: "#d1d5db", margin: "4px 0", borderRadius: 2 }} />
+                    </div>
+                    <div style={{ paddingBottom: 12 }}>
+                      <p style={{ fontSize: 14, fontWeight: 500, color: "#374151", margin: 0 }}>
+                        {(s && s.name) || s}
+                      </p>
+                    </div>
+                  </div>
+                ))}
 
                 {/* Destination */}
                 <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>

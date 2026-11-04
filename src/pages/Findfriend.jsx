@@ -184,6 +184,13 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             {ride.from} → {ride.to}
           </div>
 
+          {/* Via — intermediate stops so passengers see the full journey */}
+          {Array.isArray(ride.stops) && ride.stops.length > 0 && (
+            <div style={{ color: "rgba(255,255,255,0.72)", fontSize: "13px", fontWeight: 500, marginTop: "2px" }}>
+              Via: {ride.stops.map((s) => (s && s.name) || s).filter(Boolean).join(" • ")}
+            </div>
+          )}
+
           {/* Yellow date / time line */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#f5c518", fontSize: "15px", fontWeight: 600 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f5c518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -105,29 +105,7 @@ function Hero({ mode: modeProp, onModeChange }) {
             </span>
             <span className="hero__busbtn-text">
               Bus Route Finder
-              <span className="hero__busbtn-sub">Search any Tamil Nadu bus by number</span>
-            </span>
-            <svg className="hero__busbtn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate('/live-rides')}
-            className="hero__busbtn"
-          >
-            <span className="hero__busbtn-icon hero__busbtn-icon--live" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-            </span>
-            <span className="hero__busbtn-text">
-              Live Rides
-              <span className="hero__busbtn-sub">Track &amp; join an ongoing vehicle</span>
+              <span className="hero__busbtn-sub">Search any Chennai-area bus by number</span>
             </span>
             <svg className="hero__busbtn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

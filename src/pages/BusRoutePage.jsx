@@ -64,7 +64,7 @@ function BusRouteMap({ route }) {
       const cached = geoCacheGet(name);
       if (cached) return resolve(cached);
       geocoder.geocode(
-        { address: `${name}, Tamil Nadu, India`, componentRestrictions: { country: "IN" } },
+        { address: `${name}, Chennai, Tamil Nadu, India`, componentRestrictions: { country: "IN" } },
         (res, st) => {
           const OK = window.google.maps.GeocoderStatus?.OK || "OK";
           if (st === OK && res && res[0]) {
@@ -97,7 +97,7 @@ function BusRouteMap({ route }) {
     clear();
     setStatus("plotting");
 
-    const REGION = ", Tamil Nadu, India";
+    const REGION = ", Chennai, Tamil Nadu, India";
     const origin = String(route.from || "").trim() + REGION;
     const destination = String(route.to || "").trim() + REGION;
     const stopNames = (route.stops || []).map((s) => s.name).filter(Boolean);
@@ -180,7 +180,7 @@ function BusRouteMap({ route }) {
       <div style={{ width: "100%", height: 320, borderRadius: 14, overflow: "hidden", border: "1px solid #e5e7eb" }}>
         <GoogleMap
           mapContainerStyle={{ width: "100%", height: "100%" }}
-          center={{ lat: 11.1271, lng: 78.6569 }} // Tamil Nadu centroid; fitBounds overrides
+          center={{ lat: 13.0827, lng: 80.2707 }} // Chennai; fitBounds overrides
           zoom={7}
           options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: true, gestureHandling: "greedy", clickableIcons: false }}
           onLoad={onMapLoad}
@@ -257,7 +257,7 @@ export default function BusRoutePage() {
       <div style={{ flex: 1, width: "100%", maxWidth: 820, margin: "0 auto", padding: "20px 14px 48px", boxSizing: "border-box" }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1a1a2e", margin: "6px 0 4px" }}>Bus Route Details</h1>
         <p style={{ fontSize: 14, color: "#6b7280", margin: "0 0 18px" }}>
-          Enter a bus number to see its full route — starting point, all stops and the destination. (Tamil Nadu routes)
+          Enter a bus number to see its full route — starting point, all stops and the destination. (Chennai area)
         </p>
 
         {/* Search */}
@@ -314,7 +314,7 @@ export default function BusRoutePage() {
                     {route.operator}
                   </span>
                 )}
-                <span style={{ color: "#9ca3af", fontSize: 12, fontWeight: 600 }}>{route.state || "Tamil Nadu"}</span>
+                <span style={{ color: "#9ca3af", fontSize: 12, fontWeight: 600 }}>{route.state || "Chennai"}</span>
               </div>
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", fontSize: 14 }}>

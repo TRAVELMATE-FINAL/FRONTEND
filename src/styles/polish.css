@@ -129,6 +129,17 @@ img, svg, video { max-width: 100%; }
 .hero__subtitle { color: #d6d8f0; letter-spacing: 0.1px; }
 .hero__toggle { box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16); }
 
+/* ---- Hero Bus Route Finder button: premium lift + arrow nudge ---- */
+.hero__busbtn { transition: transform 200ms ease, box-shadow 200ms ease, background-color 200ms ease; }
+@media (pointer: fine) {
+  .hero__busbtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px rgba(10, 12, 50, 0.22);
+  }
+  .hero__busbtn:hover .hero__busbtn-arrow { transform: translateX(3px); }
+}
+.hero__busbtn-arrow { transition: transform 200ms ease; }
+
 /* ---- Search card: softer, more premium field outline ----
    (replaces the heavy near-black box border with a cleaner medium
    border + a confident brand focus state — still clearly visible.) */
@@ -162,6 +173,77 @@ img, svg, video { max-width: 100%; }
 /* ---- Section headings: confident, consistent hierarchy ---- */
 h1 { letter-spacing: -0.025em; }
 h2 { letter-spacing: -0.015em; }
+
+/* =====================================================
+   INTERACTION & MOTION PASS v2 — adds the layer the
+   inline-styled pages can't set themselves: entrance
+   animations, in-card CTA lift, form-field polish.
+   Purely additive; no markup / logic / data changes.
+   ===================================================== */
+
+/* ---- 14. Soft entrance for ride cards (staggered fade-up) ----
+   Pages render each card with the .ff-ride-card class; animating the
+   class is non-invasive and reads as a polished, modern reveal. */
+/* Uses the independent `translate` property (not `transform`) so the
+   card's :hover transform lift keeps working after the animation ends.
+   Browsers without `translate` support simply fade in — a clean fallback. */
+@keyframes tmFadeUp {
+  from { opacity: 0; translate: 0 14px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+@media (pointer: fine) {
+  .ff-ride-card {
+    animation: tmFadeUp 460ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  /* Gentle stagger for the first several cards in a list */
+  .ff-cards-col .ff-ride-card:nth-child(1) { animation-delay: 0ms; }
+  .ff-cards-col .ff-ride-card:nth-child(2) { animation-delay: 70ms; }
+  .ff-cards-col .ff-ride-card:nth-child(3) { animation-delay: 140ms; }
+  .ff-cards-col .ff-ride-card:nth-child(4) { animation-delay: 210ms; }
+  .ff-cards-col .ff-ride-card:nth-child(5) { animation-delay: 280ms; }
+  .ff-cards-col .ff-ride-card:nth-child(n+6) { animation-delay: 340ms; }
+}
+
+/* ---- 15. In-card CTA buttons: premium lift on hover ----
+   The yellow "Request to Ride" / "Pay Now" buttons use inline styles and
+   carry no shared class, so target buttons that live inside ride cards. */
+@media (pointer: fine) {
+  .ff-ride-card button:not(:disabled):hover {
+    transform: translateY(-2px);
+    filter: brightness(1.04);
+  }
+  .ff-ride-card button:not(:disabled):active {
+    transform: translateY(0);
+  }
+  /* Map preview: a touch of scale so it clearly reads as tappable */
+  .ff-ride-map { transition: transform 220ms ease, box-shadow 220ms ease; }
+  .ff-ride-map:hover { transform: scale(1.015); }
+}
+
+/* ---- 16. Form fields everywhere: consistent, calmer focus ----
+   Native inputs/selects/textareas that aren't inside a .search-card still
+   get a confident, brand-consistent focus ring (Post Ride, profile, etc.). */
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  box-shadow: 0 0 0 3px rgba(108, 43, 217, 0.14);
+}
+
+/* ---- 17. Generic card hover for other rounded surfaces ----
+   Any element the pages mark as a "card" lifts gently; opt-in via class
+   so nothing unexpected moves. */
+@media (pointer: fine) {
+  .tm-card, .card-hoverable {
+    transition: transform 200ms ease, box-shadow 200ms ease;
+  }
+  .tm-card:hover, .card-hoverable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px rgba(15, 15, 46, 0.14);
+  }
+}
+
+/* ---- 18. Disabled controls read clearly as inactive ---- */
+button:disabled, [aria-disabled="true"] { opacity: 0.92; }
 
 /* ---------- 13. Respect reduced-motion preferences ---------- */
 @media (prefers-reduced-motion: reduce) {

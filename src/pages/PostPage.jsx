@@ -155,9 +155,23 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
     form.toCoords?.lat != null && form.toCoords?.lon != null;
 
   const addStop = (val) => {
-    const v = (val ?? stopInput).trim();
-    if (!v) return;
-    setForm((f) => ({ ...f, stops: [...f.stops, v] }));
+    // `val` may be a selected place object { display_name/name, lat, lon } from
+    // LocationSearch, or a plain typed string. Store stops as objects so Find
+    // Ride can match them by coordinates (not just text).
+    let stop;
+    if (val && typeof val === "object") {
+      stop = {
+        name: String(val.name || val.display_name || "").trim(),
+        lat: Number.isFinite(Number(val.lat)) ? Number(val.lat) : null,
+        lon: Number.isFinite(Number(val.lon)) ? Number(val.lon) : null,
+      };
+    } else {
+      const v = String(val ?? stopInput).trim();
+      stop = { name: v, lat: null, lon: null };
+    }
+    if (!stop.name) return;
+    if (isStopAlready(stop.name)) { setStopInput(""); return; }
+    setForm((f) => ({ ...f, stops: [...f.stops, stop] }));
     setStopInput("");
   };
   const removeStop = (i) =>
@@ -209,7 +223,7 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
   })();
 
   const isStopAlready = (name) =>
-    form.stops.some((s) => s.toLowerCase() === name.toLowerCase());
+    form.stops.some((s) => String(s?.name ?? s).toLowerCase() === String(name).toLowerCase());
 
   // ── Reusable single-line field block (label on top, input below) ──
   // Uses the Figma label font: Plus Jakarta Sans, 13/600, dark slate.
@@ -249,6 +263,23 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
         }
         .post-page-card .locsearch__input:focus { box-shadow: none !important; }
         .post-page-card .locsearch__input::placeholder { color: #9ca3af !important; }
+
+        /* Polish: native fields + LocationSearch wrappers gain a calm brand
+           accent + soft ring when active — consistent, modern focus feedback.
+           Scoped to this card; purely visual, no behaviour change. */
+        .post-page-card input:focus,
+        .post-page-card select:focus,
+        .post-page-card textarea:focus {
+          border-color: #7c3aed !important;
+          box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12) !important;
+        }
+        @media (pointer: fine) {
+          .post-page-card input:not([type="date"]):not([type="time"]):hover,
+          .post-page-card select:hover,
+          .post-page-card textarea:hover {
+            border-color: #c4b5fd !important;
+          }
+        }
       `}</style>
 
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
@@ -515,7 +546,7 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
             <div style={{
-              flex:1, border:"1.5px solid #e5e7eb", borderRadius:20,
+              flex:1, minWidth:0, border:"1.5px solid #e5e7eb", borderRadius:20,
               padding:"9px 14px", display:"flex", alignItems:"center", gap:8, background:"#fff",
             }}>
               {/* Grey map-pin glyph — same shape as From/To, neutral colour */}
@@ -523,13 +554,16 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
-              <input
-                style={{ ...inputBase, fontSize: 13 }}
-                placeholder="Add a stop along the way"
-                value={stopInput}
-                onChange={(e) => setStopInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addStop())}
-              />
+              {/* Stop field uses the same place search as From/To so each stop
+                  captures real coordinates — enabling accurate stop-based search. */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <LocationSearch
+                  placeholder="Add a stop along the way"
+                  value={stopInput}
+                  onChange={(v) => setStopInput(v)}
+                  onSelect={(item) => addStop(item)}
+                />
+              </div>
             </div>
             <button type="button" onClick={() => addStop()}
               style={{
@@ -540,33 +574,8 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
               }}>+</button>
           </div>
 
-          {/* Suggested stop chips — only shown when from + to are picked */}
-          {suggestedStops.length > 0 && (
-            <>
-              <div style={{ fontSize:11, color:"#6b7280", marginBottom:6 }}>Suggested stops</div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:14 }}>
-                {suggestedStops.map((s) => {
-                  const taken = isStopAlready(s);
-                  return (
-                    <button key={s} type="button"
-                      disabled={taken}
-                      onClick={() => addStop(s)}
-                      style={{
-                        border:"1.5px solid " + (taken ? "#e5e7eb" : "#cbd5e1"),
-                        background: taken ? "#f3f4f6" : "#fff",
-                        color: taken ? "#9ca3af" : "#1a1a2e",
-                        borderRadius:18, padding:"6px 14px",
-                        fontSize:12, fontWeight:600,
-                        cursor: taken ? "not-allowed" : "pointer",
-                        fontFamily:"inherit",
-                      }}>
-                      {taken ? "✓ " : "+ "}{s}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
+          {/* Suggested stops removed — members add their own intermediate stops
+              using the "Add a stop along the way" field above. */}
 
           {/* User-added stops list */}
           {form.stops.length > 0 && (
@@ -583,7 +592,7 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
                       fontSize:12, color:"#4f6ef7", background:"#eef2ff",
                       cursor:"pointer", fontFamily:"inherit", fontWeight:600,
                     }}>
-                    {s} ×
+                    {(s && s.name) || s} ×
                   </button>
                 ))}
               </div>
@@ -1902,6 +1911,13 @@ export default function TravelMatePost({ embedded = false } = {}) {
         plateNumber: (form.plateNumber || "").toUpperCase().replace(/[\s-]/g, ""),
         seatsAvailable: Number(form.seats) || 1,
         farePerSeat: Number(form.farePerSeat) || 0,
+        // Intermediate stops (with coords where available) so passengers can
+        // find this ride by any stop, and see the full route.
+        stops: (form.stops || []).map((s) => ({
+          name: String(s?.name ?? s).trim(),
+          lat: Number.isFinite(Number(s?.lat)) ? Number(s.lat) : null,
+          lon: Number.isFinite(Number(s?.lon)) ? Number(s.lon) : null,
+        })).filter((s) => s.name),
         additionalInfo: form.notes || "",
       };
 
