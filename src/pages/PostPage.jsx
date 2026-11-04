@@ -209,6 +209,7 @@ function BusRoutePicker({ setForm }) {
       to: seq[dIdx].name,
       toCoords: coordOf(seq[dIdx]),
       stops: seq.slice(bIdx + 1, dIdx).map((s) => ({ name: s.name, lat: s.lat ?? null, lon: s.lon ?? null })),
+      busApplied: true,
     }));
     setApplied(true);
   };
@@ -485,8 +486,8 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
               <LocationSearch
                 placeholder="Starting location"
                 value={form.from}
-                onChange={(v) => setForm((f) => ({ ...f, from: v, fromCoords: null }))}
-                onSelect={(item) => setForm((f) => ({ ...f, from: item.display_name, fromCoords: { lat: item.lat, lon: item.lon } }))}
+                onChange={(v) => setForm((f) => ({ ...f, from: v, fromCoords: null, busApplied: false }))}
+                onSelect={(item) => setForm((f) => ({ ...f, from: item.display_name, fromCoords: { lat: item.lat, lon: item.lon }, busApplied: false }))}
               />
             </div>
           )}
@@ -507,8 +508,8 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
               <LocationSearch
                 placeholder="Destination"
                 value={form.to}
-                onChange={(v) => setForm((f) => ({ ...f, to: v, toCoords: null }))}
-                onSelect={(item) => setForm((f) => ({ ...f, to: item.display_name, toCoords: { lat: item.lat, lon: item.lon } }))}
+                onChange={(v) => setForm((f) => ({ ...f, to: v, toCoords: null, busApplied: false }))}
+                onSelect={(item) => setForm((f) => ({ ...f, to: item.display_name, toCoords: { lat: item.lat, lon: item.lon }, busApplied: false }))}
               />
             </div>
           )}
@@ -649,30 +650,53 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
               </div>
             </div>
 
-            {/* hours / km row — divider on top */}
-            <div style={{
-              display:"flex", alignItems:"center", justifyContent:"center", gap:32,
-              marginTop:12, paddingTop:12,
-              borderTop:"1px solid #f3f4f6",
-            }}>
-              <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:"#4b5563", fontWeight:600 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9" />
-                  <polyline points="12 7 12 12 15 14" />
-                </svg>
-                {routeLoading ? "calculating…" : (duration || "—")}
+            {/* Registered bus route → show Via stops (no map repeat).
+                Manual route → show hours / km from the map calculation. */}
+            {form.busApplied ? (
+              <div style={{
+                marginTop:12, paddingTop:12, borderTop:"1px solid #f3f4f6",
+                fontSize:12.5, color:"#4b5563", lineHeight:1.6,
+              }}>
+                <span style={{ display:"inline-flex", alignItems:"center", gap:6, fontWeight:700, color:"#7c3aed" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10" /><path d="M3 16h18M4 10h16" />
+                  </svg>
+                  Registered bus route
+                </span>
+                {form.stops.length > 0 && (
+                  <div style={{ marginTop:6 }}>
+                    <span style={{ color:"#9ca3af" }}>Via: </span>
+                    {form.stops.map((s) => (s && s.name) || s).filter(Boolean).join(" • ")}
+                  </div>
+                )}
+                <div style={{ marginTop:6, color:"#9ca3af" }}>Route map shown above.</div>
               </div>
-              <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:"#4b5563", fontWeight:600 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M5 12h14M13 6l6 6-6 6" />
-                </svg>
-                {routeLoading ? "calculating…" : (distance || "—")}
+            ) : (
+              <div style={{
+                display:"flex", alignItems:"center", justifyContent:"center", gap:32,
+                marginTop:12, paddingTop:12,
+                borderTop:"1px solid #f3f4f6",
+              }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:"#4b5563", fontWeight:600 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <polyline points="12 7 12 12 15 14" />
+                  </svg>
+                  {routeLoading ? "calculating…" : (duration || "—")}
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:"#4b5563", fontWeight:600 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg>
+                  {routeLoading ? "calculating…" : (distance || "—")}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Card 2 — map only (taller so the route reads clearly).
-              Tap to open the fullscreen zoomable map (same as Find Ride). */}
+          {/* Card 2 — map only. Hidden for registered bus routes (the route map
+              is already shown in the bus picker above — avoid showing it twice). */}
+          {!form.busApplied && (
           <div style={{
             position: "relative",
             border:"1px solid #e5e7eb",
@@ -707,7 +731,8 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
               </button>
             )}
           </div>
-          {canZoomMap && (
+          )}
+          {canZoomMap && !form.busApplied && (
             <MapModal ride={previewRide} open={mapOpen} onClose={() => setMapOpen(false)} />
           )}
 
@@ -1778,6 +1803,10 @@ export default function TravelMatePost({ embedded = false } = {}) {
     vehicleType: "Car", vehicleColor: "", vehicleName: "", plateNumber: "",
     seats: 1, farePerSeat: 0, notes: "",
     liveTracking: false,
+    // true once a registered bus route is applied — the route then comes from
+    // the Bus Routes DB (map shown in the picker), so the manual confirm-map and
+    // route-calculation gate are skipped. Cleared the moment From/To is edited.
+    busApplied: false,
   });
 
   // Auto-fetch route when both coordinates are picked
@@ -1864,7 +1893,9 @@ export default function TravelMatePost({ embedded = false } = {}) {
     if (form.date < todayISO()) { setError("Date cannot be in the past"); return; }
     if (form.date === todayISO() && form.time < nowHHMM()) { setError("Time has already passed — pick a future time"); return; }
     if (!form.gender) { setError("Please choose a gender preference"); return; }
-    if (!distance || !duration) { setError("Route is still calculating — please wait a moment"); return; }
+    // Registered bus routes come from the Bus Routes DB (map in the picker), so
+    // there's no coords-based map calculation to wait for.
+    if (!form.busApplied && (!distance || !duration)) { setError("Route is still calculating — please wait a moment"); return; }
     setStep(2);
   };
 
@@ -2015,8 +2046,9 @@ export default function TravelMatePost({ embedded = false } = {}) {
       }
     }
 
-    // Distance / duration must be set (auto-calculated by the route fetcher)
-    if (!distance || !duration) {
+    // Distance / duration must be set (auto-calculated by the route fetcher).
+    // Registered bus routes skip the coords map, so allow them through.
+    if (!form.busApplied && (!distance || !duration)) {
       setError("Route info is missing. Go back and let the map load.");
       return;
     }
@@ -2065,13 +2097,11 @@ export default function TravelMatePost({ embedded = false } = {}) {
         date: form.date,
         time: form.time,
         gender: form.gender || "Any",
-        distance,
-        // `duration` is REQUIRED by the backend (POST /api/rides validates
-        // from, to, date, time, gender, distance AND duration). Without it
-        // the publish call after payment returns HTTP 400 and the ride is
-        // never saved — which is why posted rides weren't appearing in
-        // FindRide. Always send the duration computed by the route fetcher.
-        duration,
+        // distance/duration are REQUIRED by the backend. The manual flow gets
+        // them from the route fetcher; a registered bus route has no coords map
+        // calculation, so fall back to a placeholder so validation passes.
+        distance: distance || (form.busApplied ? "—" : distance),
+        duration: duration || (form.busApplied ? "—" : duration),
         fromLat: form.fromCoords?.lat ?? null,
         fromLon: form.fromCoords?.lon ?? null,
         toLat:   form.toCoords?.lat   ?? null,
