@@ -6,6 +6,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import { GoogleMap } from "@react-google-maps/api";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
@@ -201,6 +202,7 @@ const mapMsgStyle = {
 };
 
 export default function BusRoutePage() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -358,6 +360,25 @@ export default function BusRoutePage() {
             <div style={{ background: "#fff", border: "1px solid #eceef6", borderRadius: 16, padding: "14px", boxShadow: "0 4px 14px rgba(15,15,46,0.05)" }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: "#111827", marginBottom: 10, padding: "0 4px" }}>Route map</div>
               <BusRouteMap route={route} />
+            </div>
+
+            {/* Continue to Post Ride */}
+            <div style={{ background: "#fff", border: "1px solid #eceef6", borderRadius: 16, padding: "16px 18px", boxShadow: "0 4px 14px rgba(15,15,46,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#14163a" }}>Travelling this route?</div>
+                <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 2 }}>Post your own ride and share the journey.</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/post-ride")}
+                style={{
+                  flexShrink: 0, background: "#f5c518", color: "#111", border: "none",
+                  borderRadius: 12, padding: "12px 20px", fontWeight: 800, fontSize: 14,
+                  cursor: "pointer", boxShadow: "0 4px 12px rgba(245,197,24,0.3)",
+                }}
+              >
+                Post a Ride →
+              </button>
             </div>
           </div>
         )}
