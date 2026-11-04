@@ -58,40 +58,12 @@ function Hero({ mode: modeProp, onModeChange }) {
     <section className="hero">
       {/* Decorative travel illustration band — original artwork (no external
           images). Sits behind the content and animates subtly. */}
+      {/* Clean, professional background — soft brand glows + a faint dotted
+          route line. No scenery/vehicles, so the headline stays the focus. */}
+      <div className="hero__bg" aria-hidden="true" />
       <div className="hero__art" aria-hidden="true">
-        <svg className="hero__art-svg" viewBox="0 0 1440 360" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
-          {/* soft sun glow */}
-          <circle className="hero__art-sun" cx="1120" cy="120" r="90" />
-          {/* layered mountains / hills */}
-          <path className="hero__art-hill hero__art-hill--far"  d="M0 210 L 220 120 L 420 210 L 640 110 L 880 210 L 1120 130 L 1440 210 V360 H0 Z" />
-          <path className="hero__art-hill hero__art-hill--back" d="M0 250 Q 240 160 480 230 T 960 210 T 1440 230 V360 H0 Z" />
-          <path className="hero__art-hill hero__art-hill--mid"  d="M0 290 Q 300 225 620 278 T 1180 266 T 1440 286 V360 H0 Z" />
-          {/* trees */}
-          <g className="hero__art-trees">
-            <path d="M120 286 l10 -26 l10 26 z" /><rect x="127" y="286" width="6" height="12" />
-            <path d="M1320 278 l11 -28 l11 28 z" /><rect x="1327" y="278" width="6" height="13" />
-            <path d="M980 292 l9 -22 l9 22 z" /><rect x="986" y="292" width="5" height="11" />
-          </g>
-          {/* city skyline */}
-          <g className="hero__art-city">
-            <rect x="150" y="226" width="26" height="80" rx="3" />
-            <rect x="184" y="200" width="20" height="106" rx="3" />
-            <rect x="212" y="238" width="30" height="68" rx="3" />
-            <rect x="1180" y="214" width="24" height="92" rx="3" />
-            <rect x="1210" y="192" width="18" height="114" rx="3" />
-            <rect x="1234" y="232" width="28" height="74" rx="3" />
-          </g>
-          {/* road surface */}
-          <path className="hero__art-road" d="M0 360 L 0 330 C 380 300, 560 352, 820 322 S 1240 288, 1440 330 L 1440 360 Z" />
-          {/* dashed centre line on the road */}
-          <path className="hero__art-route" d="M40 338 C 380 312, 560 352, 820 326 S 1240 300, 1420 336" />
-          {/* moving carpool car along the route */}
-          <g className="hero__art-car">
-            <rect x="-28" y="-15" width="56" height="21" rx="8" />
-            <rect x="-15" y="-26" width="32" height="15" rx="5" />
-            <circle cx="-14" cy="8" r="6.5" className="hero__art-wheel" />
-            <circle cx="15" cy="8" r="6.5" className="hero__art-wheel" />
-          </g>
+        <svg className="hero__art-svg" viewBox="0 0 1440 120" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+          <path className="hero__art-route" d="M40 96 C 380 70, 560 108, 820 82 S 1240 56, 1420 92" />
         </svg>
       </div>
 

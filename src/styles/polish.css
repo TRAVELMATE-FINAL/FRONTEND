@@ -17,6 +17,13 @@ body {
   text-rendering: optimizeLegibility;
   font-feature-settings: "kern" 1, "liga" 1;
 }
+/* Unify the typeface across the ENTIRE app. Several pages set their own
+   inline font stack on their root <div> (DM Sans / Segoe UI / Plus Jakarta);
+   this universal rule overrides those for all descendant text so the whole
+   site uses the single professional Inter stack. SVG shapes are unaffected. */
+*:where(:not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon):not(g)) {
+  font-family: var(--font-family-base);
+}
 /* Tighten large headings just slightly for a premium feel */
 h1, h2, h3 { letter-spacing: -0.02em; }
 

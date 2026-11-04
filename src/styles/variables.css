@@ -34,8 +34,10 @@
   --color-step-3: #3b82f6;           /* blue */
 
   /* ---------- TYPOGRAPHY ---------- */
-  --font-family-base: 'Plus Jakarta Sans', system-ui, -apple-system,
-    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Inter is the loaded web font (see index.html) — a clean, professional
+     typeface used consistently across the whole app. */
+  --font-family-base: 'Inter', system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
   --font-size-xs: 0.75rem;     /* 12px */
   --font-size-sm: 0.875rem;    /* 14px */

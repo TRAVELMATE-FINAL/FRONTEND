@@ -84,6 +84,7 @@
   font-size: var(--font-size-base);
   font-weight: 700;
   margin-bottom: 4px;
+  color: var(--color-primary);   /* brand yellow headings inside the cards */
 }
 
 .feature__text {

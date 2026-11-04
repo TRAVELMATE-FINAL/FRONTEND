@@ -74,6 +74,14 @@
   to   { opacity: 1; translate: 0 0; }
 }
 
+/* On hover each card takes a soft tint of its own step colour. */
+@media (pointer: fine) {
+  .step { transition: background var(--t-base), transform 200ms ease, box-shadow 200ms ease, border-color var(--t-base); }
+  .step:nth-child(1):hover { background: #fdf2f8; border-color: var(--color-step-1); }
+  .step:nth-child(2):hover { background: #f0fdf4; border-color: var(--color-step-2); }
+  .step:nth-child(3):hover { background: #eff6ff; border-color: var(--color-step-3); }
+}
+
 /* Rounded icon tile with the step number badged on top */
 .step__icon {
   position: relative;

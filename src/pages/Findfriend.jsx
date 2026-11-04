@@ -1404,8 +1404,32 @@ export default function TravelMate() {
           )}
 
           {!loading && !error && notFound && (
-            <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", borderRadius: 12, padding: 24, textAlign: "center", lineHeight: 1.7 }}>
-              No trips found{queryFrom && <> from <b>{queryFrom}</b></>}{queryTo && <> to <b>{queryTo}</b></>}.
+            <div style={{
+              background: "#fff", border: "1px solid #eef0f4", borderRadius: 18,
+              padding: "40px 28px", textAlign: "center",
+              boxShadow: "0 10px 30px rgba(15,15,46,0.06)",
+            }}>
+              <div style={{
+                width: 64, height: 64, margin: "0 auto 16px", borderRadius: "50%",
+                background: "#f3effe", display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+                </svg>
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#1a1a2e", marginBottom: 6 }}>
+                No trips found{queryFrom && <> from <b>{queryFrom}</b></>}{queryTo && <> to <b>{queryTo}</b></>}
+              </div>
+              <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 18, lineHeight: 1.6 }}>
+                Try a nearby city or a different date — or post this trip yourself and let others join you.
+              </div>
+              <button type="button" onClick={() => navigate("/post-ride")} style={{
+                background: "#f5c518", color: "#111", border: "none", borderRadius: 999,
+                padding: "12px 24px", fontWeight: 800, fontSize: 14, cursor: "pointer",
+                boxShadow: "0 8px 20px rgba(245,197,24,0.32)", fontFamily: "inherit",
+              }}>
+                Post a ride →
+              </button>
             </div>
           )}
 

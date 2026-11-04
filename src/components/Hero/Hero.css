@@ -14,51 +14,39 @@
   overflow: visible;
 }
 
-/* ---------- Decorative travel illustration band ---------- */
+/* ---------- Clean professional background ---------- */
+/* Soft brand-coloured glows layered over the navy gradient. */
+.hero__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(520px 320px at 12% 18%, rgba(124, 58, 237, 0.28) 0%, rgba(124, 58, 237, 0) 70%),
+    radial-gradient(560px 360px at 88% 24%, rgba(236, 28, 140, 0.20) 0%, rgba(236, 28, 140, 0) 70%),
+    radial-gradient(900px 420px at 50% 120%, rgba(255, 203, 5, 0.10) 0%, rgba(255, 203, 5, 0) 60%);
+}
+
+/* Faint dotted route line along the bottom — subtle travel cue only. */
 .hero__art {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  height: 60%;
-  min-height: 300px;
+  height: 120px;
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.95;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 38%);
-          mask-image: linear-gradient(to bottom, transparent 0%, #000 38%);
+  opacity: 0.85;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 60%);
+          mask-image: linear-gradient(to bottom, transparent 0%, #000 60%);
 }
 .hero__art-svg { width: 100%; height: 100%; display: block; }
-.hero__art-sun { fill: rgba(255, 203, 5, 0.10); }
-.hero__art-hill--far  { fill: rgba(99, 102, 241, 0.12); }
-.hero__art-hill--back { fill: rgba(124, 58, 237, 0.18); }
-.hero__art-hill--mid  { fill: rgba(236, 28, 140, 0.16); }
-.hero__art-trees path { fill: rgba(126, 231, 160, 0.22); }
-.hero__art-trees rect { fill: rgba(126, 231, 160, 0.18); }
-.hero__art-city rect  { fill: rgba(255, 255, 255, 0.06); }
-.hero__art-road { fill: rgba(255, 255, 255, 0.05); }
 .hero__art-route {
   fill: none;
-  stroke: rgba(255, 203, 5, 0.6);
+  stroke: rgba(255, 203, 5, 0.45);
   stroke-width: 3;
   stroke-linecap: round;
   stroke-dasharray: 2 14;
 }
-.hero__art-car {
-  /* ride the road: offset-path matches the dashed centre line exactly */
-  offset-path: path('M40 338 C 380 312, 560 352, 820 326 S 1240 300, 1420 336');
-  offset-rotate: auto;
-  animation: hero-drive 11s linear infinite;
-}
-.hero__art-car rect { fill: #ffcb05; }
-.hero__art-car .hero__art-wheel { fill: #14163a; stroke: #ffcb05; stroke-width: 2; }
-@keyframes hero-drive {
-  0%   { offset-distance: 0%;   opacity: 0; }
-  6%   { opacity: 1; }
-  94%  { opacity: 1; }
-  100% { offset-distance: 100%; opacity: 0; }
-}
-/* Browsers without offset-path just hide the moving car (static scene stays). */
-@supports not (offset-path: path('M0 0')) { .hero__art-car { display: none; } }
 
 /* ---------- Eyebrow tag above the title ---------- */
 .hero__eyebrow {
