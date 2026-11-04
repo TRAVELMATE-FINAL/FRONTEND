@@ -10,7 +10,7 @@ function Footer() {
           {/* Brand + short description */}
           <div className="footer__brand">
             <div className="footer__logo">
-              <span className="footer__logo-mark" aria-hidden="true">V</span>
+              <img className="footer__logo-img" src="/favicon.png" alt="" aria-hidden="true" />
               <span className="footer__logo-text">Vooggly</span>
             </div>
             <p className="footer__text">
@@ -27,17 +27,6 @@ function Footer() {
               <li><Link to="/find-friend">Find Ride</Link></li>
               <li><Link to="/post-ride">Post Ride</Link></li>
               <li><Link to="/bus-routes">Bus Routes</Link></li>
-            </ul>
-          </nav>
-
-          {/* Useful Links — info pages */}
-          <nav className="footer__col" aria-label="Useful links">
-            <h4 className="footer__heading">Useful Links</h4>
-            <ul className="footer__list">
-              <li><Link to="/about">About Us</Link></li>
-              <li><Link to="/contact">Contact Us</Link></li>
-              <li><Link to="/privacy">Privacy Policy</Link></li>
-              <li><Link to="/terms">Terms &amp; Conditions</Link></li>
             </ul>
           </nav>
 
