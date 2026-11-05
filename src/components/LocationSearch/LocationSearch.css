@@ -11,10 +11,15 @@
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #ffffff;
-  font-size: 15px;
+  /* 16px minimum: iOS Safari auto-zooms (and shifts the layout, mis-placing the
+     dropdown) when a focused input is under 16px. Keep it at 16px on phones. */
+  font-size: 16px;
   color: #0f172a;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  -webkit-appearance: none;          /* strip iOS inset shadow / default chrome */
+          appearance: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .locsearch__input:focus {

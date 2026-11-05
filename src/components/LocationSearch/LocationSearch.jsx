@@ -378,6 +378,21 @@ export default function LocationSearch({
 
   useEffect(() => { setHighlight(0); }, [options.length]);
 
+  // Touch-tap fallback for OLD Android WebViews where `click` on a non-button
+  // <li> can be unreliable. We track the touch start point and, on touchend,
+  // treat it as a tap only if the finger barely moved (so a scroll-drag through
+  // the list never selects). `lastPickRef` de-dupes the touch-tap against the
+  // click that modern browsers also fire.
+  const touchStartRef = useRef(null);
+  const lastPickRef = useRef(0);
+  const doPick = useCallback((opt) => {
+    const now = Date.now();
+    if (now - lastPickRef.current < 500) return; // already handled by the other event
+    lastPickRef.current = now;
+    pick(opt);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const pick = async (opt) => {
     if (opt.kind === "local") {
       onSelect({ display_name: opt.name, lat: opt.lat, lon: opt.lon });
@@ -497,10 +512,32 @@ export default function LocationSearch({
                 aria-selected={isActive}
                 className={"locsearch__option" + (isActive ? " locsearch__option--active" : "")}
                 onMouseEnter={() => setHighlight(i)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  pick(opt);
+                // Keep the input focused during the tap so the keyboard/viewport
+                // doesn't shift mid-tap (on iOS that made the finger land on the
+                // wrong row). preventDefault on MOUSEDOWN only — it is NOT
+                // dispatched during a touch-scroll, so the suggestion list stays
+                // scrollable on both iOS Safari and Android.
+                onMouseDown={(e) => e.preventDefault()}
+                // Record the touch start so touchend can tell a tap from a scroll.
+                onTouchStart={(e) => {
+                  const t = e.touches && e.touches[0];
+                  touchStartRef.current = t ? { x: t.clientX, y: t.clientY } : null;
                 }}
+                // Old-Android fallback: select on a genuine tap (finger barely
+                // moved). A scroll-drag moves far, so it won't select.
+                onTouchEnd={(e) => {
+                  const s = touchStartRef.current;
+                  touchStartRef.current = null;
+                  const t = e.changedTouches && e.changedTouches[0];
+                  if (s && t && Math.abs(t.clientX - s.x) < 12 && Math.abs(t.clientY - s.y) < 12) {
+                    doPick(opt);
+                  }
+                }}
+                // Primary path for Safari/iOS + modern Android/desktop. A real
+                // click fires on a genuine tap (cursor:pointer + touch-action:
+                // manipulation) and never on a scroll drag. De-duped against the
+                // touchend above via doPick().
+                onClick={() => doPick(opt)}
               >
                 <span className="locsearch__pin" aria-hidden="true">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
