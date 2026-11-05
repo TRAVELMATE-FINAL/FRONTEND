@@ -18,6 +18,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import RideRequests from "./pages/RideRequests";
 import BusRoutePage from "./pages/BusRoutePage";
 import LiveRidesPage from "./pages/LiveRidesPage";
+import MyPlans from "./pages/MyPlans";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/requests" element={<RideRequests />} />
         <Route path="/bus-routes" element={<BusRoutePage />} />
         <Route path="/live-rides" element={<LiveRidesPage />} />
+        <Route path="/my-plans" element={<MyPlans />} />
 
         {/* Informational pages (footer Useful Links) */}
         <Route path="/about" element={<About />} />
