@@ -300,6 +300,15 @@ export default function SecurePayment() {
             );
             localStorage.removeItem("chosenPlan");
 
+            // Live-ride attempt → return to the live form (details preserved)
+            // so the driver can start tracking now that the plan is active.
+            let pendingLive = "";
+            try { pendingLive = localStorage.getItem("pendingLivePayload") || ""; } catch { pendingLive = ""; }
+            if (pendingLive) {
+              navigate("/post-ride?live=1");
+              return;
+            }
+
             // Navigate — no artificial delay
             const pendingPostRide     = localStorage.getItem("pendingPostRide");
             const pendingUnlockRideId = localStorage.getItem("pendingUnlockRideId");

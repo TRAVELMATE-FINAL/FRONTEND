@@ -177,19 +177,6 @@ function Header() {
             <button
               type="button"
               className="tm-navbar__icon-btn"
-              aria-label="My plans"
-              title="My plans"
-              onClick={() => navigate('/my-plans')}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="5" width="20" height="14" rx="2" />
-                <path d="M2 10h20" />
-              </svg>
-            </button>
-
-            <button
-              type="button"
-              className="tm-navbar__icon-btn"
               aria-label="Profile settings"
               onClick={() => navigate('/profile-settings')}
             >

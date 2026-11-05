@@ -240,6 +240,24 @@ export default function LiveRidesPage() {
           <div style={{ ...card, background: "#f0f9ff", border: "1px solid #bae6fd", color: "#075985", fontSize: 14, fontWeight: 600 }}>{msg}</div>
         )}
 
+        {/* Start a Live Ride — dedicated entry (opens the form in live mode).
+            Hidden while the user already has an active live ride of their own. */}
+        {!myHostRide && !userActiveStatus?.hasActiveCreatedRide && (
+          <button
+            type="button"
+            onClick={() => navigate("/post-ride?live=1")}
+            style={{
+              width: "100%", marginBottom: 14, background: "#16a34a", color: "#fff",
+              border: "none", borderRadius: 12, padding: "14px 16px", fontWeight: 800,
+              fontSize: 15, cursor: "pointer", fontFamily: "inherit",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              boxShadow: "0 8px 20px rgba(22,163,74,0.30)",
+            }}
+          >
+            📍 Start a Live Ride
+          </button>
+        )}
+
         {/* Host's own live ride */}
         {myHostRide && <TrackCard ride={myHostRide} phone={phone} isHost onStop={stopRide} />}
 
