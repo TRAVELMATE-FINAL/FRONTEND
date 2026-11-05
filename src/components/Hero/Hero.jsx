@@ -62,6 +62,65 @@ function Hero({ mode: modeProp, onModeChange }) {
           route line. No scenery/vehicles, so the headline stays the focus. */}
       <div className="hero__bg" aria-hidden="true" />
 
+      {/* Night-city skyline band — original inline artwork (no external
+          images). Sits along the bottom behind the content. */}
+      <div className="hero__skyline" aria-hidden="true">
+        <svg className="hero__skyline-svg" viewBox="0 0 1200 360" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+          {/* stars */}
+          <g fill="#ffffff">
+            <circle cx="150" cy="60" r="1.6" opacity=".55" />
+            <circle cx="420" cy="42" r="1.1" opacity=".45" />
+            <circle cx="760" cy="70" r="1.3" opacity=".5" />
+            <circle cx="980" cy="48" r="1.6" opacity=".6" />
+            <circle cx="1120" cy="80" r="1.1" opacity=".4" />
+            <circle cx="300" cy="90" r="1" opacity=".35" />
+            <circle cx="640" cy="36" r="1.2" opacity=".5" />
+          </g>
+          {/* far buildings */}
+          <g fill="#272763" opacity=".55">
+            <rect x="60" y="250" width="70" height="110" />
+            <rect x="140" y="210" width="52" height="150" />
+            <rect x="200" y="235" width="64" height="125" />
+            <rect x="276" y="190" width="48" height="170" />
+            <rect x="334" y="248" width="72" height="112" />
+            <rect x="760" y="206" width="52" height="154" />
+            <rect x="900" y="232" width="64" height="128" />
+            <rect x="1030" y="200" width="48" height="160" />
+          </g>
+          {/* near buildings */}
+          <g fill="#2f2f72" opacity=".82">
+            <rect x="0" y="286" width="72" height="74" />
+            <rect x="80" y="250" width="54" height="110" />
+            <rect x="146" y="272" width="64" height="88" />
+            <rect x="222" y="226" width="50" height="134" />
+            <rect x="286" y="290" width="74" height="70" />
+            <rect x="372" y="246" width="58" height="114" />
+            <rect x="442" y="266" width="70" height="94" />
+            <rect x="524" y="216" width="54" height="144" />
+            <rect x="590" y="288" width="74" height="72" />
+            <rect x="676" y="252" width="60" height="108" />
+            <rect x="748" y="272" width="68" height="88" />
+            <rect x="828" y="222" width="54" height="138" />
+            <rect x="894" y="286" width="76" height="74" />
+            <rect x="982" y="250" width="60" height="110" />
+            <rect x="1054" y="270" width="70" height="90" />
+            <rect x="1136" y="240" width="64" height="120" />
+          </g>
+          {/* lit windows */}
+          <g fill="#ffcb05" opacity=".45">
+            <rect x="92" y="262" width="4" height="6" />
+            <rect x="104" y="262" width="4" height="6" />
+            <rect x="92" y="278" width="4" height="6" />
+            <rect x="236" y="240" width="4" height="6" />
+            <rect x="248" y="240" width="4" height="6" />
+            <rect x="690" y="266" width="4" height="6" />
+            <rect x="702" y="266" width="4" height="6" />
+            <rect x="842" y="238" width="4" height="6" />
+            <rect x="996" y="264" width="4" height="6" />
+          </g>
+        </svg>
+      </div>
+
       <div className="container hero__inner">
         <span className="hero__eyebrow">Carpool across your city</span>
         <h1 className="hero__title">Share the Ride. Split the Cost.</h1>
