@@ -82,7 +82,9 @@ const Tag = ({ label }) => (
 
 /* ── Live ride card — Figma redesign (template only; same data + logic) ── */
 const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
+  const navigate = useNavigate();
   const [mapOpen, setMapOpen] = useState(false);
+  const isLive = !!ride.isLive;
   // The viewer's own booking state for THIS ride (if any).
   const bookingConfirmed = myBooking?.status === "accepted";
   const bookingPaid = bookingConfirmed && myBooking?.paymentStatus === "paid";
@@ -180,6 +182,18 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             </div>
           </div>
 
+          {/* Live badge for ongoing live-tracking rides */}
+          {isLive && (
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start",
+              background: "#133a26", color: "#7ef0a2", border: "1px solid #1f6b45",
+              fontSize: 12, fontWeight: 800, padding: "4px 11px", borderRadius: 999,
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+              LIVE · tracking now
+            </span>
+          )}
+
           {/* Route — bold white with yellow arrow */}
           <div style={{ color: "#ffffff", fontWeight: 800, fontSize: "21px", letterSpacing: "-0.3px", lineHeight: 1.25 }}>
             {ride.from} <span style={{ color: "#ffcb05" }}>→</span> {ride.to}
@@ -202,7 +216,7 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffcb05" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
-            {dateLabel} &nbsp;•&nbsp; {formatTime12h(ride.time)}
+            {isLive ? "Live now" : <>{dateLabel} &nbsp;•&nbsp; {formatTime12h(ride.time)}</>}
           </div>
 
           {/* Gender preference — shows exactly what the poster selected */}
@@ -317,10 +331,22 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
             {ride.viewCount || 0} people viewing
           </div>
         </div>
-        {/* Priority: the viewer's OWN confirmed booking always wins over the
-            seat/full state — a confirmed passenger must be able to pay even
-            when the ride is full. */}
-        {bookingPaid ? (
+        {/* Live rides route to the live join + track flow (not the posted-ride
+            booking). Everything else uses the normal booking buttons below. */}
+        {isLive ? (
+          <button
+            type="button"
+            onClick={() => navigate(`/live-rides?rideId=${ride.liveRideId || ride._id}`)}
+            style={{
+              background: "#16a34a", color: "#fff", border: "none",
+              borderRadius: "28px", padding: "13px 26px",
+              fontWeight: 800, fontSize: "15px", cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 6,
+              boxShadow: "0 6px 18px rgba(22,163,74,0.32)", fontFamily: "inherit",
+            }}>
+            Join Live Ride <span style={{ fontSize: 17, lineHeight: 1 }}>→</span>
+          </button>
+        ) : bookingPaid ? (
           <button
             type="button"
             disabled

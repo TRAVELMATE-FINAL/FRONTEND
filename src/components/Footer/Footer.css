@@ -73,15 +73,20 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-on-dark-muted);
-  background: rgba(255, 255, 255, 0.06);
-  transition: color var(--t-base), background var(--t-base), transform var(--t-base);
+  color: #ffffff;               /* icon glyphs are white on the brand circle */
+  transition: transform var(--t-base), filter var(--t-base);
 }
+/* Each platform in its own brand colour */
+.footer__social li:nth-child(1) a { background: #1877f2; }  /* Facebook  */
+.footer__social li:nth-child(2) a { background: #ff0000; }  /* YouTube   */
+.footer__social li:nth-child(3) a {                          /* Instagram */
+  background: radial-gradient(circle at 30% 110%, #fdf497 0%, #fd5949 45%, #d6249f 60%, #285aeb 90%);
+}
+.footer__social li:nth-child(4) a { background: #ea4335; }  /* Email     */
 
 .footer__social a:hover {
-  color: var(--color-primary-text);
-  background: var(--color-primary);
   transform: translateY(-2px);
+  filter: brightness(1.1);
 }
 
 .footer__bottom {

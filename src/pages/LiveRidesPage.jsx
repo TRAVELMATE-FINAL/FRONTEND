@@ -8,7 +8,7 @@
 // the posted-ride / booking flow.
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import Header from "../components/Header/Header.jsx";
 import Footer from "../components/Footer/Footer.jsx";
@@ -82,6 +82,8 @@ function TrackCard({ ride, phone, isHost, onStop }) {
 
 export default function LiveRidesPage() {
   const navigate = useNavigate();
+  const [sp] = useSearchParams();
+  const focusId = sp.get("rideId") || "";   // deep-linked from Find Ride
   const phone = getPhone();
   const [rides, setRides] = useState([]);       // all active rides (discovery)
   const [loading, setLoading] = useState(true);
@@ -93,6 +95,14 @@ export default function LiveRidesPage() {
   const myHostRide = rides.find((r) => r.isHost && r.status === "live");
   const myJoined = rides.filter((r) => r.joined && !r.isHost && r.status === "live");
   const available = rides.filter((r) => !r.isHost && !r.joined && r.status === "live" && r.availableSeats > 0);
+
+  // When arriving from Find Ride (?rideId=…), scroll the matching live ride card
+  // into view so the user can join it directly.
+  useEffect(() => {
+    if (!focusId) return;
+    const el = typeof document !== "undefined" && document.getElementById(`live-${focusId}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusId, available.length]);
 
   const load = useCallback(async () => {
     if (!phone) { setLoading(false); return; }
@@ -288,7 +298,15 @@ export default function LiveRidesPage() {
         ) : available.length === 0 ? (
           <div style={{ ...card, textAlign: "center", color: "#6b7280" }}>No live rides available right now.</div>
         ) : (
-          available.map((r) => <AvailableCard key={r._id} ride={r} phone={phone} busy={busy} onJoin={joinRide} userActiveStatus={userActiveStatus} />)
+          available.map((r) => (
+            <div key={r._id} id={`live-${r._id}`} style={
+              String(r._id) === String(focusId)
+                ? { borderRadius: 16, boxShadow: "0 0 0 3px rgba(22,163,74,0.5)" }
+                : undefined
+            }>
+              <AvailableCard ride={r} phone={phone} busy={busy} onJoin={joinRide} userActiveStatus={userActiveStatus} />
+            </div>
+          ))
         )}
       </div>
       <Footer />

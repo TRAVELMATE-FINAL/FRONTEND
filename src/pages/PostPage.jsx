@@ -1756,36 +1756,38 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack }) {
             />
           </div>
 
-          {/* ── Start Live Tracking toggle (same form, optional) ── */}
+          {/* ── Start Live Tracking — REQUIRED choice (Yes / No) ── */}
           <div style={{
-            display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12,
-            background: form.liveTracking ? "#f0fdf4" : "#f9fafb",
-            border: `1px solid ${form.liveTracking ? "#bbf7d0" : "#e5e7eb"}`,
+            background:"#f9fafb", border:"1px solid #e5e7eb",
             borderRadius:12, padding:"12px 14px", marginBottom:14,
           }}>
-            <div style={{ minWidth:0 }}>
-              <div style={{ fontSize:14, fontWeight:800, color:"#14163a" }}>📍 Start Live Tracking</div>
-              <div style={{ fontSize:12, color:"#6b7280", marginTop:3 }}>
-                Share this vehicle's live GPS location so members can follow &amp; join it on the map.
-                Uses your seats &amp; the ₹ per-seat amount above as the sharing fee.
-              </div>
+            <div style={{ fontSize:14, fontWeight:800, color:"#14163a" }}>
+              📍 Start Live Tracking <span style={{ color:"#dc2626" }}>*</span>
             </div>
-            <span
-              role="switch"
-              aria-checked={!!form.liveTracking}
-              onClick={() => setForm((f) => ({ ...f, liveTracking: !f.liveTracking }))}
-              style={{
-                flexShrink:0, width:46, height:28, borderRadius:999,
-                background: form.liveTracking ? "#16a34a" : "#d7dae8",
-                position:"relative", cursor:"pointer", transition:"background 0.15s ease",
-              }}
-            >
-              <span style={{
-                position:"absolute", top:3, left: form.liveTracking ? 21 : 3,
-                width:22, height:22, borderRadius:"50%", background:"#fff",
-                boxShadow:"0 1px 3px rgba(0,0,0,0.25)", transition:"left 0.15s ease",
-              }} />
-            </span>
+            <div style={{ fontSize:12, color:"#6b7280", margin:"3px 0 10px" }}>
+              Choose whether to share this vehicle's live GPS location so members can follow &amp; join it on the map. This choice is required.
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              {[
+                { val: true,  label: "Yes, track live" },
+                { val: false, label: "No, just post" },
+              ].map(({ val, label }) => {
+                const active = form.liveTracking === val;
+                return (
+                  <button key={String(val)} type="button"
+                    onClick={() => setForm((f) => ({ ...f, liveTracking: val }))}
+                    style={{
+                      flex:1, padding:"10px 12px", borderRadius:10, cursor:"pointer",
+                      fontFamily:"inherit", fontSize:13, fontWeight:700,
+                      border: "1.5px solid " + (active ? (val ? "#16a34a" : "#1a1a2e") : "#e5e7eb"),
+                      background: active ? (val ? "#16a34a" : "#1a1a2e") : "#fff",
+                      color: active ? "#fff" : "#374151",
+                    }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {error && (
@@ -1838,7 +1840,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
     stops: [],
     vehicleType: "Car", vehicleColor: "", vehicleName: "", plateNumber: "",
     seats: 1, farePerSeat: 0, notes: "",
-    liveTracking: false,
+    liveTracking: null, // required choice — Yes (live) / No (normal post)
     // true once a registered bus route is applied — the route then comes from
     // the Bus Routes DB (map shown in the picker), so the manual confirm-map and
     // route-calculation gate are skipped. Cleared the moment From/To is edited.
@@ -2015,6 +2017,11 @@ export default function TravelMatePost({ embedded = false } = {}) {
       setError("Seats must be between 1 and 8");
       return;
     }
+    // ── Live Tracking is a required choice (Yes / No) ──
+    if (form.liveTracking !== true && form.liveTracking !== false) {
+      setError("Please choose whether to start live tracking (Yes or No).");
+      return;
+    }
 
     // ── LIVE TRACKING branch ─────────────────────────────────────────
     // When the member turned on "Start Live Tracking", reuse this same form's
@@ -2048,6 +2055,12 @@ export default function TravelMatePost({ embedded = false } = {}) {
               plateNumber: (form.plateNumber || "").toUpperCase().replace(/[\s-]/g, ""),
               from: form.from.trim(),
               to: form.to.trim(),
+              // Route coordinates + stops so the live ride is findable in Find Ride.
+              fromLat: form.fromCoords?.lat ?? null,
+              fromLon: form.fromCoords?.lon ?? null,
+              toLat: form.toCoords?.lat ?? null,
+              toLon: form.toCoords?.lon ?? null,
+              stops: (form.stops || []).map((s) => ({ name: (s && s.name) || s, lat: s?.lat ?? null, lon: s?.lon ?? null })),
               departureTime: form.time ? formatTime12h(form.time) : "",
               totalSeats: Number(form.seats) || 1,
               farePerSeat: Number(form.farePerSeat) || 0,
@@ -2368,7 +2381,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
           { label: "Valid Until", value: fmtPlanUntil(publishConfirm.endDate) || "—" },
         ] : []}
         cancelLabel="Cancel"
-        confirmLabel="Yes, Publish Ride"
+        confirmLabel="Confirm & Post Ride"
         busy={publishing}
         onCancel={() => setPublishConfirm(null)}
         onConfirm={confirmPublish}
