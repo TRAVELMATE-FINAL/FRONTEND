@@ -442,6 +442,7 @@ export default function SecurePayment() {
                   disabled={couponAttempted}
                   style={{
                     flex: 1,
+                    minWidth: 0,
                     border: "1px solid #e0e0e0",
                     borderRadius: 8,
                     padding: "10px 14px",
@@ -452,6 +453,7 @@ export default function SecurePayment() {
                     background: couponAttempted ? "#f0f1f3" : "#fff",
                     fontFamily: "inter",
                     textTransform: "uppercase",
+                    boxSizing: "border-box",
                   }}
                 />
                 {/* Show "Clear" after any apply attempt; "Apply" initially */}
@@ -470,6 +472,7 @@ export default function SecurePayment() {
                       cursor: "pointer",
                       fontFamily: "inherit",
                       whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                   >
                     Clear
@@ -492,6 +495,7 @@ export default function SecurePayment() {
                       transition: "background 0.15s",
                       opacity: couponChecking ? 0.7 : 1,
                       whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                     onMouseEnter={(e) => {
                       if (!couponChecking) e.currentTarget.style.background = "#1a2f45";

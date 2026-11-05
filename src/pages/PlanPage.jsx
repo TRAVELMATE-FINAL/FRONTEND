@@ -737,7 +737,7 @@ export default function PlanPage() {
           .prp-cards { gap: 14px; }
           .prp-card { padding: 28px 18px 22px; }
           .prp-price { font-size: 38px; }
-          .prp-offer { flex-direction: column; align-items: flex-start; padding: 28px 24px; gap: 24px; }
+          .prp-offer { flex-direction: column; align-items: flex-start; padding: 28px 24px; gap: 24px; height: auto; }
           .prp-offer-content { padding-left: 0; width: 100%; }
           .prp-offer-title { font-size: 30px; }
           .prp-offer-desc { font-size: 15px; max-width: 100%; }
@@ -759,7 +759,7 @@ export default function PlanPage() {
           .prp-price { font-size: 40px; }
           .prp-feature { font-size: 13px; line-height: 1.6; }
           .prp-btn { height: 48px; font-size: 14px; }
-          .prp-offer { flex-direction: column; align-items: center; text-align: center; padding: 24px 18px; border-radius: 18px; gap: 22px; }
+          .prp-offer { flex-direction: column; align-items: center; text-align: center; padding: 24px 18px; border-radius: 18px; gap: 22px; height: auto; }
           .prp-offer-imgs { justify-content: center; width: 100%; }
           .prp-img-main { width: 100px; height: 110px; }
           .prp-offer-content { padding-left: 0; align-items: center; }
