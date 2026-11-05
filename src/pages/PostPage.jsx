@@ -1761,7 +1761,7 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack }) {
           </div>
 
           {/* Live Ride: tracking is mandatory (no Yes/No). Shown only in live mode. */}
-          {liveMode && (
+          {form.liveTracking && (
             <div style={{
               background:"#f0fdf4", border:"1px solid #bbf7d0",
               borderRadius:12, padding:"12px 14px", marginBottom:14,
