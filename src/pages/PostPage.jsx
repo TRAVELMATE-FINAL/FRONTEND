@@ -158,6 +158,26 @@ function BusRoutePicker({ setForm }) {
   const [bIdx, setBIdx] = useState(0);
   const [dIdx, setDIdx] = useState(1);
   const [applied, setApplied] = useState(false);
+  const [applying, setApplying] = useState(false);
+
+  // Geocode a place name to coords using the already-loaded Google Geocoder
+  // (the route map above loads Google Maps). This gives bus-route points real
+  // coordinates so the posted ride is findable by the nearby/geo search.
+  const geocodeName = (name) => new Promise((resolve) => {
+    try {
+      const g = window.google;
+      if (!g?.maps?.Geocoder || !name) return resolve(null);
+      new g.maps.Geocoder().geocode(
+        { address: `${name}, Chennai, Tamil Nadu, India`, componentRestrictions: { country: "IN" } },
+        (res, st) => {
+          if (st === "OK" && res && res[0]) {
+            const loc = res[0].geometry.location;
+            resolve({ lat: loc.lat(), lon: loc.lng() });
+          } else resolve(null);
+        }
+      );
+    } catch { resolve(null); }
+  });
 
   const seq = route
     ? [
@@ -199,18 +219,33 @@ function BusRoutePicker({ setForm }) {
       }
     : null;
 
-  const apply = () => {
-    if (!previewRoute || bIdx >= dIdx) return;
-    const coordOf = (p) => (p && p.lat != null && p.lon != null) ? { lat: Number(p.lat), lon: Number(p.lon) } : null;
+  const apply = async () => {
+    if (!previewRoute || bIdx >= dIdx || applying) return;
+    setApplying(true);
+    // Resolve coordinates for each chosen point — use stored coords, else
+    // geocode the name so the posted ride is searchable by other users.
+    const resolvePt = async (p) => {
+      if (p && p.lat != null && p.lon != null) {
+        return { name: p.name, lat: Number(p.lat), lon: Number(p.lon) };
+      }
+      const g = await geocodeName(p.name);
+      return { name: p.name, lat: g?.lat ?? null, lon: g?.lon ?? null };
+    };
+    const b = await resolvePt(seq[bIdx]);
+    const d = await resolvePt(seq[dIdx]);
+    const mids = [];
+    for (const s of seq.slice(bIdx + 1, dIdx)) mids.push(await resolvePt(s));
+    const coord = (p) => (p.lat != null && p.lon != null) ? { lat: p.lat, lon: p.lon } : null;
     setForm((f) => ({
       ...f,
-      from: seq[bIdx].name,
-      fromCoords: coordOf(seq[bIdx]),
-      to: seq[dIdx].name,
-      toCoords: coordOf(seq[dIdx]),
-      stops: seq.slice(bIdx + 1, dIdx).map((s) => ({ name: s.name, lat: s.lat ?? null, lon: s.lon ?? null })),
+      from: b.name,
+      fromCoords: coord(b),
+      to: d.name,
+      toCoords: coord(d),
+      stops: mids.map((s) => ({ name: s.name, lat: s.lat ?? null, lon: s.lon ?? null })),
       busApplied: true,
     }));
+    setApplying(false);
     setApplied(true);
   };
 
@@ -292,11 +327,12 @@ function BusRoutePicker({ setForm }) {
 
               {previewRoute && <BusRouteMap route={previewRoute} height={220} />}
 
-              <button type="button" onClick={apply} style={{
+              <button type="button" onClick={apply} disabled={applying} style={{
                 marginTop: 12, width: "100%", background: "#f5c518", color: "#111", border: "none",
-                borderRadius: 10, padding: "12px 14px", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "inherit",
+                borderRadius: 10, padding: "12px 14px", fontWeight: 800, fontSize: 14,
+                cursor: applying ? "not-allowed" : "pointer", fontFamily: "inherit",
               }}>
-                {applied ? "✓ Route applied — continue below" : "Use this route"}
+                {applying ? "Applying route…" : applied ? "✓ Route applied — continue below" : "Use this route"}
               </button>
               {applied && (
                 <div style={{ marginTop: 8, fontSize: 12, color: "#166534" }}>
@@ -1820,6 +1856,10 @@ export default function TravelMatePost({ embedded = false } = {}) {
   // Publish confirmation modal state: holds the ride payload + the active
   // plan's name/expiry so we can confirm before actually posting.
   const [publishConfirm, setPublishConfirm] = useState(null); // { payload, plan, endDate } | null
+  // Shown after the backend confirms the ride is saved: { rideId } | null.
+  const [postSuccess, setPostSuccess] = useState(null);
+  // Guards against a double POST if the confirm button is tapped twice quickly.
+  const submittingRef = useRef(false);
   // Suggested stops for whichever alternate route is currently selected
   // on the map. RouteMap reverse-geocodes midpoints of the active route
   // and pushes the resulting town names up here.
@@ -2199,7 +2239,8 @@ export default function TravelMatePost({ embedded = false } = {}) {
 
   // Actually publish the ride after the user confirms in the modal.
   const confirmPublish = async () => {
-    if (!publishConfirm) return;
+    if (!publishConfirm || submittingRef.current) return; // prevent duplicate submit
+    submittingRef.current = true;
     setPublishing(true);
     setError("");
     try {
@@ -2211,11 +2252,14 @@ export default function TravelMatePost({ embedded = false } = {}) {
       } catch (_e) {}
       clearPendingIntent("pendingPostRide");
       setPublishConfirm(null);
-      navigate(newId ? `/ride-live?rideId=${newId}` : "/ride-live");
+      // Only AFTER the backend confirms the save → show the success dialog.
+      setPostSuccess({ rideId: newId });
     } catch (err) {
       setPublishConfirm(null);
       const errMsg = err?.response?.data?.message || "Could not publish your trip. Please try again.";
       setError(errMsg);
+    } finally {
+      submittingRef.current = false;
       setPublishing(false);
     }
   };
@@ -2328,6 +2372,21 @@ export default function TravelMatePost({ embedded = false } = {}) {
         busy={publishing}
         onCancel={() => setPublishConfirm(null)}
         onConfirm={confirmPublish}
+      />
+
+      {/* Success dialog — shown ONLY after the backend confirms the save. */}
+      <ConfirmModal
+        open={!!postSuccess}
+        title="Ride Posted Successfully!"
+        message="Your ride is now live and available to passengers in Find Ride."
+        cancelLabel="Go to Find Ride"
+        confirmLabel="View My Ride"
+        onCancel={() => { setPostSuccess(null); navigate("/find-friend"); }}
+        onConfirm={() => {
+          const id = postSuccess?.rideId;
+          setPostSuccess(null);
+          navigate(id ? `/ride-live?rideId=${id}` : "/ride-live");
+        }}
       />
 
       {!embedded && <Footer />}

@@ -224,7 +224,8 @@ export default function RideDetailsPage() {
               { timeout: 12000 }
             );
             if (v?.success) {
-              setMyReq({ status: "pending", paymentStatus: "paid" });
+              // Instant confirmation — no driver approval step.
+              setMyReq({ status: "accepted", paymentStatus: "paid", bookingCode: v.bookingCode || "" });
               setReqSentOpen(true);
             } else {
               setReqMsg(v?.message || "Payment could not be confirmed. If you were charged it will be refunded.");
@@ -835,15 +836,28 @@ export default function RideDetailsPage() {
                   ));
                 }
                 if (myReq?.status === "accepted") {
-                  // Pay-first: an accepted request is already paid → contact revealed.
+                  // Paid → booking CONFIRMED instantly (no driver approval). The
+                  // driver's contact + vehicle are revealed (via the re-fetched
+                  // /details once status is accepted + paid).
+                  const drvName = driver?.fullName?.trim() || myReq.owner?.name || "Driver";
+                  const drvPhone = driver?.phone || myReq.owner?.phone || "";
                   return box("#f0fdf4", "#bbf7d0", (
                     <div>
-                      <div style={{ fontSize: 13, color: "#15803d", fontWeight: 800, marginBottom: 6 }}>
-                        ✅ Booking confirmed — payment completed
+                      <div style={{ fontSize: 14, color: "#15803d", fontWeight: 800, marginBottom: 4 }}>
+                        ✅ Booking confirmed
                       </div>
-                      <a href={`tel:${myReq.owner?.phone || ""}`} style={{ fontSize: 20, fontWeight: 700, color: "#166534" }}>
-                        {myReq.owner?.phone || "—"}
+                      {myReq.bookingCode && (
+                        <div style={{ fontSize: 12, color: "#166534", marginBottom: 8 }}>
+                          Booking ID: <strong>{myReq.bookingCode}</strong>
+                        </div>
+                      )}
+                      <div style={{ fontSize: 13, color: "#166534", fontWeight: 600 }}>{drvName}</div>
+                      <a href={`tel:${drvPhone}`} style={{ fontSize: 20, fontWeight: 800, color: "#166534" }}>
+                        {drvPhone || "—"}
                       </a>
+                      <div style={{ fontSize: 12, color: "#15803d", marginTop: 8, lineHeight: 1.5 }}>
+                        Contact the driver to coordinate your trip. Vehicle details are shown below.
+                      </div>
                     </div>
                   ));
                 }
@@ -970,10 +984,10 @@ export default function RideDetailsPage() {
                       padding: "12px 14px", fontWeight: 700, fontSize: 14, cursor: reqBusy ? "not-allowed" : "pointer", fontFamily: "inherit",
                       boxShadow: "0 4px 12px rgba(245,197,24,0.30)",
                     }}>
-                      {reqBusy ? "Processing…" : `Request Ride${findDailyPrice != null ? ` • ₹${findDailyPrice}` : ""}`}
+                      {reqBusy ? "Processing…" : `Book & Pay${findDailyPrice != null ? ` • ₹${findDailyPrice}` : ""}`}
                     </button>
                     <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
-                      Pay now to send your request. If the owner rejects it or doesn't respond within 1 hour, you're automatically refunded.
+                      Pay now to confirm your booking instantly — no driver approval needed. The driver's contact and vehicle details are revealed right after payment.
                     </div>
                     {reqMsg && <div style={{ marginTop: 8, fontSize: 13, color: "#b91c1c" }}>{reqMsg}</div>}
                   </div>
@@ -1101,29 +1115,29 @@ export default function RideDetailsPage() {
 
       {ride && <MapModal ride={ride} open={mapOpen} onClose={() => setMapOpen(false)} />}
 
-      {/* Pay-first confirmation — pay BEFORE the request is sent to the owner. */}
+      {/* Instant booking — pay and the booking is confirmed (no driver approval). */}
       <ConfirmModal
         open={payConfirmOpen}
-        title="Pay to send your ride request"
-        message="Your request is sent to the ride owner only after payment succeeds."
+        title="Confirm & pay for your booking"
+        message="Your booking is confirmed as soon as your payment is verified — no driver approval or waiting."
         rows={[
+          { label: "Route", value: `${boarding || ride?.from || ""} → ${dropping || ride?.to || ""}` },
+          { label: "Seats", value: String(seatCount || 1) },
           { label: "Booking fee", value: findDailyPrice != null ? `₹${findDailyPrice}` : "—" },
-          { label: "Owner response window", value: "1 hour" },
-          { label: "If rejected / no response", value: "Auto-refund" },
         ]}
-        note="On success, your request is sent and the owner is notified. If they reject it or don't respond within 1 hour, your payment is automatically refunded."
+        note="After successful payment your booking is confirmed instantly and the driver's contact and vehicle details are revealed."
         cancelLabel="Cancel"
-        confirmLabel="Pay & Send Request"
+        confirmLabel="Pay & Confirm Booking"
         busy={reqBusy}
         onCancel={() => setPayConfirmOpen(false)}
         onConfirm={() => { setPayConfirmOpen(false); sendRequest(); }}
       />
 
-      {/* Request-sent confirmation (professional acknowledgement popup). */}
+      {/* Booking-confirmed acknowledgement popup. */}
       <ConfirmModal
         open={reqSentOpen}
-        title="Payment successful — request sent"
-        message="Your paid request has been sent to the ride owner. You'll be notified when they accept or reject. If they don't respond within 1 hour, you'll be refunded automatically."
+        title="Booking confirmed"
+        message={`Your payment was successful and your booking is confirmed${myReq?.bookingCode ? ` (Booking ID: ${myReq.bookingCode})` : ""}. The driver's contact and vehicle details are now available below.`}
         hideCancel
         confirmLabel="OK"
         onCancel={() => setReqSentOpen(false)}

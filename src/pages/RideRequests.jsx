@@ -121,6 +121,9 @@ export default function RideRequests() {
                   {r.rider?.city && <div style={{ color: "#6b7280", fontSize: 13 }}>{r.rider.city}</div>}
                   <div style={{ marginTop: 6, fontSize: 14, color: "#374151" }}>{routeText(r)}</div>
                   <div style={{ fontSize: 12, color: "#9ca3af" }}>{whenText(r)}</div>
+                  {r.bookingCode && (
+                    <div style={{ marginTop: 6, fontSize: 12, color: "#166534", fontWeight: 700 }}>Booking ID: {r.bookingCode}</div>
+                  )}
                   {(r.boardingPoint || r.droppingPoint) && (
                     <div style={{ marginTop: 6, fontSize: 13, color: "#1a1a2e", fontWeight: 600 }}>
                       🧍 Boards: {r.boardingPoint || "—"} → Drops: {r.droppingPoint || "—"}
@@ -131,7 +134,7 @@ export default function RideRequests() {
 
                   {r.status === "accepted" && r.rider?.phone && (
                     <div style={{ marginTop: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 10, fontSize: 14 }}>
-                      Confirmed ✓ — Rider contact: <a href={`tel:${r.rider.phone}`} style={{ fontWeight: 700, color: "#166534" }}>{r.rider.phone}</a>
+                      Confirmed ✓ — Passenger contact: <a href={`tel:${r.rider.phone}`} style={{ fontWeight: 700, color: "#166534" }}>{r.rider.phone}</a>
                     </div>
                   )}
 

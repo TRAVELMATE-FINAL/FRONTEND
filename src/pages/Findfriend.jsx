@@ -385,7 +385,7 @@ const RideCard = ({ ride, onConnect, myBooking, onPay, userActiveStatus }) => {
               boxShadow: "0 6px 18px rgba(245, 197, 24, 0.35)",
               fontFamily: "inherit",
             }}>
-            Request to Ride <span style={{ fontSize: 17, lineHeight: 1 }}>→</span>
+            Book Ride <span style={{ fontSize: 17, lineHeight: 1 }}>→</span>
           </button>
         )}
       </div>
