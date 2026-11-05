@@ -1014,101 +1014,102 @@ export default function RideDetailsPage() {
               )}
             </div>
 
-            {/* Ride Route Card */}
-            <div style={{
-              background: "#fff",
-              borderRadius: 16,
-              border: "1px solid #e5e7eb",
-              padding: "20px 22px",
-            }}>
-              <p style={{ fontSize: 15, fontWeight: 700, color: "#111827", margin: "0 0 16px" }}>
-                Trip Route
-              </p>
+          </div>
 
-              {/* Map preview — tap to open the zoomable map. Only shown when
-                  the ride has usable coordinates. */}
-              {ride.fromLat != null && ride.fromLon != null &&
-               ride.toLat != null && ride.toLon != null && (
-                <div
-                  onClick={() => setMapOpen(true)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setMapOpen(true); }}
-                  title="Tap to enlarge & zoom"
-                  style={{
-                    position: "relative",
-                    width: "100%", height: 180,
-                    borderRadius: 12, overflow: "hidden",
-                    border: "1px solid #e5e7eb", marginBottom: 18,
-                    cursor: "pointer",
-                  }}
-                >
-                  <RideMap ride={ride} />
-                  <div style={{ position: "absolute", inset: 0 }} />
+          {/* Trip Route — full width, below Vehicle Details & booking */}
+          <div style={{
+            gridColumn: "1 / -1",
+            background: "#fff",
+            borderRadius: 16,
+            border: "1px solid #e5e7eb",
+            padding: "24px",
+          }}>
+            <p style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: "0 0 18px" }}>
+              Trip Route
+            </p>
+
+            {/* Map preview — tap to open the zoomable map. Only shown when
+                the ride has usable coordinates. */}
+            {ride.fromLat != null && ride.fromLon != null &&
+             ride.toLat != null && ride.toLon != null && (
+              <div
+                onClick={() => setMapOpen(true)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setMapOpen(true); }}
+                title="Tap to enlarge & zoom"
+                style={{
+                  position: "relative",
+                  width: "100%", height: 320,
+                  borderRadius: 12, overflow: "hidden",
+                  border: "1px solid #e5e7eb", marginBottom: 20,
+                  cursor: "pointer",
+                }}
+              >
+                <RideMap ride={ride} />
+                <div style={{ position: "absolute", inset: 0 }} />
+                <div style={{
+                  position: "absolute", bottom: 10, right: 10,
+                  width: 30, height: 30, borderRadius: 8,
+                  background: "rgba(15,18,38,0.82)", color: "#fff",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 16, pointerEvents: "none",
+                }} aria-hidden="true">⛶</div>
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              {/* Origin */}
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <BlueDot />
                   <div style={{
-                    position: "absolute", bottom: 8, right: 8,
-                    width: 28, height: 28, borderRadius: 8,
-                    background: "rgba(15,18,38,0.82)", color: "#fff",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 15, pointerEvents: "none",
-                  }} aria-hidden="true">⛶</div>
+                    width: 2, height: 44, background: "#d1d5db",
+                    margin: "4px 0", borderRadius: 2,
+                  }} />
                 </div>
-              )}
+                <div style={{ paddingBottom: 16 }}>
+                  <p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: "0 0 3px" }}>
+                    {ride.from || "—"}
+                  </p>
+                  {ride.distance && (
+                    <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
+                      Distance: {ride.distance}
+                    </p>
+                  )}
+                </div>
+              </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                {/* Origin */}
-                <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+              {/* Intermediate stops (in travel order) */}
+              {Array.isArray(ride.stops) && ride.stops.map((s, i) => (
+                <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    <BlueDot />
-                    <div style={{
-                      width: 2, height: 44, background: "#d1d5db",
-                      margin: "4px 0", borderRadius: 2,
-                    }} />
+                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#7c3aed", border: "2px solid #fff", boxShadow: "0 0 0 1px #7c3aed" }} />
+                    <div style={{ width: 2, height: 32, background: "#d1d5db", margin: "4px 0", borderRadius: 2 }} />
                   </div>
-                  <div style={{ paddingBottom: 16 }}>
-                    <p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: "0 0 3px" }}>
-                      {ride.from || "—"}
+                  <div style={{ paddingBottom: 12 }}>
+                    <p style={{ fontSize: 14, fontWeight: 500, color: "#374151", margin: 0 }}>
+                      {(s && s.name) || s}
                     </p>
-                    {ride.distance && (
-                      <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
-                        Distance: {ride.distance}
-                      </p>
-                    )}
                   </div>
                 </div>
+              ))}
 
-                {/* Intermediate stops (in travel order) */}
-                {Array.isArray(ride.stops) && ride.stops.map((s, i) => (
-                  <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#7c3aed", border: "2px solid #fff", boxShadow: "0 0 0 1px #7c3aed" }} />
-                      <div style={{ width: 2, height: 32, background: "#d1d5db", margin: "4px 0", borderRadius: 2 }} />
-                    </div>
-                    <div style={{ paddingBottom: 12 }}>
-                      <p style={{ fontSize: 14, fontWeight: 500, color: "#374151", margin: 0 }}>
-                        {(s && s.name) || s}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Destination */}
-                <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                  <GreenDot />
-                  <div>
-                    <p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: "0 0 3px" }}>
-                      {ride.to || "—"}
+              {/* Destination */}
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <GreenDot />
+                <div>
+                  <p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: "0 0 3px" }}>
+                    {ride.to || "—"}
+                  </p>
+                  {ride.duration && (
+                    <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
+                      Duration: {ride.duration}
                     </p>
-                    {ride.duration && (
-                      <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
-                        Duration: {ride.duration}
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       )}

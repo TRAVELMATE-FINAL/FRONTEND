@@ -20,6 +20,8 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+  flex: 1 1 auto;        /* take leftover space, allow shrinking */
+  overflow: hidden;      /* clip the wordmark instead of overlapping icons */
 }
 
 /* Global Back button */
@@ -53,6 +55,7 @@
   gap: 10px;
   cursor: pointer;
   user-select: none;
+  min-width: 0;          /* allow the wordmark to truncate, not overflow */
 }
 
 .tm-navbar__logo,
@@ -76,6 +79,10 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: #c11afa; /* fallback for browsers without background-clip */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* Right cluster */
@@ -83,6 +90,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  flex-shrink: 0;        /* icons + Sign Out keep their size; never overlap brand */
 }
 
 .tm-navbar__icon-btn {
