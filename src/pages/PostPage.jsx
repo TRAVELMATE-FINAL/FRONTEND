@@ -507,6 +507,45 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
           padding: "22px 22px 6px",
         }}>
 
+          {/* Live Ride: choose Instant vs Scheduled before entering details. */}
+          {form.liveTracking && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#14163a", marginBottom: 8 }}>
+                When do you want to travel?
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { key: "instant", icon: "⚡", title: "Instant Ride", sub: "Start now & share live location" },
+                  { key: "scheduled", icon: "🗓️", title: "Scheduled Ride", sub: "Pick a date & time; start later" },
+                ].map((opt) => {
+                  const active = form.rideMode === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, rideMode: opt.key }))}
+                      style={{
+                        textAlign: "left", cursor: "pointer", fontFamily: "inherit",
+                        border: active ? "2px solid #16a34a" : "1.5px solid #e5e7eb",
+                        background: active ? "#f0fdf4" : "#fff",
+                        borderRadius: 12, padding: "12px 12px",
+                        boxShadow: active ? "0 0 0 3px rgba(22,163,74,0.12)" : "none",
+                        transition: "border-color .15s ease, background .15s ease",
+                      }}
+                    >
+                      <div style={{ fontSize: 15, fontWeight: 800, color: "#14163a", display: "flex", alignItems: "center", gap: 6 }}>
+                        <span aria-hidden="true">{opt.icon}</span> {opt.title}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: active ? "#15803d" : "#6b7280", marginTop: 3, lineHeight: 1.4 }}>
+                        {opt.sub}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Bus-number route auto-fill (optional). Falls back to manual below. */}
           <BusRoutePicker setForm={setForm} />
 
@@ -1769,9 +1808,13 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack }) {
             }}>
               <span style={{ fontSize:18, lineHeight:1 }} aria-hidden="true">📍</span>
               <div>
-                <div style={{ fontSize:14, fontWeight:800, color:"#14163a" }}>Live GPS tracking is on</div>
+                <div style={{ fontSize:14, fontWeight:800, color:"#14163a" }}>
+                  {form.rideMode === "scheduled" ? "Live tracking starts when you begin the journey" : "Live GPS tracking is on"}
+                </div>
                 <div style={{ fontSize:12, color:"#15803d", marginTop:3 }}>
-                  When you start, we'll ask for location permission and share this vehicle's live location so passengers can follow &amp; join it on the map.
+                  {form.rideMode === "scheduled"
+                    ? "We'll save this ride now and remind you at the scheduled time. Your location is shared only after you tap “Start Journey & Share Location.”"
+                    : "When you start, we'll ask for location permission and share this vehicle's live location so passengers can follow & join it on the map."}
                 </div>
               </div>
             </div>
@@ -1798,7 +1841,11 @@ function PostRidePage({ form, setForm, onPublish, publishing, error, onBack }) {
               boxShadow: "0 4px 14px rgba(245, 197, 24, 0.30)",
               letterSpacing:"-0.1px",
             }}>
-            {publishing ? (form.liveTracking ? "Starting…" : "Publishing…") : (form.liveTracking ? "Allow location & Start Live Ride" : "Publish Trip")}
+            {publishing
+              ? (form.liveTracking ? (form.rideMode === "scheduled" ? "Scheduling…" : "Starting…") : "Publishing…")
+              : (form.liveTracking
+                  ? (form.rideMode === "scheduled" ? "Schedule Ride" : "Allow location & Start Live Ride")
+                  : "Publish Trip")}
           </button>
         </div>
       </div>
@@ -1843,10 +1890,12 @@ export default function TravelMatePost({ embedded = false } = {}) {
           fromCoords: restored.fromCoords ?? f.fromCoords,
           toCoords: restored.toCoords ?? f.toCoords,
           stops: restored.stops ?? f.stops,
+          date: restored.date ?? f.date,
           time: restored.time ?? f.time,
           seats: restored.seats ?? f.seats,
           farePerSeat: restored.farePerSeat ?? f.farePerSeat,
           notes: restored.notes ?? f.notes,
+          rideMode: restored.rideMode ?? f.rideMode,
         } : {}),
         liveTracking: true,
       }));
@@ -1864,6 +1913,10 @@ export default function TravelMatePost({ embedded = false } = {}) {
     vehicleType: "Car", vehicleColor: "", vehicleName: "", plateNumber: "",
     seats: 1, farePerSeat: 0, notes: "",
     liveTracking: false, // set by mode: true in live mode (?live=1), else false
+    // Live Ride sub-mode: "instant" (start & track now) | "scheduled" (post for
+    // a later date/time; tracking starts manually at journey time). Only used in
+    // live mode; ignored for a normal posted ride.
+    rideMode: "instant",
     // true once a registered bus route is applied — the route then comes from
     // the Bus Routes DB (map shown in the picker), so the manual confirm-map and
     // route-calculation gate are skipped. Cleared the moment From/To is edited.
@@ -2046,6 +2099,7 @@ export default function TravelMatePost({ embedded = false } = {}) {
     // tracking + create the ride once → success dialog. Kept fully separate from
     // the normal posted-ride flow below.
     if (form.liveTracking) {
+      const isScheduled = form.rideMode === "scheduled";
       if (!form.from?.trim() || !form.to?.trim()) {
         setError("Enter where you're starting from and going to.");
         return;
@@ -2054,9 +2108,17 @@ export default function TravelMatePost({ embedded = false } = {}) {
         setError("Enter the ₹ sharing amount per seat for live sharing.");
         return;
       }
+      // Scheduled ride → must pick a future journey date & time.
+      if (isScheduled) {
+        if (!form.date) { setError("Choose the journey date for your scheduled ride."); return; }
+        if (!form.time) { setError("Choose the journey start time for your scheduled ride."); return; }
+        if (form.date < todayISO()) { setError("Journey date cannot be in the past."); return; }
+        if (form.date === todayISO() && form.time < nowHHMM()) { setError("Journey time has already passed — pick a future time."); return; }
+      }
       const userPhone = localStorage.getItem("phone") || "";
       if (!/^\+?\d{10,13}$/.test(userPhone)) { navigate("/login"); return; }
-      if (!navigator.geolocation) { setError("Your device/browser doesn't support location."); return; }
+      // Instant ride needs GPS at submit; scheduled starts tracking later.
+      if (!isScheduled && !navigator.geolocation) { setError("Your device/browser doesn't support location."); return; }
 
       // Active-plan check (live rides also require an active posting plan).
       try {
@@ -2064,8 +2126,9 @@ export default function TravelMatePost({ embedded = false } = {}) {
         const canRes = await axios.get(`${API}/api/plans/can-post`, { params: { phone: userPhone }, timeout: 6000 });
         setPublishing(false);
         if (canRes?.data?.canPostRide) {
-          // Active plan → confirm; tracking + creation happen in confirmPublish.
-          setPublishConfirm({ isLive: true, plan: canRes.data.plan || "", endDate: canRes.data.endDate || null });
+          // Active plan → confirm. Instant: tracking + creation in confirmPublish.
+          // Scheduled: just save (no tracking) in confirmPublish.
+          setPublishConfirm({ isLive: true, isScheduled, plan: canRes.data.plan || "", endDate: canRes.data.endDate || null });
           return;
         }
       } catch (e) {
@@ -2079,7 +2142,8 @@ export default function TravelMatePost({ embedded = false } = {}) {
           vehicleType: form.vehicleType, vehicleName: form.vehicleName, vehicleColor: form.vehicleColor,
           plateNumber: form.plateNumber, from: form.from, to: form.to,
           fromCoords: form.fromCoords, toCoords: form.toCoords, stops: form.stops,
-          time: form.time, seats: form.seats, farePerSeat: form.farePerSeat, notes: form.notes,
+          date: form.date, time: form.time, seats: form.seats, farePerSeat: form.farePerSeat,
+          notes: form.notes, rideMode: form.rideMode,
         }));
       } catch (_e) {}
       navigate("/plan");
@@ -2250,11 +2314,30 @@ export default function TravelMatePost({ embedded = false } = {}) {
     }
   };
 
-  // Actually publish the ride after the user confirms in the modal.
-  // Geolocate → create the live ride once → show the success dialog.
+  // Shared payload for creating a live ride (instant or scheduled).
+  const liveRidePayload = (extra = {}) => ({
+    hostPhone: localStorage.getItem("phone") || "",
+    userId: localStorage.getItem("userId") || "",
+    vehicleType: form.vehicleType,
+    vehicleModel: form.vehicleName.trim(),
+    vehicleColor: form.vehicleColor.trim(),
+    plateNumber: (form.plateNumber || "").toUpperCase().replace(/[\s-]/g, ""),
+    from: form.from.trim(),
+    to: form.to.trim(),
+    fromLat: form.fromCoords?.lat ?? null,
+    fromLon: form.fromCoords?.lon ?? null,
+    toLat: form.toCoords?.lat ?? null,
+    toLon: form.toCoords?.lon ?? null,
+    stops: (form.stops || []).map((s) => ({ name: (s && s.name) || s, lat: s?.lat ?? null, lon: s?.lon ?? null })),
+    departureTime: form.time ? formatTime12h(form.time) : "",
+    totalSeats: Number(form.seats) || 1,
+    farePerSeat: Number(form.farePerSeat) || 0,
+    ...extra,
+  });
+
+  // INSTANT ride: geolocate → create live ride (tracking starts now) → success.
   const startLiveRide = () => {
     if (submittingRef.current) return;
-    const userPhone = localStorage.getItem("phone") || "";
     if (!navigator.geolocation) { setError("Your device/browser doesn't support location."); return; }
     submittingRef.current = true;
     setPublishing(true);
@@ -2263,29 +2346,13 @@ export default function TravelMatePost({ embedded = false } = {}) {
       async (pos) => {
         try {
           const { latitude, longitude } = pos.coords;
-          const { data } = await axios.post(`${API}/api/live-rides`, {
-            hostPhone: userPhone,
-            userId: localStorage.getItem("userId") || "",
-            vehicleType: form.vehicleType,
-            vehicleModel: form.vehicleName.trim(),
-            vehicleColor: form.vehicleColor.trim(),
-            plateNumber: (form.plateNumber || "").toUpperCase().replace(/[\s-]/g, ""),
-            from: form.from.trim(),
-            to: form.to.trim(),
-            fromLat: form.fromCoords?.lat ?? null,
-            fromLon: form.fromCoords?.lon ?? null,
-            toLat: form.toCoords?.lat ?? null,
-            toLon: form.toCoords?.lon ?? null,
-            stops: (form.stops || []).map((s) => ({ name: (s && s.name) || s, lat: s?.lat ?? null, lon: s?.lon ?? null })),
-            departureTime: form.time ? formatTime12h(form.time) : "",
-            totalSeats: Number(form.seats) || 1,
-            farePerSeat: Number(form.farePerSeat) || 0,
-            lat: latitude, lon: longitude,
-          }, { timeout: 12000 });
+          const { data } = await axios.post(`${API}/api/live-rides`,
+            liveRidePayload({ mode: "instant", lat: latitude, lon: longitude }),
+            { timeout: 12000 });
           if (data?.success) {
             try { localStorage.removeItem("pendingLivePayload"); } catch (_e) {}
             const lrId = data?.data?._id || data?.data?.id || "";
-            setPostSuccess({ isLive: true, liveRideId: lrId, from: form.from, to: form.to });
+            setPostSuccess({ isLive: true, scheduled: false, liveRideId: lrId, from: form.from, to: form.to });
           } else {
             setError(data?.message || "Could not start the live ride.");
           }
@@ -2307,12 +2374,45 @@ export default function TravelMatePost({ embedded = false } = {}) {
     );
   };
 
+  // SCHEDULED ride: create with status scheduled (NO location, NO tracking) →
+  // success dialog showing the journey date & time.
+  const scheduleLiveRide = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setPublishing(true);
+    setError("");
+    try {
+      const { data } = await axios.post(`${API}/api/live-rides`,
+        liveRidePayload({ mode: "scheduled", scheduledDate: form.date, date: form.date, time: form.time }),
+        { timeout: 12000 });
+      if (data?.success) {
+        try { localStorage.removeItem("pendingLivePayload"); } catch (_e) {}
+        const lrId = data?.data?._id || data?.data?.id || "";
+        setPostSuccess({
+          isLive: true, scheduled: true, liveRideId: lrId,
+          from: form.from, to: form.to,
+          date: form.date, time: form.time ? formatTime12h(form.time) : "",
+        });
+      } else {
+        setError(data?.message || "Could not schedule the live ride.");
+      }
+    } catch (e) {
+      setError(e.response?.data?.message || "Could not schedule the live ride. Please try again.");
+    } finally {
+      submittingRef.current = false;
+      setPublishing(false);
+    }
+  };
+
   const confirmPublish = async () => {
     if (!publishConfirm || submittingRef.current) return; // prevent duplicate submit
-    // Live ride → confirm, then request location + start tracking + create.
+    // Live ride → confirm. Scheduled: just save (no tracking). Instant: request
+    // location + start tracking + create.
     if (publishConfirm.isLive) {
+      const scheduled = publishConfirm.isScheduled;
       setPublishConfirm(null);
-      startLiveRide();
+      if (scheduled) scheduleLiveRide();
+      else startLiveRide();
       return;
     }
     submittingRef.current = true;
@@ -2349,6 +2449,15 @@ export default function TravelMatePost({ embedded = false } = {}) {
     } catch { return ""; }
   };
   const planLabel = (p) => ({ daily: "Daily", monthly: "Monthly", yearly: "Yearly" }[p] || (p ? p : "Active"));
+  // Journey date "YYYY-MM-DD" → "Wed, 5 Nov 2026" for the scheduled dialog.
+  const fmtJourneyDate = (d) => {
+    if (!d) return "the selected date";
+    try {
+      return new Date(d + "T00:00:00").toLocaleDateString("en-IN", {
+        weekday: "short", day: "numeric", month: "short", year: "numeric",
+      });
+    } catch { return String(d); }
+  };
 
   return (
     <>
@@ -2436,10 +2545,14 @@ export default function TravelMatePost({ embedded = false } = {}) {
       {/* Publish confirmation — shown only when the user has an ACTIVE plan. */}
       <ConfirmModal
         open={!!publishConfirm}
-        title={publishConfirm?.isLive ? "Start this live ride?" : "Are you sure you want to publish this ride?"}
+        title={publishConfirm?.isLive
+          ? (publishConfirm.isScheduled ? "Schedule this live ride?" : "Start this live ride?")
+          : "Are you sure you want to publish this ride?"}
         message={publishConfirm
           ? (publishConfirm.isLive
-              ? `Your ${planLabel(publishConfirm.plan)} plan is active. We'll ask for location permission and start live tracking.`
+              ? (publishConfirm.isScheduled
+                  ? `Your ${planLabel(publishConfirm.plan)} plan is active. We'll save this ride. Location tracking will start only when you tap "Start Journey" at the scheduled time.`
+                  : `Your ${planLabel(publishConfirm.plan)} plan is active. We'll ask for location permission and start live tracking now.`)
               : `Your ${planLabel(publishConfirm.plan)} plan is active.`)
           : ""}
         rows={publishConfirm ? [
@@ -2447,7 +2560,9 @@ export default function TravelMatePost({ embedded = false } = {}) {
           { label: "Valid Until", value: fmtPlanUntil(publishConfirm.endDate) || "—" },
         ] : []}
         cancelLabel="Cancel"
-        confirmLabel={publishConfirm?.isLive ? "Allow location & Start" : "Confirm & Post Ride"}
+        confirmLabel={publishConfirm?.isLive
+          ? (publishConfirm.isScheduled ? "Confirm & Schedule" : "Allow location & Start")
+          : "Confirm & Post Ride"}
         busy={publishing}
         onCancel={() => setPublishConfirm(null)}
         onConfirm={confirmPublish}
@@ -2456,12 +2571,16 @@ export default function TravelMatePost({ embedded = false } = {}) {
       {/* Success dialog — shown ONLY after the backend confirms the save. */}
       <ConfirmModal
         open={!!postSuccess}
-        title={postSuccess?.isLive ? "Live Ride Started Successfully!" : "Ride Posted Successfully!"}
+        title={postSuccess?.isLive
+          ? (postSuccess.scheduled ? "Ride Scheduled Successfully!" : "Live Ride Started Successfully!")
+          : "Ride Posted Successfully!"}
         message={postSuccess?.isLive
-          ? `Your live ride ${postSuccess?.from || ""} → ${postSuccess?.to || ""} is now live and tracking. Passengers can find and join it.`
+          ? (postSuccess.scheduled
+              ? `Your live ride ${postSuccess?.from || ""} → ${postSuccess?.to || ""} is scheduled for ${fmtJourneyDate(postSuccess?.date)}${postSuccess?.time ? ` at ${postSuccess.time}` : ""}. We'll remind you when it's time — then tap "Start Journey & Share Location" to go live. Location is NOT shared until you start.`
+              : `Your live ride ${postSuccess?.from || ""} → ${postSuccess?.to || ""} is now live and tracking. Passengers can find and join it.`)
           : "Your ride is now live and available to passengers in Find Ride."}
         cancelLabel="Go to Find Ride"
-        confirmLabel="View My Ride"
+        confirmLabel={postSuccess?.scheduled ? "View Scheduled Ride" : "View My Ride"}
         onCancel={() => { setPostSuccess(null); navigate("/find-friend"); }}
         onConfirm={() => {
           const ps = postSuccess;

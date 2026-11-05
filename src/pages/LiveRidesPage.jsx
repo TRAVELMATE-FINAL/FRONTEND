@@ -33,6 +33,67 @@ function fmtAgo(d) {
   return m < 60 ? `${m} min ago` : `${Math.round(m / 60)} hr ago`;
 }
 
+// "YYYY-MM-DD" + display time → "Wed, 5 Nov 2026 · 8:00 PM".
+function fmtSchedule(ride) {
+  const parts = [];
+  if (ride.scheduledDate) {
+    try {
+      parts.push(new Date(ride.scheduledDate + "T00:00:00").toLocaleDateString("en-IN", {
+        weekday: "short", day: "numeric", month: "short", year: "numeric",
+      }));
+    } catch { parts.push(ride.scheduledDate); }
+  }
+  if (ride.departureTime) parts.push(ride.departureTime);
+  return parts.join(" · ") || "Scheduled";
+}
+
+// A scheduled ride is "due" once its start time has passed.
+function isScheduleDue(ride) {
+  if (!ride.scheduledAt) return false;
+  return new Date(ride.scheduledAt).getTime() <= Date.now();
+}
+
+// Host card for a scheduled (not-yet-started) live ride. Shows the planned
+// date/time and a manual "Start Journey & Share Location" button.
+function ScheduledCard({ ride, busy, onStart, onCancel }) {
+  const due = isScheduleDue(ride);
+  return (
+    <div style={{ ...card, border: "1.5px solid #c7d2fe", background: "#eef2ff" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+        <div style={{ fontWeight: 800, color: "#1a1a2e", fontSize: 15 }}>{ride.from} → {ride.to}</div>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#3730a3", background: "#e0e7ff", padding: "4px 10px", borderRadius: 999 }}>
+          🗓️ Scheduled
+        </span>
+      </div>
+      <div style={{ fontSize: 13, color: "#4338ca", marginBottom: 4 }}>
+        Journey: <strong>{fmtSchedule(ride)}</strong>
+      </div>
+      <div style={{ fontSize: 12.5, color: "#6b7280", marginBottom: 12 }}>
+        {ride.vehicle?.type}{ride.vehicle?.model ? ` · ${ride.vehicle.model}` : ""} · ₹{ride.farePerSeat}/seat · You are hosting
+      </div>
+      <div style={{
+        fontSize: 12.5, color: due ? "#166534" : "#92400e",
+        background: due ? "#dcfce7" : "#fffbeb",
+        border: `1px solid ${due ? "#bbf7d0" : "#fde68a"}`,
+        borderRadius: 10, padding: "10px 12px", marginBottom: 12, lineHeight: 1.5,
+      }}>
+        {due
+          ? "It's time for your journey. Tap below to start — your live location is shared only after you start."
+          : "Your location is NOT shared yet. When you're ready to travel, tap below to begin and share your live location."}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" disabled={busy} onClick={() => onStart(ride._id)}
+          style={{ ...btnPrimary, flex: 1, minWidth: 180, background: "#16a34a", color: "#fff", opacity: busy ? 0.7 : 1 }}>
+          {busy ? "Starting…" : "📍 Start Journey & Share Location"}
+        </button>
+        <button type="button" style={{ ...btnGhost, borderColor: "#fecaca", color: "#b91c1c" }} onClick={() => onCancel(ride._id)}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Small live-tracking card (used for the host's ride and joined rides).
 function TrackCard({ ride, phone, isHost, onStop }) {
   const [loc, setLoc] = useState({ lat: ride.currentLat, lon: ride.currentLon, destLat: ride.destLat, destLon: ride.destLon, lastLocationAt: ride.lastLocationAt, status: ride.status });
@@ -52,7 +113,13 @@ function TrackCard({ ride, phone, isHost, onStop }) {
     return () => { cancelled = true; clearInterval(timerRef.current); };
   }, [ride._id, phone]);
 
-  const ended = loc.status === "ended";
+  const ended = ["ended", "completed", "cancelled"].includes(loc.status);
+  const scheduled = loc.status === "scheduled";
+  const badge = scheduled
+    ? { text: "🗓️ Scheduled", color: "#3730a3", bg: "#e0e7ff" }
+    : ended
+      ? { text: "Completed", color: "#991b1b", bg: "#fee2e2" }
+      : { text: "● Live", color: "#166534", bg: "#dcfce7" };
   return (
     <div style={card}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
@@ -63,19 +130,27 @@ function TrackCard({ ride, phone, isHost, onStop }) {
             {isHost ? " · You are hosting" : ""}
           </div>
         </div>
-        <span style={{ fontSize: 12, fontWeight: 700, color: ended ? "#991b1b" : "#166534", background: ended ? "#fee2e2" : "#dcfce7", padding: "4px 10px", borderRadius: 999 }}>
-          {ended ? "Ended" : "● Live"}
+        <span style={{ fontSize: 12, fontWeight: 700, color: badge.color, background: badge.bg, padding: "4px 10px", borderRadius: 999 }}>
+          {badge.text}
         </span>
       </div>
-      <LiveMap lat={loc.lat} lon={loc.lon} destLat={loc.destLat} destLon={loc.destLon} height={260} />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontSize: 12, color: "#9ca3af" }}>Location updated {fmtAgo(loc.lastLocationAt)}</div>
-        {isHost && !ended && (
-          <button type="button" style={{ ...btnGhost, borderColor: "#fecaca", color: "#b91c1c" }} onClick={() => onStop(ride._id)}>
-            Stop tracking &amp; end ride
-          </button>
-        )}
-      </div>
+      {scheduled ? (
+        <div style={{ fontSize: 13, color: "#4338ca", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 10, padding: "12px 14px" }}>
+          Scheduled for <strong>{fmtSchedule(ride)}</strong>. The driver hasn't started yet — live location appears here once the journey begins.
+        </div>
+      ) : (
+        <>
+          <LiveMap lat={loc.lat} lon={loc.lon} destLat={loc.destLat} destLon={loc.destLon} height={260} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, flexWrap: "wrap", gap: 8 }}>
+            <div style={{ fontSize: 12, color: "#9ca3af" }}>Location updated {fmtAgo(loc.lastLocationAt)}</div>
+            {isHost && !ended && (
+              <button type="button" style={{ ...btnGhost, borderColor: "#fecaca", color: "#b91c1c" }} onClick={() => onStop(ride._id)}>
+                Stop tracking &amp; complete ride
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -92,9 +167,11 @@ export default function LiveRidesPage() {
   const [userActiveStatus, setUserActiveStatus] = useState(null);
   const watchRef = useRef(null);
 
-  const myHostRide = rides.find((r) => r.isHost && r.status === "live");
-  const myJoined = rides.filter((r) => r.joined && !r.isHost && r.status === "live");
-  const available = rides.filter((r) => !r.isHost && !r.joined && r.status === "live" && r.availableSeats > 0);
+  const isLiveStatus = (s) => s === "live" || s === "in_progress";
+  const myHostRide = rides.find((r) => r.isHost && isLiveStatus(r.status));
+  const myScheduledRide = rides.find((r) => r.isHost && r.status === "scheduled");
+  const myJoined = rides.filter((r) => r.joined && !r.isHost && (isLiveStatus(r.status) || r.status === "scheduled"));
+  const available = rides.filter((r) => !r.isHost && !r.joined && (isLiveStatus(r.status) || r.status === "scheduled") && r.availableSeats > 0);
 
   // When arriving from Find Ride (?rideId=…), scroll the matching live ride card
   // into view so the user can join it directly.
@@ -153,6 +230,39 @@ export default function LiveRidesPage() {
       stopWatch();
       await load();
     } catch { setMsg("Could not stop the ride."); }
+  };
+
+  // ── Host: begin a SCHEDULED journey (manual). GPS mandatory → flips the ride
+  // to live and starts location sharing only now. ──
+  const beginJourney = (rideId) => {
+    setMsg("");
+    if (!navigator.geolocation) { setMsg("Your device/browser doesn't support location."); return; }
+    setBusy(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const { data } = await axios.post(`${API_BASE}/api/live-rides/${rideId}/begin`,
+            { hostPhone: phone, lat: latitude, lon: longitude }, { timeout: 12000 });
+          if (data?.success) {
+            setMsg("✅ Journey started — your live location is now shared with passengers.");
+            startWatch(rideId);
+            await load();
+          } else {
+            setMsg(data?.message || "Could not start the journey.");
+          }
+        } catch (e) {
+          setMsg(e.response?.data?.message || "Could not start the journey. Please try again.");
+        } finally { setBusy(false); }
+      },
+      (err) => {
+        setBusy(false);
+        if (err && err.code === 1) setMsg("Location permission is required. Please allow location access and try again.");
+        else if (err && err.code === 2) setMsg("Your location is unavailable. Please enable GPS and try again.");
+        else setMsg("Couldn't get your location. Please enable GPS and try again.");
+      },
+      { enableHighAccuracy: true, timeout: 20000 }
+    );
   };
 
   // ── Join a ride (pay for a seat). ──
@@ -241,8 +351,8 @@ export default function LiveRidesPage() {
         )}
 
         {/* Start a Live Ride — dedicated entry (opens the form in live mode).
-            Hidden while the user already has an active live ride of their own. */}
-        {!myHostRide && !userActiveStatus?.hasActiveCreatedRide && (
+            Hidden while the user already has an active/scheduled live ride. */}
+        {!myHostRide && !myScheduledRide && !userActiveStatus?.hasActiveCreatedRide && (
           <button
             type="button"
             onClick={() => navigate("/post-ride?live=1")}
@@ -258,11 +368,16 @@ export default function LiveRidesPage() {
           </button>
         )}
 
+        {/* Host's own SCHEDULED ride — not tracking yet; manual start. */}
+        {myScheduledRide && !myHostRide && (
+          <ScheduledCard ride={myScheduledRide} busy={busy} onStart={beginJourney} onCancel={stopRide} />
+        )}
+
         {/* Host's own live ride */}
         {myHostRide && <TrackCard ride={myHostRide} phone={phone} isHost onStop={stopRide} />}
 
-        {/* Active created ride banner */}
-        {(userActiveStatus?.hasActiveCreatedRide || myHostRide) && (
+        {/* Active created ride banner — only for a ride that is actually LIVE. */}
+        {myHostRide && (
           <div style={{ ...card, background: "#fff7ed", border: "1.5px solid #fed7aa" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <div>
@@ -285,7 +400,7 @@ export default function LiveRidesPage() {
         )}
 
         {/* Start a ride via Post Ride form */}
-        {!myHostRide && !userActiveStatus?.hasActiveCreatedRide && (
+        {!myHostRide && !myScheduledRide && !userActiveStatus?.hasActiveCreatedRide && (
           <div style={card}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div>
@@ -310,11 +425,11 @@ export default function LiveRidesPage() {
         )}
 
         {/* Discovery */}
-        <div style={{ fontSize: 14, fontWeight: 800, color: "#374151", margin: "14px 2px 6px" }}>Available live rides</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#374151", margin: "14px 2px 6px" }}>Available rides (live &amp; scheduled)</div>
         {loading ? (
           <div style={{ ...card, textAlign: "center", color: "#6b7280" }}>Loading…</div>
         ) : available.length === 0 ? (
-          <div style={{ ...card, textAlign: "center", color: "#6b7280" }}>No live rides available right now.</div>
+          <div style={{ ...card, textAlign: "center", color: "#6b7280" }}>No live or scheduled rides available right now.</div>
         ) : (
           available.map((r) => (
             <div key={r._id} id={`live-${r._id}`} style={
@@ -351,32 +466,47 @@ function AvailableCard({ ride, phone, busy, onJoin, userActiveStatus }) {
     return () => { cancelled = true; clearInterval(timerRef.current); };
   }, [showMap, ride._id, phone]);
 
+  const scheduled = ride.status === "scheduled";
   return (
     <div style={card}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 800, color: "#1a1a2e", fontSize: 15 }}>{ride.from} → {ride.to}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ fontWeight: 800, color: "#1a1a2e", fontSize: 15 }}>{ride.from} → {ride.to}</div>
+            <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: "3px 9px", color: scheduled ? "#3730a3" : "#166534", background: scheduled ? "#e0e7ff" : "#dcfce7" }}>
+              {scheduled ? "🗓️ Scheduled" : "● Live now"}
+            </span>
+          </div>
           <div style={{ fontSize: 12.5, color: "#6b7280", marginTop: 2 }}>
             {ride.vehicle?.type}{ride.vehicle?.model ? ` · ${ride.vehicle.model}` : ""}{ride.vehicle?.color ? ` · ${ride.vehicle.color}` : ""}
             {ride.hostName ? ` · Host: ${ride.hostName}` : ""}
           </div>
           <div style={{ fontSize: 12.5, color: "#4b5563", marginTop: 6, display: "flex", gap: 14, flexWrap: "wrap" }}>
-            {ride.departureTime && <span>🕒 {ride.departureTime}</span>}
+            {scheduled
+              ? <span>🗓️ {fmtSchedule(ride)}</span>
+              : (ride.departureTime && <span>🕒 {ride.departureTime}</span>)}
             <span>💺 {ride.availableSeats} seat{ride.availableSeats === 1 ? "" : "s"} left</span>
             <span style={{ fontWeight: 800, color: "#7c3aed" }}>₹{ride.farePerSeat}/seat</span>
           </div>
         </div>
       </div>
-      {showMap && (
+      {!scheduled && showMap && (
         <div style={{ marginTop: 12 }}>
           <LiveMap lat={loc.lat} lon={loc.lon} destLat={loc.destLat} destLon={loc.destLon} height={220} />
           <div style={{ fontSize: 11.5, color: "#9ca3af", marginTop: 6 }}>Live location — updated {fmtAgo(loc.lastLocationAt)}</div>
         </div>
       )}
+      {scheduled && (
+        <div style={{ marginTop: 10, fontSize: 12.5, color: "#4338ca", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 10, padding: "10px 12px" }}>
+          Book now — live location becomes available once the driver starts the journey.
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-        <button type="button" style={btnGhost} onClick={() => setShowMap((s) => !s)}>
-          {showMap ? "Hide live location" : "👁 View live location"}
-        </button>
+        {!scheduled && (
+          <button type="button" style={btnGhost} onClick={() => setShowMap((s) => !s)}>
+            {showMap ? "Hide live location" : "👁 View live location"}
+          </button>
+        )}
         {userActiveStatus?.hasActiveCreatedRide ? (
           <button
             type="button"
@@ -388,7 +518,7 @@ function AvailableCard({ ride, phone, busy, onJoin, userActiveStatus }) {
           </button>
         ) : (
           <button type="button" style={{ ...btnPrimary, flex: 1, minWidth: 140 }} disabled={busy} onClick={() => onJoin(ride)}>
-            {busy ? "Please wait…" : `Join ride · ₹${ride.farePerSeat}`}
+            {busy ? "Please wait…" : `${scheduled ? "Book seat" : "Join ride"} · ₹${ride.farePerSeat}`}
           </button>
         )}
       </div>
