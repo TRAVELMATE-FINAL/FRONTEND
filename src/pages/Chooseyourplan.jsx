@@ -22,6 +22,9 @@ export default function ChooseYourPlan() {
   const navigate = useNavigate();
   const [plans, setPlans] = useState(DEFAULT_PLANS);
   const [activeSub, setActiveSub] = useState(null);
+  // Don't show any price until the live (admin-editable) price has loaded, so a
+  // hardcoded default is never displayed as if it were the current price.
+  const [pricesReady, setPricesReady] = useState(false);
 
   useLayoutEffect(() => {
     scrollAllToTop();
@@ -34,16 +37,20 @@ export default function ChooseYourPlan() {
       try {
         const baseURL = (import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com") + "/api";
         const r = await fetch(baseURL + "/plans/");
-        if (!r.ok) return;
-        const data = await r.json();
-        if (cancelled || !data?.plans) return;
-        const next = { ...DEFAULT_PLANS };
-        data.plans.forEach((p) => {
-          if (next[p.key]) next[p.key] = { ...next[p.key], price: p.price };
-        });
-        setPlans(next);
+        if (r.ok) {
+          const data = await r.json();
+          if (!cancelled && data?.plans) {
+            const next = { ...DEFAULT_PLANS };
+            data.plans.forEach((p) => {
+              if (next[p.key]) next[p.key] = { ...next[p.key], price: p.price };
+            });
+            setPlans(next);
+          }
+        }
       } catch {
-        /* ignore — defaults are fine */
+        /* ignore — defaults are used as an offline fallback */
+      } finally {
+        if (!cancelled) setPricesReady(true);
       }
 
       try {
@@ -142,7 +149,7 @@ export default function ChooseYourPlan() {
               <div style={s.planSub}>Short-term Access</div>
               <div style={s.priceRow}>
                 <span style={s.sym}>₹</span>
-                <span style={s.amt}>{plans.daily.price}</span>
+                <span style={s.amt}>{pricesReady ? plans.daily.price : "…"}</span>
                 <span style={s.per}>/ 24h</span>
               </div>
               <div style={s.feature}>
@@ -165,7 +172,7 @@ export default function ChooseYourPlan() {
               <div style={s.planSub}>High Engagement</div>
               <div style={s.priceRow}>
                 <span style={s.symP}>₹</span>
-                <span style={s.amtP}>{plans.monthly.price}</span>
+                <span style={s.amtP}>{pricesReady ? plans.monthly.price : "…"}</span>
                 <span style={s.per}>/ mo</span>
               </div>
               <div style={s.feature}>
@@ -188,7 +195,7 @@ export default function ChooseYourPlan() {
               <div style={s.planSub}>Ultimate Savings</div>
               <div style={s.priceRow}>
                 <span style={s.sym}>₹</span>
-                <span style={s.amt}>{plans.yearly.price}</span>
+                <span style={s.amt}>{pricesReady ? plans.yearly.price : "…"}</span>
                 <span style={s.per}>/ yr</span>
               </div>
               <div style={s.feature}>

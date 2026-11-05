@@ -31,13 +31,15 @@ export default function TravelMatePlanPage() {
 
   // Admin-editable find-ride price, fetched at runtime (fallback ₹30).
   const [findPrice, setFindPrice] = useState(30);
+  const [priceReady, setPriceReady] = useState(false);
   useEffect(() => {
     getFindFee()
       .then((f) => {
         // Find Ride Daily plan price (admin-configured).
         if (f && Number.isFinite(Number(f.dailyPrice))) setFindPrice(Number(f.dailyPrice));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setPriceReady(true));
   }, []);
 
   // Pick up rideId from URL (?rideId=...) — set by FindFriend's handleConnect
@@ -103,7 +105,7 @@ export default function TravelMatePlanPage() {
               <div className="ps-plan-duration">Short-term Access</div>
             </div>
             <div className="ps-card-mid">
-              <span className="ps-price">₹{findPrice}</span>
+              <span className="ps-price">₹{priceReady ? findPrice : "…"}</span>
               <span className="ps-per">/24h</span>
             </div>
             <div className="ps-card-right">

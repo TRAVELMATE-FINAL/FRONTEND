@@ -79,6 +79,8 @@ export default function PlanPage() {
   // Live, admin-editable prices from the DB. Defaults match the catalog so
   // the cards render instantly; the fetch overrides them once it returns.
   const [prices, setPrices] = useState({ daily: "30", monthly: "650", yearly: "1200" });
+  // Only show prices once the live admin values have loaded (never a stale default).
+  const [pricesReady, setPricesReady] = useState(false);
   useEffect(() => {
     getPlans()
       .then((r) => {
@@ -88,7 +90,8 @@ export default function PlanPage() {
         });
         if (Object.keys(map).length) setPrices((prev) => ({ ...prev, ...map }));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setPricesReady(true));
   }, []);
 
   // Current subscription status (source of truth = backend), so we can show
@@ -175,7 +178,7 @@ export default function PlanPage() {
 
                 <div className="prp-price-row">
                   <span className="prp-symbol">₹</span>
-                  <span className="prp-price">{prices[plan.id] ?? plan.price}</span>
+                  <span className="prp-price">{pricesReady ? (prices[plan.id] ?? plan.price) : "…"}</span>
                   <span className="prp-per">{plan.per}</span>
                 </div>
 
