@@ -309,13 +309,10 @@ export default function LocationSearch({
       mapped.sort((a, b) => (b._score - a._score) || (a._i - b._i));
       return mapped;
     }
-    // If the SDK isn't available at all, offer a district match so the field
-    // still works in degraded mode.
-    if (!placesReady()) {
-      return TN_DISTRICTS.filter((d) => d.name.toLowerCase().includes(q)).map((d) => ({
-        kind: "local", name: d.name, sub: "Tamil Nadu", lat: d.lat, lon: d.lon,
-      }));
-    }
+    // For a typed query we rely ONLY on live results (Google + backend). We do
+    // NOT fall back to the small hardcoded district list here — that would hide
+    // interior villages/streets behind district names and make it look like only
+    // districts are searchable. Empty predictions → loading / no-results / retry.
     return [];
   }, [value, predictions]);
 
