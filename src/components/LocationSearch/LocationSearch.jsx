@@ -240,22 +240,29 @@ export default function LocationSearch({
     const t = setTimeout(async () => {
       setLoading(true);
       setFetchError(false);
-      // Kick off the device-independent backend search in PARALLEL so it's ready
-      // if the client-side Google SDK is slow or unavailable (notably iOS/iPad
-      // Safari, where the Places promise can hang and never resolve).
+
+      // The server-side search is the RELIABLE path on every browser/device
+      // (iPhone Safari, iPad Safari, old & new Android Chrome, Opera, desktop):
+      // it runs on our server, needs no client SDK, and CORS already allows the
+      // site, so it has none of the client-side Google failure modes. Start it
+      // immediately.
       const backendP = fetchBackend()
         .then((r) => ({ ok: true, r }))
         .catch(() => ({ ok: false, r: [] }));
 
+      // The client-side Google SDK gives slightly richer results WHEN it works,
+      // but on iOS Safari / older Android Chrome it can hang forever (the cause
+      // of the stuck "Searching…"). So we only wait a SHORT, hard-capped time
+      // for it, then fall back to the reliable backend. The whole Google attempt
+      // (new + classic) shares one ~2.5s budget so we never wait longer.
+      const googleP = (async () => {
+        try { if (newPlacesReady()) { const r = await fetchNew(); if (r && r.length) return r; } } catch (e) {}
+        try { if (classicPlacesReady()) { const r = await fetchClassic(); if (r && r.length) return r; } } catch (e) {}
+        return [];
+      })();
+
       let out = [];
-      // Try Google first for richer results, but TIME-BOUNDED so it can never
-      // freeze the dropdown. If it's slow/hung, we fall through to the backend.
-      try {
-        if (newPlacesReady()) out = await withTimeout(fetchNew(), 3000);
-      } catch (e) { /* timed out or failed — use the backend below */ }
-      if (!out || !out.length) {
-        try { if (classicPlacesReady()) out = await withTimeout(fetchClassic(), 3000); } catch (e) {}
-      }
+      try { out = await withTimeout(googleP, 2500); } catch (e) { /* hung/slow → backend */ }
 
       let hadError = false;
       if (!out || !out.length) {
