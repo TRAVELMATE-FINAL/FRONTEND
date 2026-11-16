@@ -110,6 +110,18 @@ function fuzzyScore(query, name, sub) {
   return -1; // not a plausible match
 }
 
+// Resolve `promise`, but reject after `ms` so a hung provider (e.g. the Google
+// Places SDK on iOS Safari, which can never settle) can't freeze the dropdown.
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("timeout")), ms);
+    Promise.resolve(promise).then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); }
+    );
+  });
+}
+
 export default function LocationSearch({
   placeholder = "Search location",
   value = "",
@@ -120,6 +132,11 @@ export default function LocationSearch({
   const [highlight, setHighlight] = useState(0);
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(false);
+  // True when every suggestion source failed (network/CORS/all timed out) — the
+  // dropdown then shows a retry affordance instead of a stale "Searching…".
+  const [fetchError, setFetchError] = useState(false);
+  // Bumping this re-runs the suggestion fetch for the current text (Retry).
+  const [reloadKey, setReloadKey] = useState(0);
   const wrapRef = useRef(null);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -151,6 +168,7 @@ export default function LocationSearch({
     const q = (value || "").trim();
     if (!q) {
       setPredictions([]);
+      setFetchError(false);
       return;
     }
     // Do NOT bail when Google isn't ready — the backend fallback below works on
@@ -204,31 +222,52 @@ export default function LocationSearch({
     // Device-independent fallback — our own server proxies Nominatim, so this
     // works even when the client-side Google SDK is blocked (in-app browsers,
     // referrer-restricted key, etc.). Results already carry lat/lon.
+    // Device-independent search. Throws on network/CORS failure so the caller
+    // can distinguish "no results" from "couldn't reach the server" (→ retry).
     const fetchBackend = async () => {
-      try {
-        const { data } = await axios.get(`${API_BASE}/api/autocomplete`, {
-          params: { q }, timeout: 8000,
-        });
-        return (data?.results || []).map((r) => ({
-          backend: true,
-          lat: r.lat, lon: r.lon,
-          display_name: r.display_name,
-          mainText: r.name,
-          secondaryText: r.sub || "India",
-        }));
-      } catch (e) { return []; }
+      const { data } = await axios.get(`${API_BASE}/api/autocomplete`, {
+        params: { q }, timeout: 8000,
+      });
+      return (data?.results || []).map((r) => ({
+        backend: true,
+        lat: r.lat, lon: r.lon,
+        display_name: r.display_name,
+        mainText: r.name,
+        secondaryText: r.sub || "India",
+      }));
     };
 
     const t = setTimeout(async () => {
       setLoading(true);
+      setFetchError(false);
+      // Kick off the device-independent backend search in PARALLEL so it's ready
+      // if the client-side Google SDK is slow or unavailable (notably iOS/iPad
+      // Safari, where the Places promise can hang and never resolve).
+      const backendP = fetchBackend()
+        .then((r) => ({ ok: true, r }))
+        .catch(() => ({ ok: false, r: [] }));
+
+      let out = [];
+      // Try Google first for richer results, but TIME-BOUNDED so it can never
+      // freeze the dropdown. If it's slow/hung, we fall through to the backend.
       try {
-        let out = [];
-        if (newPlacesReady()) { try { out = await fetchNew(); } catch (e) {} }
-        if (!out.length && classicPlacesReady()) { try { out = await fetchClassic(); } catch (e) {} }
-        if (!out.length) { out = await fetchBackend(); }
-        if (!cancelled) setPredictions(out);
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (newPlacesReady()) out = await withTimeout(fetchNew(), 3000);
+      } catch (e) { /* timed out or failed — use the backend below */ }
+      if (!out || !out.length) {
+        try { if (classicPlacesReady()) out = await withTimeout(fetchClassic(), 3000); } catch (e) {}
+      }
+
+      let hadError = false;
+      if (!out || !out.length) {
+        const b = await backendP;      // already running — usually resolved by now
+        out = b.r || [];
+        hadError = !b.ok;              // true only on a real network/CORS failure
+      }
+
+      if (!cancelled) {
+        setPredictions(out);
+        setFetchError(hadError && (!out || out.length === 0));
+        setLoading(false);
       }
     }, 200);
 
@@ -236,7 +275,7 @@ export default function LocationSearch({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [value, isLoaded, placesUsable]);
+  }, [value, isLoaded, placesUsable, reloadKey]);
 
   const options = useMemo(() => {
     const q = (value || "").trim().toLowerCase();
@@ -377,6 +416,9 @@ export default function LocationSearch({
   }, [open]);
 
   useEffect(() => { setHighlight(0); }, [options.length]);
+
+  // Retry the suggestion fetch for the current text (after a network failure).
+  const retry = () => { setFetchError(false); setReloadKey((k) => k + 1); };
 
   // Touch-tap fallback for OLD Android WebViews where `click` on a non-button
   // <li> can be unreliable. We track the touch start point and, on touchend,
@@ -570,7 +612,27 @@ export default function LocationSearch({
             bottom: coords.below ? "auto" : coords.bottom,
           }}
         >
-          {loading ? "Searching…" : "No places found"}
+          {loading ? (
+            "Searching…"
+          ) : fetchError ? (
+            <span>
+              Couldn&apos;t load suggestions.{" "}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={retry}
+                style={{
+                  background: "none", border: "none", padding: 0,
+                  color: "#7c3aed", fontWeight: 700, cursor: "pointer",
+                  fontFamily: "inherit", fontSize: "inherit", textDecoration: "underline",
+                }}
+              >
+                Retry
+              </button>
+            </span>
+          ) : (
+            "No places found"
+          )}
         </div>,
         document.body
       )}
