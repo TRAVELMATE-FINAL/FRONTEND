@@ -13,7 +13,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
-import { useGoogleMaps } from "../../utils/googleMapsLoader";
 import "./LocationSearch.css";
 
 const API_BASE =
@@ -32,25 +31,6 @@ const TN_DISTRICTS = [
   { name: "Thoothukudi", lat: 8.7642, lon: 78.1348 },
   { name: "Thanjavur", lat: 10.787, lon: 79.1378 },
 ];
-
-// True once the SDK's NEW Places autocomplete is available.
-function newPlacesReady() {
-  const p = window.google && window.google.maps && window.google.maps.places;
-  return !!(p && p.AutocompleteSuggestion &&
-    typeof p.AutocompleteSuggestion.fetchAutocompleteSuggestions === "function");
-}
-// True once the CLASSIC Places autocomplete service is available. This is far
-// more widely supported across mobile browsers / WebViews than the new API, so
-// it's our fallback — without it, some phones only ever saw the tiny hardcoded
-// district list.
-function classicPlacesReady() {
-  const p = window.google && window.google.maps && window.google.maps.places;
-  return !!(p && p.AutocompleteService);
-}
-// Either autocomplete path is usable.
-function placesReady() {
-  return newPlacesReady() || classicPlacesReady();
-}
 
 // ── Fuzzy match scoring (client-side re-ranking) ────────────────────────────
 // The data source (Google/Photon) provides recall — including typo tolerance.
@@ -110,18 +90,6 @@ function fuzzyScore(query, name, sub) {
   return -1; // not a plausible match
 }
 
-// Resolve `promise`, but reject after `ms` so a hung provider (e.g. the Google
-// Places SDK on iOS Safari, which can never settle) can't freeze the dropdown.
-function withTimeout(promise, ms) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error("timeout")), ms);
-    Promise.resolve(promise).then(
-      (v) => { clearTimeout(t); resolve(v); },
-      (e) => { clearTimeout(t); reject(e); }
-    );
-  });
-}
-
 export default function LocationSearch({
   placeholder = "Search location",
   value = "",
@@ -144,26 +112,23 @@ export default function LocationSearch({
   // by an ancestor's overflow/rounded corners or stacking context (the reason
   // it wasn't fully visible on some phones).
   const [coords, setCoords] = useState(null);
+  // NOTE: suggestions no longer use the client-side Google Maps SDK at all — see
+  // the fetch effect below. That removes the cross-browser failure (iOS Safari /
+  // old Android Chrome) where the SDK hung and the dropdown stuck on "Searching…".
 
-  const { isLoaded } = useGoogleMaps();
-  const sessionTokenRef = useRef(null);
-  // Flips true once EITHER Places API is usable. Polled, because on slow phones
-  // the SDK reports isLoaded before the places library has finished attaching —
-  // and without a retry the field would stay stuck on the district fallback.
-  const [placesUsable, setPlacesUsable] = useState(false);
-  useEffect(() => {
-    if (!isLoaded) return;
-    if (placesReady()) { setPlacesUsable(true); return; }
-    const id = setInterval(() => {
-      if (placesReady()) { setPlacesUsable(true); clearInterval(id); }
-    }, 300);
-    const stop = setTimeout(() => clearInterval(id), 10000);
-    return () => { clearInterval(id); clearTimeout(stop); };
-  }, [isLoaded]);
-
-  // Fetch India-wide suggestions as the user types. Prefers the new Places API,
-  // falls back to the classic AutocompleteService (supported on far more phones)
-  // so every device gets the full place list, not the tiny hardcoded fallback.
+  // Fetch suggestions as the user types — SOLELY from our own server endpoint
+  // (/api/autocomplete). This is the single most compatible path and the real
+  // root-cause fix:
+  //   • It runs server-side (Google Places New + Photon + Nominatim), so the
+  //     browser never loads or calls the Google Maps JS SDK for suggestions.
+  //     The client SDK was the cause of the stuck "Searching…" — it hangs on
+  //     iOS Safari and fails on older Android Chrome (newer engines like Opera
+  //     worked, which is why only some browsers broke).
+  //   • It's a plain HTTPS GET via axios (XMLHttpRequest under the hood), which
+  //     works identically on iOS Safari, old & new Android Chrome, Firefox and
+  //     desktop. No referrer-restricted key, no SDK feature detection.
+  //   • Results already include lat/lon, so SELECTING one needs no extra call.
+  // (The Google Maps SDK is still used elsewhere for map views — unchanged.)
   useEffect(() => {
     const q = (value || "").trim();
     if (!q) {
@@ -171,118 +136,46 @@ export default function LocationSearch({
       setFetchError(false);
       return;
     }
-    // Do NOT bail when Google isn't ready — the backend fallback below works on
-    // every device, so the dropdown always gets results.
 
     let cancelled = false;
 
-    // Each fetcher RETURNS an array (no state writes) so the caller can fall
-    // through to the next source when one yields nothing.
-    const fetchNew = async () => {
-      const places = window.google.maps.places;
-      if (!sessionTokenRef.current && places.AutocompleteSessionToken) {
-        sessionTokenRef.current = new places.AutocompleteSessionToken();
-      }
-      const { suggestions } = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-        input: q,
-        includedRegionCodes: ["in"],
-        sessionToken: sessionTokenRef.current || undefined,
-      });
-      const out = [];
-      (suggestions || []).forEach((s) => {
-        const pp = s.placePrediction;
-        if (!pp) return;
-        const main = (pp.mainText && pp.mainText.text) || (pp.text && pp.text.text) || "";
-        const sec = (pp.secondaryText && pp.secondaryText.text) || "";
-        out.push({ placePrediction: pp, place_id: pp.placeId, mainText: main, secondaryText: sec });
-      });
-      return out;
-    };
-
-    const fetchClassic = () =>
-      new Promise((resolve) => {
-        try {
-          const svc = new window.google.maps.places.AutocompleteService();
-          svc.getPlacePredictions(
-            { input: q, componentRestrictions: { country: "in" } },
-            (preds, status) => {
-              const OK = window.google.maps.places.PlacesServiceStatus?.OK || "OK";
-              if (status !== OK || !preds) return resolve([]);
-              resolve(preds.map((p) => ({
-                classicPlaceId: p.place_id,
-                place_id: p.place_id,
-                mainText: (p.structured_formatting && p.structured_formatting.main_text) || p.description,
-                secondaryText: (p.structured_formatting && p.structured_formatting.secondary_text) || "",
-              })));
-            }
-          );
-        } catch (e) { resolve([]); }
-      });
-
-    // Device-independent fallback — our own server proxies Nominatim, so this
-    // works even when the client-side Google SDK is blocked (in-app browsers,
-    // referrer-restricted key, etc.). Results already carry lat/lon.
-    // Device-independent search. Throws on network/CORS failure so the caller
-    // can distinguish "no results" from "couldn't reach the server" (→ retry).
-    const fetchBackend = async () => {
-      const { data } = await axios.get(`${API_BASE}/api/autocomplete`, {
-        params: { q }, timeout: 8000,
-      });
-      return (data?.results || []).map((r) => ({
-        backend: true,
-        lat: r.lat, lon: r.lon,
-        display_name: r.display_name,
-        mainText: r.name,
-        secondaryText: r.sub || "India",
-      }));
-    };
-
-    const t = setTimeout(async () => {
+    const t = setTimeout(function () {
       setLoading(true);
       setFetchError(false);
+      axios
+        .get(API_BASE + "/api/autocomplete", { params: { q: q }, timeout: 10000 })
+        .then(function (resp) {
+          if (cancelled) return;
+          var data = resp && resp.data;
+          var rows = data && Array.isArray(data.results) ? data.results : [];
+          var out = rows.map(function (r) {
+            return {
+              backend: true,
+              lat: r.lat,
+              lon: r.lon,
+              display_name: r.display_name,
+              mainText: r.name,
+              secondaryText: r.sub || "India",
+            };
+          });
+          setPredictions(out);
+          setFetchError(false);
+          setLoading(false);
+        })
+        .catch(function () {
+          if (cancelled) return;
+          // Network / CORS / timeout — show a retry affordance, not a stuck spinner.
+          setPredictions([]);
+          setFetchError(true);
+          setLoading(false);
+        });
+    }, 250);
 
-      // The server-side search is the RELIABLE path on every browser/device
-      // (iPhone Safari, iPad Safari, old & new Android Chrome, Opera, desktop):
-      // it runs on our server, needs no client SDK, and CORS already allows the
-      // site, so it has none of the client-side Google failure modes. Start it
-      // immediately.
-      const backendP = fetchBackend()
-        .then((r) => ({ ok: true, r }))
-        .catch(() => ({ ok: false, r: [] }));
-
-      // The client-side Google SDK gives slightly richer results WHEN it works,
-      // but on iOS Safari / older Android Chrome it can hang forever (the cause
-      // of the stuck "Searching…"). So we only wait a SHORT, hard-capped time
-      // for it, then fall back to the reliable backend. The whole Google attempt
-      // (new + classic) shares one ~2.5s budget so we never wait longer.
-      const googleP = (async () => {
-        try { if (newPlacesReady()) { const r = await fetchNew(); if (r && r.length) return r; } } catch (e) {}
-        try { if (classicPlacesReady()) { const r = await fetchClassic(); if (r && r.length) return r; } } catch (e) {}
-        return [];
-      })();
-
-      let out = [];
-      try { out = await withTimeout(googleP, 2500); } catch (e) { /* hung/slow → backend */ }
-
-      let hadError = false;
-      if (!out || !out.length) {
-        const b = await backendP;      // already running — usually resolved by now
-        out = b.r || [];
-        hadError = !b.ok;              // true only on a real network/CORS failure
-      }
-
-      if (!cancelled) {
-        setPredictions(out);
-        setFetchError(hadError && (!out || out.length === 0));
-        setLoading(false);
-      }
-    }, 200);
-
-    return () => {
+    return function () {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [value, isLoaded, placesUsable, reloadKey]);
+  }, [value, reloadKey]);
 
   const options = useMemo(() => {
     const q = (value || "").trim().toLowerCase();
@@ -439,64 +332,18 @@ export default function LocationSearch({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pick = async (opt) => {
-    if (opt.kind === "local") {
-      onSelect({ display_name: opt.name, lat: opt.lat, lon: opt.lon });
-      setOpen(false);
-      return;
-    }
-    // BACKEND (Nominatim) result already carries coordinates — select directly.
-    if (opt.kind === "backend" || (opt.backend && opt.lat != null)) {
+  const pick = (opt) => {
+    // Every suggestion now comes from the server with lat/lon already attached
+    // (kind "backend"), or is an empty-field quick-pick (kind "local"). In both
+    // cases we can select directly — no Google Geocoder / Place Details call,
+    // so selection works identically on every browser.
+    if (opt.lat != null && opt.lon != null) {
       onSelect({ display_name: opt.display_name || opt.name, lat: opt.lat, lon: opt.lon });
-      setOpen(false);
-      return;
+    } else {
+      // No coordinates (shouldn't normally happen) — still fill the text field.
+      onChange(opt.display_name || opt.name || "");
     }
-    // CLASSIC prediction → resolve coordinates via the Geocoder (widely
-    // supported), since there's no placePrediction.toPlace() here.
-    if (!opt.placePrediction && opt.classicPlaceId) {
-      const label = opt.sub && opt.sub !== "India" ? `${opt.name}, ${opt.sub}` : opt.name;
-      try {
-        const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode({ placeId: opt.classicPlaceId }, (res, status) => {
-          const OK = window.google.maps.GeocoderStatus?.OK || "OK";
-          if (status === OK && res && res[0]) {
-            const loc = res[0].geometry.location;
-            const lat = typeof loc.lat === "function" ? loc.lat() : loc.lat;
-            const lon = typeof loc.lng === "function" ? loc.lng() : loc.lng;
-            onSelect({ display_name: res[0].formatted_address || label, lat, lon });
-          } else {
-            onChange(label);
-          }
-          setOpen(false);
-        });
-      } catch (e) {
-        onChange(label);
-        setOpen(false);
-      }
-      return;
-    }
-    try {
-      const place = opt.placePrediction.toPlace();
-      await place.fetchFields({ fields: ["location", "formattedAddress", "displayName"] });
-      const loc = place.location;
-      if (!loc) {
-        onChange(opt.name);
-        setOpen(false);
-        return;
-      }
-      const lat = typeof loc.lat === "function" ? loc.lat() : loc.lat;
-      const lon = typeof loc.lng === "function" ? loc.lng() : loc.lng;
-      const display = place.formattedAddress || place.displayName || opt.name;
-      onSelect({ display_name: display, lat, lon });
-      setOpen(false);
-      const places = window.google && window.google.maps && window.google.maps.places;
-      if (places && places.AutocompleteSessionToken) {
-        sessionTokenRef.current = new places.AutocompleteSessionToken();
-      }
-    } catch (e) {
-      onChange(opt.name);
-      setOpen(false);
-    }
+    setOpen(false);
   };
 
   const handleKey = (e) => {
