@@ -4,7 +4,7 @@
 // admin-verified route (never generated/assumed) and shows it in travel order
 // with a Google map (start/end markers + sequence polyline).
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header/Header.jsx";
@@ -22,6 +22,8 @@ export default function BusRoutePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [route, setRoute] = useState(null);
+  const [nearby, setNearby] = useState(null);     // [{ point, name, landmarks:[...] }] | null
+  const [nearbyLoading, setNearbyLoading] = useState(false);
   const lastKeyRef = useRef("");          // de-dupe: don't refetch the same number
   const cacheRef = useRef(new Map());     // cache fetched routes this session
 
@@ -61,10 +63,45 @@ export default function BusRoutePage() {
     }
   };
 
-  // Ordered sequence for the text list: From → stops → To.
-  const sequence = route
-    ? [route.from, ...((route.stops || []).map((s) => s.name)), route.to].filter(Boolean)
+  // Ordered points (From → stops → To) with coordinates where available.
+  const points = route
+    ? [
+        { name: route.from, lat: route.fromLat, lon: route.fromLon },
+        ...((route.stops || []).map((s) => ({ name: s.name, lat: s.lat, lon: s.lon }))),
+        { name: route.to, lat: route.toLat, lon: route.toLon },
+      ].filter((p) => p.name)
     : [];
+
+  // Fetch REAL nearby landmarks (OpenStreetMap) for the stops that have
+  // coordinates — hospitals, colleges, railway/metro/bus stations, malls,
+  // temples, attractions. Only verified OSM data, nothing generated.
+  useEffect(() => {
+    setNearby(null);
+    if (!route) return;
+    const withCoords = points.filter(
+      (p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon))
+    );
+    if (!withCoords.length) return;
+    let cancelled = false;
+    setNearbyLoading(true);
+    axios
+      .post(
+        `${API_BASE}/api/bus-nearby`,
+        { points: withCoords.map((p) => ({ lat: p.lat, lon: p.lon, name: p.name })) },
+        { timeout: 25000 }
+      )
+      .then(({ data }) => { if (!cancelled) setNearby(Array.isArray(data?.nearby) ? data.nearby : []); })
+      .catch(() => { if (!cancelled) setNearby([]); })
+      .finally(() => { if (!cancelled) setNearbyLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route]);
+
+  const landmarksFor = (name) => {
+    if (!Array.isArray(nearby)) return null;
+    const hit = nearby.find((n) => String(n.name || "").toLowerCase() === String(name || "").toLowerCase());
+    return hit ? hit.landmarks || [] : [];
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--tm-internal-bg, #f3f0fb)", display: "flex", flexDirection: "column" }}>
@@ -147,28 +184,50 @@ export default function BusRoutePage() {
               )}
             </div>
 
-            {/* Sequence (travel order) */}
+            {/* Sequence (travel order) + nearby landmarks per stop */}
             <div style={{ background: "#fff", border: "1px solid #eceef6", borderRadius: 16, padding: "16px 18px", boxShadow: "0 4px 14px rgba(15,15,46,0.05)" }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "#111827", marginBottom: 12 }}>Complete route (in order)</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#111827" }}>Complete route (in order)</div>
+                {nearbyLoading && <span style={{ fontSize: 11.5, color: "#7c3aed", fontWeight: 600 }}>Loading nearby places…</span>}
+              </div>
               <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                {sequence.map((name, i) => {
-                  const isStart = i === 0, isEnd = i === sequence.length - 1;
+                {points.map((p, i) => {
+                  const isStart = i === 0, isEnd = i === points.length - 1;
                   const dot = isStart ? "#22c55e" : isEnd ? "#ef4444" : "#7c3aed";
+                  const lms = landmarksFor(p.name);
                   return (
                     <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "6px 0" }}>
                       <span style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
                         <span style={{ width: 12, height: 12, borderRadius: "50%", background: dot, border: "2px solid #fff", boxShadow: "0 0 0 1px " + dot }} />
-                        {!isEnd && <span style={{ width: 2, height: 22, background: "#d1d5db", marginTop: 2 }} />}
+                        {!isEnd && <span style={{ width: 2, height: (lms && lms.length ? 40 : 22), background: "#d1d5db", marginTop: 2 }} />}
                       </span>
-                      <span style={{ fontSize: 14, color: "#1a1a2e", fontWeight: isStart || isEnd ? 700 : 500, paddingTop: 0 }}>
-                        {name}
-                        {isStart && <span style={{ color: "#16a34a", fontSize: 11, fontWeight: 700, marginLeft: 6 }}>START</span>}
-                        {isEnd && <span style={{ color: "#dc2626", fontSize: 11, fontWeight: 700, marginLeft: 6 }}>END</span>}
-                      </span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: 14, color: "#1a1a2e", fontWeight: isStart || isEnd ? 700 : 500 }}>
+                          {p.name}
+                          {isStart && <span style={{ color: "#16a34a", fontSize: 11, fontWeight: 700, marginLeft: 6 }}>START</span>}
+                          {isEnd && <span style={{ color: "#dc2626", fontSize: 11, fontWeight: 700, marginLeft: 6 }}>END</span>}
+                        </span>
+                        {/* Real nearby landmarks (OpenStreetMap) */}
+                        {lms && lms.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                            {lms.map((lm, j) => (
+                              <span key={j} title={lm.category + (lm.dist ? ` · ${lm.dist} m` : "")}
+                                style={{ fontSize: 11, color: "#4b5563", background: "#f5f3ff", border: "1px solid #ece9fb", borderRadius: 999, padding: "3px 9px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                <span style={{ color: "#7c3aed" }}>📍</span>{lm.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </li>
                   );
                 })}
               </ol>
+              {Array.isArray(nearby) && !nearbyLoading && nearby.every((n) => !n.landmarks || !n.landmarks.length) && (
+                <div style={{ fontSize: 11.5, color: "#9ca3af", marginTop: 10 }}>
+                  Nearby landmarks aren’t available for this route yet.
+                </div>
+              )}
             </div>
 
             {/* Map */}
