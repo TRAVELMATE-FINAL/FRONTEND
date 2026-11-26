@@ -1,11 +1,11 @@
 // components/BusRouteMap/BusRouteMap.jsx
-// Shared route map (From → stops → To) — now keyless (OpenStreetMap via OSMMap),
-// so it works on every browser/device with no Google Maps key. Used by both the
-// Bus Routes page and the Post Ride bus-number picker (single implementation).
+// Keyless route map (OpenStreetMap via OSMMap). Plots From → stops → To.
 //
-// It plots whatever points have coordinates (origin, stops, destination) and
-// draws the real driving line from the backend OSRM proxy when possible, else a
-// straight line through the points.
+// Bus routes created in the admin often DON'T have coordinates stored on every
+// stop. So here we resolve each stop's coordinates: use the stored lat/lon when
+// present, otherwise GEOCODE the stop name via our own server (/api/geocode →
+// OpenStreetMap Nominatim), cached in localStorage so it's instant next time.
+// This is why the map was blank for routes whose stops had no coordinates.
 
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -13,43 +13,90 @@ import OSMMap from "../OSMMap/OSMMap";
 
 const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+const inIndia = (la, lo) => la != null && lo != null && la >= 6 && la <= 37 && lo >= 68 && lo <= 98;
 
 const msgStyle = {
   padding: "16px", textAlign: "center", color: "#6b7280", fontSize: 14,
-  background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 14, marginTop: 8,
+  background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 14,
 };
 
+// ── Geocode cache (memory + localStorage) so a stop name is looked up once. ──
+const geoMem = new Map();
+function geoGet(name) {
+  const k = "vgeo:" + name.toLowerCase();
+  if (geoMem.has(k)) return geoMem.get(k);
+  try { const r = localStorage.getItem(k); if (r) { const v = JSON.parse(r); geoMem.set(k, v); return v; } } catch {}
+  return undefined;
+}
+function geoSet(name, v) {
+  const k = "vgeo:" + name.toLowerCase();
+  geoMem.set(k, v);
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+}
+async function geocodeName(name) {
+  const cached = geoGet(name);
+  if (cached !== undefined) return cached; // may be null (known-not-found)
+  try {
+    const { data } = await axios.get(`${API_BASE}/api/geocode`, {
+      params: { q: `${name}, Chennai, Tamil Nadu, India` }, timeout: 9000,
+    });
+    const v = (data && inIndia(num(data.lat), num(data.lon)))
+      ? { lat: num(data.lat), lon: num(data.lon) }
+      : null;
+    geoSet(name, v);
+    return v;
+  } catch {
+    return null; // don't cache transient errors
+  }
+}
+
 export default function BusRouteMap({ route, height = 320 }) {
+  const [points, setPoints] = useState([]);
   const [line, setLine] = useState(null);
+  const [resolving, setResolving] = useState(false);
 
-  // Ordered points with coordinates: from → stops → to.
-  const points = [];
-  const fromLat = num(route?.fromLat), fromLon = num(route?.fromLon);
-  const toLat = num(route?.toLat), toLon = num(route?.toLon);
-  if (fromLat != null && fromLon != null) points.push({ lat: fromLat, lon: fromLon, color: "#22c55e", title: route?.from || "Start" });
-  (route?.stops || []).forEach((s) => {
-    const la = num(s?.lat), lo = num(s?.lon);
-    if (la != null && lo != null) points.push({ lat: la, lon: lo, color: "#7c3aed", title: s?.name || "" });
-  });
-  if (toLat != null && toLon != null) points.push({ lat: toLat, lon: toLon, color: "#ef4444", title: route?.to || "Destination" });
-
-  // Fetch the driving geometry for the main leg (from → to) when both coords exist.
   useEffect(() => {
-    if (fromLat == null || fromLon == null || toLat == null || toLon == null) { setLine(null); return; }
     let cancelled = false;
-    axios
-      .get(`${API_BASE}/api/route`, { params: { fromLat, fromLng: fromLon, toLat, toLng: toLon }, timeout: 9000 })
-      .then(({ data }) => {
-        if (cancelled || !data) return;
-        if (Array.isArray(data.geometry) && data.geometry.length > 1) {
-          setLine(data.geometry.map((c) => [c[1], c[0]]));
-        }
-      })
-      .catch(() => {/* OSMMap connects the points with a straight line */});
-    return () => { cancelled = true; };
-  }, [fromLat, fromLon, toLat, toLon]);
+    (async () => {
+      if (!route) { setPoints([]); setLine(null); return; }
+      // Ordered sequence (From → stops → To) with stored coords where present.
+      const seq = [
+        { name: route.from, lat: num(route.fromLat), lon: num(route.fromLon), color: "#22c55e", title: route.from },
+        ...((route.stops || []).map((s) => ({ name: s.name, lat: num(s.lat), lon: num(s.lon), color: "#7c3aed", title: s.name }))),
+        { name: route.to, lat: num(route.toLat), lon: num(route.toLon), color: "#ef4444", title: route.to },
+      ].filter((p) => p.name);
 
-  if (points.length < 2) {
+      setResolving(true);
+      const resolved = [];
+      for (const p of seq) {
+        let lat = p.lat, lon = p.lon;
+        if (!inIndia(lat, lon)) {
+          const g = await geocodeName(p.name); // cached; sequential to be gentle on the geocoder
+          if (g) { lat = g.lat; lon = g.lon; }
+        }
+        if (inIndia(lat, lon)) resolved.push({ ...p, lat, lon });
+      }
+      if (cancelled) return;
+      setPoints(resolved);
+      setResolving(false);
+
+      // Draw the real driving line between the first and last resolved points.
+      if (resolved.length >= 2) {
+        const a = resolved[0], b = resolved[resolved.length - 1];
+        try {
+          const { data } = await axios.get(`${API_BASE}/api/route`, {
+            params: { fromLat: a.lat, fromLng: a.lon, toLat: b.lat, toLng: b.lon }, timeout: 9000,
+          });
+          if (!cancelled && data && Array.isArray(data.geometry) && data.geometry.length > 1) {
+            setLine(data.geometry.map((c) => [c[1], c[0]]));
+          }
+        } catch { /* OSMMap connects the points with a straight line */ }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [route]);
+
+  if (!resolving && points.length < 2) {
     return (
       <div style={msgStyle}>
         Couldn’t place this route on the map, but the stop sequence above is complete.

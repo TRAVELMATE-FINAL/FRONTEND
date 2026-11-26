@@ -21,6 +21,10 @@ const OSM_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+// Plausible India bounds — rejects null, 0,0 and swapped lat/lon (e.g. 80,12)
+// so one bad coordinate can't drag the map to the ocean and blank the tiles.
+const inIndia = (la, lo) =>
+  la != null && lo != null && la >= 6 && la <= 37 && lo >= 68 && lo <= 98;
 
 export default function OSMMap({
   points = [],
@@ -37,10 +41,10 @@ export default function OSMMap({
   const LRef = useRef(null);
   const roRef = useRef(null);
 
-  // Clean, valid points (lat/lon present).
+  // Clean, valid points (lat/lon present AND within India — drops swapped/garbage).
   const pts = (points || [])
     .map((p) => ({ ...p, lat: num(p.lat ?? p.latitude), lon: num(p.lon ?? p.lng ?? p.longitude) }))
-    .filter((p) => p.lat != null && p.lon != null);
+    .filter((p) => inIndia(p.lat, p.lon));
 
   // Serialise props so the drawing effect only re-runs when something changes.
   const ptsKey = JSON.stringify(pts.map((p) => [p.lat, p.lon, p.label || "", p.color || ""]));
