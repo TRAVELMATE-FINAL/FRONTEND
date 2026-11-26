@@ -1,225 +1,49 @@
 // components/RideMap/RideMap.jsx
-// Mini Google Map for each ride card on the FindFriends page.
-// Uses Google Directions Service to draw the actual driving route between
-// the ride's from/to coordinates, with auto-fit bounds.
-//
-// Drop-in replacement for the previous Leaflet/OSM version — same prop shape
-// (expects `ride` with fromLat/fromLon/toLat/toLon).
+// Route preview for a ride card / detail — now keyless (OpenStreetMap via OSMMap)
+// so it works on every browser/device with no Google Maps key. Draws the real
+// driving route (from the backend OSRM proxy /api/route) between the ride's
+// from/to, with A/B markers and a distance/duration overlay. Same prop shape as
+// before: expects `ride` with fromLat/fromLon/toLat/toLon (+ optional stops[]).
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import { GoogleMap } from "@react-google-maps/api";
-import { useGoogleMaps, useMapsAuthFailed } from "../../utils/googleMapsLoader";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import OSMMap from "../OSMMap/OSMMap";
 import "./RideMap.css";
 
-const containerStyle = { width: "100%", height: "100%" };
-
-const mapStyles = [
-  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-  { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-];
-
-// Static preview (card): no gestures, no controls — clean thumbnail.
-const previewOptions = {
-  disableDefaultUI: true,
-  gestureHandling: "none",
-  clickableIcons: false,
-  keyboardShortcuts: false,
-  styles: mapStyles,
-};
-
-// Interactive (zoom modal): pinch-zoom on mobile, scroll/±-button zoom on
-// desktop, plus zoom + fullscreen controls. "greedy" so one-finger drag pans
-// without needing two fingers.
-const interactiveOptions = {
-  disableDefaultUI: false,
-  gestureHandling: "greedy",
-  zoomControl: true,
-  fullscreenControl: true,
-  mapTypeControl: false,
-  streetViewControl: false,
-  clickableIcons: false,
-  keyboardShortcuts: true,
-  styles: mapStyles,
-};
+const API_BASE = import.meta.env.VITE_APP_URL || "https://travelmate-backend-dzpq.onrender.com";
+const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
 
 export default function RideMap({ ride, interactive = false }) {
-  const { isLoaded, loadError } = useGoogleMaps();
-  const authFailed = useMapsAuthFailed();
+  const fromLat = num(ride?.fromLat), fromLon = num(ride?.fromLon);
+  const toLat = num(ride?.toLat), toLon = num(ride?.toLon);
+  const haveCoords = fromLat != null && fromLon != null && toLat != null && toLon != null;
 
-  const mapRef = useRef(null);
-  const directionsRendererRef = useRef(null);
-  const fallbackPolylineRef = useRef(null);
-  const markersRef = useRef([]);
+  const [line, setLine] = useState(null);
+  const [info, setInfo] = useState({ distance: ride?.distance || "", duration: ride?.duration || "" });
 
-  const [hasRoute, setHasRoute] = useState(false);
-  const [routeError, setRouteError] = useState("");
-  const [routeInfo, setRouteInfo] = useState({ distance: "", duration: "" });
-  // mapReady is a STATE (not just ref) so the route-drawing useEffect re-runs
-  // once Google has actually mounted the <GoogleMap>. Otherwise the effect
-  // can fire while mapRef.current is still null, bail out, and never retry.
-  const [mapReady, setMapReady] = useState(false);
-
-  const fromLat = ride?.fromLat;
-  const fromLon = ride?.fromLon;
-  const toLat = ride?.toLat;
-  const toLon = ride?.toLon;
-  const haveCoords =
-    fromLat != null && fromLon != null && toLat != null && toLon != null;
-
-  const onMapLoad = useCallback((map) => {
-    mapRef.current = map;
-    setMapReady(true);
-  }, []);
-
-  const onMapUnmount = useCallback(() => {
-    mapRef.current = null;
-    setMapReady(false);
-  }, []);
-
-  // Clean up any drawings on this map (route, fallback line, markers)
-  const clearMapLayers = useCallback(() => {
-    if (directionsRendererRef.current) {
-      directionsRendererRef.current.setMap(null);
-      directionsRendererRef.current = null;
-    }
-    if (fallbackPolylineRef.current) {
-      fallbackPolylineRef.current.setMap(null);
-      fallbackPolylineRef.current = null;
-    }
-    markersRef.current.forEach((m) => m.setMap(null));
-    markersRef.current = [];
-  }, []);
-
-  // Draw A/B markers on the map (also used as a fallback when Directions fails)
-  const drawMarkers = useCallback(
-    (map) => {
-      const g = window.google;
-      const from = new g.maps.Marker({
-        position: { lat: Number(fromLat), lng: Number(fromLon) },
-        map,
-        label: { text: "A", color: "#fff", fontSize: "11px", fontWeight: "700" },
-        icon: {
-          path: g.maps.SymbolPath.CIRCLE,
-          scale: 9,
-          fillColor: "#22c55e",
-          fillOpacity: 1,
-          strokeColor: "#fff",
-          strokeWeight: 2,
-        },
-      });
-      const to = new g.maps.Marker({
-        position: { lat: Number(toLat), lng: Number(toLon) },
-        map,
-        label: { text: "B", color: "#fff", fontSize: "11px", fontWeight: "700" },
-        icon: {
-          path: g.maps.SymbolPath.CIRCLE,
-          scale: 9,
-          fillColor: "#ef4444",
-          fillOpacity: 1,
-          strokeColor: "#fff",
-          strokeWeight: 2,
-        },
-      });
-      markersRef.current = [from, to];
-    },
-    [fromLat, fromLon, toLat, toLon]
-  );
-
-  // Fetch + render the directions whenever the coords change.
-  // `mapReady` is in the deps so the effect re-fires after the <GoogleMap>
-  // mounts on first paint — otherwise the route never draws.
+  // Fetch the real driving geometry + distance/duration from our OSRM proxy.
   useEffect(() => {
-    if (!isLoaded || !mapReady || !haveCoords || !mapRef.current) return;
-    const g = window.google;
-    const map = mapRef.current;
-
-    clearMapLayers();
-
-    const directionsService = new g.maps.DirectionsService();
-    const renderer = new g.maps.DirectionsRenderer({
-      map,
-      suppressMarkers: true, // we draw our own A/B markers for consistent styling
-      polylineOptions: {
-        strokeColor: "#FFD93D",
-        strokeWeight: 4,
-        strokeOpacity: 0.95,
-      },
-      preserveViewport: false, // auto-fit to the route
-    });
-
-    directionsService.route(
-      {
-        origin: { lat: Number(fromLat), lng: Number(fromLon) },
-        destination: { lat: Number(toLat), lng: Number(toLon) },
-        travelMode: g.maps.TravelMode.DRIVING,
-      },
-      (result, status) => {
-        if (status === "OK") {
-          renderer.setDirections(result);
-          directionsRendererRef.current = renderer;
-          drawMarkers(map);
-          // Pull distance + duration straight from the Directions response (no extra API call)
-          const leg = result.routes?.[0]?.legs?.[0];
-          setRouteInfo({
-            distance: leg?.distance?.text || "",
-            duration: leg?.duration?.text || "",
-          });
-          setHasRoute(true);
-          setRouteError("");
-        } else {
-          // Directions API failed — fall back to a straight line between A and B
-          const path = [
-            { lat: Number(fromLat), lng: Number(fromLon) },
-            { lat: Number(toLat), lng: Number(toLon) },
-          ];
-          const line = new g.maps.Polyline({
-            path,
-            map,
-            strokeColor: "#FFD93D",
-            strokeOpacity: 0.95,
-            strokeWeight: 4,
-          });
-          fallbackPolylineRef.current = line;
-          const bounds = new g.maps.LatLngBounds();
-          path.forEach((p) => bounds.extend(p));
-          map.fitBounds(bounds, 24);
-          drawMarkers(map);
-          // As a fallback, use Distance Matrix to at least show "~km / ~min" even when route fails
-          if (g.maps.DistanceMatrixService) {
-            const dm = new g.maps.DistanceMatrixService();
-            dm.getDistanceMatrix(
-              {
-                origins: [{ lat: Number(fromLat), lng: Number(fromLon) }],
-                destinations: [{ lat: Number(toLat), lng: Number(toLon) }],
-                travelMode: g.maps.TravelMode.DRIVING,
-                unitSystem: g.maps.UnitSystem.METRIC,
-              },
-              (resp, st) => {
-                const el = resp?.rows?.[0]?.elements?.[0];
-                if (st === "OK" && el?.status === "OK") {
-                  setRouteInfo({
-                    distance: el.distance?.text || "",
-                    duration: el.duration?.text || "",
-                  });
-                } else {
-                  setRouteInfo({ distance: "", duration: "" });
-                }
-              }
-            );
-          }
-          setHasRoute(false);
-          setRouteError("Direct line shown");
+    if (!haveCoords) return;
+    let cancelled = false;
+    axios
+      .get(`${API_BASE}/api/route`, {
+        params: { fromLat, fromLng: fromLon, toLat, toLng: toLon },
+        timeout: 9000,
+      })
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        // OSRM geometry is [[lon,lat], ...] → convert to [[lat,lon], ...].
+        if (Array.isArray(data.geometry) && data.geometry.length > 1) {
+          setLine(data.geometry.map((c) => [c[1], c[0]]));
         }
-      }
-    );
+        if (data.distance || data.duration) {
+          setInfo({ distance: data.distance || "", duration: data.duration || "" });
+        }
+      })
+      .catch(() => {/* straight line fallback is drawn by OSMMap from the points */});
+    return () => { cancelled = true; };
+  }, [haveCoords, fromLat, fromLon, toLat, toLon]);
 
-    return () => {
-      clearMapLayers();
-    };
-  }, [isLoaded, mapReady, haveCoords, fromLat, fromLon, toLat, toLon, drawMarkers, clearMapLayers]);
-
-  // ─── Render states ───────────────────────────────────────────────
   if (!haveCoords) {
     return (
       <div className="ridemap ridemap--empty">
@@ -228,67 +52,28 @@ export default function RideMap({ ride, interactive = false }) {
     );
   }
 
-  if (loadError) {
-    return (
-      <div className="ridemap ridemap--empty">
-        <div className="ridemap__empty-text">Map failed to load</div>
-      </div>
-    );
-  }
-
-  // Script loaded but Google rejected the key at runtime (referrer/billing/API).
-  if (authFailed) {
-    return (
-      <div className="ridemap ridemap--empty">
-        <div className="ridemap__empty-text">
-          Map blocked — check the Google Maps API key’s allowed domains &amp; billing
-        </div>
-      </div>
-    );
-  }
-
-  if (!isLoaded) {
-    return (
-      <div className="ridemap ridemap--empty">
-        <div className="ridemap__empty-text">Loading map…</div>
-      </div>
-    );
-  }
-
-  // Midpoint between A and B — Directions will recenter once the route arrives
-  const center = {
-    lat: (Number(fromLat) + Number(toLat)) / 2,
-    lng: (Number(fromLon) + Number(toLon)) / 2,
-  };
+  // Build the ordered points: from → (stops with coords) → to.
+  const stops = Array.isArray(ride?.stops)
+    ? ride.stops
+        .map((s) => ({ lat: num(s?.lat), lon: num(s?.lon), title: (s && s.name) || "" }))
+        .filter((s) => s.lat != null && s.lon != null)
+    : [];
+  const points = [
+    { lat: fromLat, lon: fromLon, label: "A", color: "#22c55e", title: ride?.from || "Start" },
+    ...stops.map((s) => ({ ...s, color: "#7c3aed" })),
+    { lat: toLat, lon: toLon, label: "B", color: "#ef4444", title: ride?.to || "Destination" },
+  ];
 
   return (
     <div className="ridemap">
-      <GoogleMap
-        mapContainerStyle={containerStyle}
-        center={center}
-        zoom={7}
-        options={interactive ? interactiveOptions : previewOptions}
-        onLoad={onMapLoad}
-        onUnmount={onMapUnmount}
-      />
-      {routeError && !hasRoute && (
-        <div className="ridemap__overlay ridemap__overlay--warn">
-          {routeError}
-        </div>
-      )}
-      {(routeInfo.distance || routeInfo.duration) && (
+      <OSMMap points={points} line={line} height="100%" interactive={interactive} lineColor="#FFD93D" />
+      {(info.distance || info.duration) && (
         <div className="ridemap__info">
-          {routeInfo.distance && (
-            <span className="ridemap__info-item">
-              <span className="ridemap__info-icon">📍</span>
-              {routeInfo.distance}
-            </span>
+          {info.distance && (
+            <span className="ridemap__info-item"><span className="ridemap__info-icon">📍</span>{info.distance}</span>
           )}
-          {routeInfo.duration && (
-            <span className="ridemap__info-item">
-              <span className="ridemap__info-icon">⏱</span>
-              {routeInfo.duration}
-            </span>
+          {info.duration && (
+            <span className="ridemap__info-item"><span className="ridemap__info-icon">⏱</span>{info.duration}</span>
           )}
         </div>
       )}

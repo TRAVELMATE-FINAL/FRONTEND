@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
-import { GoogleMap } from "@react-google-maps/api";
-import { useGoogleMaps, useMapsAuthFailed } from "../utils/googleMapsLoader";
+import OSMMap from "../components/OSMMap/OSMMap";
 import { formatTime12h } from "../utils/time.js";
 import { setPendingIntent, clearPendingIntent } from "../services/pendingIntent";
 import { scrollAllToTopPersistent } from "../utils/scrollToTop";
@@ -908,612 +907,72 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
    Shows ALL alternate routes returned by Google Directions. The currently
    selected route is rendered in vivid blue, alternates are rendered in
    faded grey and become click-targets so the user can swap to them. */
+/* Keyless route preview (OpenStreetMap via OSMMap). Draws the real driving
+   route from the backend OSRM proxy (/api/route) between From and To, with
+   A/B markers and a distance/duration overlay. No Google Maps key needed, so
+   it works on iOS Safari, old/new Android Chrome, Firefox and desktop and can
+   never show the "Map blocked by Google" state. Same props as before. (Google-
+   only extras — alternate routes and auto-suggested stops — are dropped; stops
+   are added manually via the stop field, which works on every device.) */
 function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onRouteCalculated, onRouteStopsCalculated }) {
-  // Compact = small inline preview (used in step 1); default = large map card.
   const mapHeight = compact ? 140 : 260;
-
-  const { isLoaded, loadError } = useGoogleMaps();
-  const authFailed = useMapsAuthFailed();
-
-  const mapRef = useRef(null);
-  // We render alternate routes ourselves as a set of Polylines so that we
-  // can style each one individually and let the user click to pick one.
-  const routePolylinesRef = useRef([]); // [{ line, routeIndex }]
-  const fallbackPolylineRef = useRef(null);
-  const markersRef = useRef([]);
-  const directionsResultRef = useRef(null);
-  // Reverse-geocoded town names along each route, keyed by route index.
-  // We compute on demand for whichever route the user picks (so each
-  // alternate has its own suggested stops) and cache the result so
-  // toggling back is instant.
-  const routeStopsCacheRef = useRef({}); // { 0: ["Vellore","Krishnagiri"], 1: [...] }
-  const [routeError, setRouteError] = useState("");
-  const [routeInfo, setRouteInfo] = useState({ distance: "", duration: "" });
-  const [routes, setRoutes] = useState([]); // [{ distance, duration, summary }]
-  const [selectedRouteIdx, setSelectedRouteIdx] = useState(0);
-  // mapReady is a STATE (not just ref) so the route-drawing useEffect re-runs
-  // once Google has actually mounted the <GoogleMap>. Otherwise the effect
-  // can fire while mapRef.current is still null, bail out, and never retry.
-  const [mapReady, setMapReady] = useState(false);
-
   const haveCoords = !!(fromCoords && toCoords);
+  const [line, setLine] = useState(null);
+  const [routeInfo, setRouteInfo] = useState({ distance: "", duration: "" });
 
-  const onMapLoad = useCallback((map) => {
-    mapRef.current = map;
-    setMapReady(true);
-  }, []);
-  const onMapUnmount = useCallback(() => {
-    mapRef.current = null;
-    setMapReady(false);
-  }, []);
+  const fLat = Number(fromCoords && fromCoords.lat);
+  const fLon = Number(fromCoords && fromCoords.lon);
+  const tLat = Number(toCoords && toCoords.lat);
+  const tLon = Number(toCoords && toCoords.lon);
 
-  const clearMapLayers = useCallback(() => {
-    routePolylinesRef.current.forEach((entry) => {
-      if (entry?.line) entry.line.setMap(null);
-    });
-    routePolylinesRef.current = [];
-    if (fallbackPolylineRef.current) {
-      fallbackPolylineRef.current.setMap(null);
-      fallbackPolylineRef.current = null;
-    }
-    markersRef.current.forEach((m) => m.setMap(null));
-    markersRef.current = [];
-  }, []);
-
-  // Re-style the polylines so the selected one pops and the alternates are dim.
-  const restyleRoutes = useCallback((selectedIdx) => {
-    routePolylinesRef.current.forEach((entry) => {
-      if (!entry?.line) return;
-      const isActive = entry.routeIndex === selectedIdx;
-      entry.line.setOptions({
-        strokeColor: isActive ? "#4f6ef7" : "#9ca3af",
-        strokeOpacity: isActive ? 0.95 : 0.55,
-        strokeWeight: isActive ? 5 : 4,
-        zIndex: isActive ? 10 : 1,
-      });
-    });
-  }, []);
-
-  // Render the route whenever from/to changes (or once the map is ready).
-  // `mapReady` is included in the deps so the effect re-fires after the
-  // <GoogleMap> mounts on first paint.
+  // Fetch the driving geometry + distance/duration from our OSRM proxy.
   useEffect(() => {
-    if (!isLoaded || !mapReady || !haveCoords || !mapRef.current) return;
-    const g = window.google;
-    const map = mapRef.current;
+    if (!haveCoords || !Number.isFinite(fLat) || !Number.isFinite(tLat)) { setLine(null); return; }
     let cancelled = false;
-    clearMapLayers();
-    // Reset selection whenever the from/to changes so the new primary is shown.
-    setSelectedRouteIdx(0);
-    // Invalidate the per-route stop cache — these are tied to the previous
-    // origin/destination and no longer make sense for the new search.
-    routeStopsCacheRef.current = {};
-
-    const directionsService = new g.maps.DirectionsService();
-
-    const origin = { lat: Number(fromCoords.lat), lng: Number(fromCoords.lon) };
-    const destination = { lat: Number(toCoords.lat), lng: Number(toCoords.lon) };
-
-    const drawAB = () => {
-      const from = new g.maps.Marker({
-        position: origin,
-        map,
-        label: { text: "A", color: "#fff", fontSize: "11px", fontWeight: "700" },
-        icon: {
-          path: g.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: "#4f6ef7",
-          fillOpacity: 1,
-          strokeColor: "#fff",
-          strokeWeight: 2,
-        },
-        title: fromName || "From",
-        zIndex: 50,
-      });
-      const to = new g.maps.Marker({
-        position: destination,
-        map,
-        label: { text: "B", color: "#fff", fontSize: "11px", fontWeight: "700" },
-        icon: {
-          path: g.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: "#22c55e",
-          fillOpacity: 1,
-          strokeColor: "#fff",
-          strokeWeight: 2,
-        },
-        title: toName || "To",
-        zIndex: 50,
-      });
-      markersRef.current = [from, to];
-    };
-
-    directionsService.route(
-      {
-        origin,
-        destination,
-        travelMode: g.maps.TravelMode.DRIVING,
-        // 🔑 Ask Google for alternate routes whenever they exist.
-        provideRouteAlternatives: true,
-      },
-      (result, status) => {
-        if (status === "OK") {
-          directionsResultRef.current = result;
-          const allRoutes = result.routes || [];
-
-          // Draw each route as its own Polyline so we can style + click them
-          allRoutes.forEach((route, idx) => {
-            const path = route.overview_path || [];
-            const line = new g.maps.Polyline({
-              path,
-              map,
-              strokeColor: idx === 0 ? "#4f6ef7" : "#9ca3af",
-              strokeOpacity: idx === 0 ? 0.95 : 0.55,
-              strokeWeight: idx === 0 ? 5 : 4,
-              zIndex: idx === 0 ? 10 : 1,
-              clickable: true,
-            });
-            // Clicking a faded route promotes it to the "selected" route.
-            line.addListener("click", () => {
-              setSelectedRouteIdx(idx);
-            });
-            routePolylinesRef.current.push({ line, routeIndex: idx });
-          });
-
-          // Fit the map so all routes (or at least the primary one) are visible.
-          const bounds = new g.maps.LatLngBounds();
-          (allRoutes[0]?.overview_path || []).forEach((p) => bounds.extend(p));
-          if (!bounds.isEmpty()) map.fitBounds(bounds, 40);
-
-          drawAB();
-
-          // Build a small summary list to show under the map.
-          const summaries = allRoutes.map((r) => {
-            const leg = r.legs?.[0];
-            return {
-              distance: leg?.distance?.text || "",
-              duration: leg?.duration?.text || "",
-              summary: r.summary || "",
-            };
-          });
-          setRoutes(summaries);
-
-          // Primary distance / duration goes up to parent (selected = index 0)
-          const next = {
-            distance: summaries[0]?.distance || "",
-            duration: summaries[0]?.duration || "",
-          };
-          setRouteInfo(next);
-          if (typeof onRouteCalculated === "function") onRouteCalculated(next);
-          setRouteError("");
-        } else {
-          // Google's legacy Directions service failed (it can be denied or
-          // flaky per-device/browser). Instead of a misleading straight line,
-          // draw the REAL road route from our own backend (OSRM) so every
-          // device shows the actual roads and correct distance/time.
-          drawAB();
-          setRoutes([]);
-          axios
-            .get(`${API}/api/route`, {
-              params: {
-                fromLat: origin.lat, fromLng: origin.lng,
-                toLat: destination.lat, toLng: destination.lng,
-              },
-            })
-            .then((rr) => {
-              if (cancelled) return;
-              const geom = (rr.data?.geometry || []).map(([lon, lat]) => ({ lat, lng: lon }));
-              if (geom.length < 2) throw new Error("no geometry");
-              const line = new g.maps.Polyline({
-                path: geom, map,
-                strokeColor: "#4f6ef7", strokeOpacity: 0.95, strokeWeight: 5,
-              });
-              fallbackPolylineRef.current = line;
-              const b = new g.maps.LatLngBounds();
-              geom.forEach((p) => b.extend(p));
-              if (!b.isEmpty()) map.fitBounds(b, 40);
-              const next = { distance: rr.data?.distance || "", duration: rr.data?.duration || "" };
-              setRouteInfo(next);
-              if (typeof onRouteCalculated === "function") onRouteCalculated(next);
-              setRouteError(""); // real road route drawn — not a straight line
-            })
-            .catch(() => {
-              if (cancelled) return;
-              // Absolute last resort: straight line + haversine estimate.
-              const path = [origin, destination];
-              const line = new g.maps.Polyline({
-                path, map, strokeColor: "#4f6ef7", strokeOpacity: 0.9, strokeWeight: 4,
-              });
-              fallbackPolylineRef.current = line;
-              const b = new g.maps.LatLngBounds();
-              path.forEach((p) => b.extend(p));
-              map.fitBounds(b, 40);
-              const km = Math.round(haversine(origin.lat, origin.lng, destination.lat, destination.lng));
-              setRouteInfo({
-                distance: km > 0 ? `${km} km` : "",
-                duration: km > 0 ? `${Math.round(km / 50)} hr ${Math.round((km / 50 * 60) % 60)} min` : "",
-              });
-              setRouteError("Direct line shown");
-            });
+    axios
+      .get(`${API}/api/route`, { params: { fromLat: fLat, fromLng: fLon, toLat: tLat, toLng: tLon }, timeout: 9000 })
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        if (Array.isArray(data.geometry) && data.geometry.length > 1) {
+          setLine(data.geometry.map((c) => [c[1], c[0]]));
         }
-      }
-    );
-
-    return () => {
-      cancelled = true;
-      clearMapLayers();
-    };
-  }, [
-    isLoaded,
-    mapReady,
-    haveCoords,
-    fromCoords?.lat,
-    fromCoords?.lon,
-    toCoords?.lat,
-    toCoords?.lon,
-    fromName,
-    toName,
-    clearMapLayers,
-  ]);
-
-  // Compute suggested stops for a given route by sampling 3 points along
-  // its polyline and asking the Google Geocoder for the locality at each
-  // point. Returns a Promise<string[]> of distinct town/city names
-  // (excluding origin + destination).
-  const computeStopsForRoute = useCallback((routeIdx) => {
-    const g = window.google;
-    if (!g || !directionsResultRef.current) return Promise.resolve([]);
-    const route = directionsResultRef.current.routes &&
-                  directionsResultRef.current.routes[routeIdx];
-    const path = (route && route.overview_path) || [];
-    if (path.length < 4) return Promise.resolve([]);
-
-    // Sample at 25%, 50%, 75% of the polyline — covers the route nicely
-    // without burning a geocode call on every coordinate.
-    const sampleIdxs = [
-      Math.floor(path.length / 4),
-      Math.floor(path.length / 2),
-      Math.floor((path.length * 3) / 4),
-    ];
-    const sampleLocs = sampleIdxs.map((i) => path[i]);
-    const geocoder = new g.maps.Geocoder();
-
-    // Names we want to exclude (origin + destination) so we don't suggest
-    // the user's own from/to as a "stop".
-    const exclude = new Set(
-      [fromName, toName]
-        .filter(Boolean)
-        .map((s) => String(s).toLowerCase())
-    );
-
-    const reverse = (loc) =>
-      new Promise((resolve) => {
-        geocoder.geocode({ location: loc }, (results, status) => {
-          if (status !== "OK" || !results || !results.length) {
-            resolve(null);
-            return;
-          }
-          // Walk results from most-specific to least-specific and grab
-          // the first locality / town / district name we find.
-          for (const r of results) {
-            const comps = r.address_components || [];
-            const wanted = ["locality", "postal_town",
-                            "administrative_area_level_3",
-                            "administrative_area_level_2"];
-            for (const type of wanted) {
-              const c = comps.find((cc) => (cc.types || []).indexOf(type) !== -1);
-              if (c && c.long_name) {
-                resolve(c.long_name);
-                return;
-              }
-            }
-          }
-          resolve(null);
-        });
-      });
-
-    return Promise.all(sampleLocs.map(reverse)).then((names) => {
-      const seen = new Set();
-      const out = [];
-      names.forEach((n) => {
-        if (!n) return;
-        const key = n.toLowerCase();
-        if (exclude.has(key)) return;
-        if (seen.has(key)) return;
-        seen.add(key);
-        out.push(n);
-      });
-      return out;
-    });
-  }, [fromName, toName]);
-
-  // Whenever the user picks a different alternate, re-style the polylines,
-  // push new distance/duration to the parent, refit bounds, AND compute
-  // per-route suggested stops (cached so repeat toggles are instant).
-  useEffect(() => {
-    restyleRoutes(selectedRouteIdx);
-    const r = routes[selectedRouteIdx];
-    if (r && (r.distance || r.duration)) {
-      const next = { distance: r.distance, duration: r.duration };
-      setRouteInfo(next);
-      if (typeof onRouteCalculated === "function") onRouteCalculated(next);
-    }
-    // Refit map bounds to the currently selected route
-    const g = window.google;
-    if (g && mapRef.current && directionsResultRef.current) {
-      const route = directionsResultRef.current.routes?.[selectedRouteIdx];
-      const path = route?.overview_path || [];
-      if (path.length) {
-        const bounds = new g.maps.LatLngBounds();
-        path.forEach((p) => bounds.extend(p));
-        mapRef.current.fitBounds(bounds, 40);
-      }
-    }
-
-    // Per-route suggested stops — use cache if we already computed this
-    // route's stops, otherwise reverse-geocode and cache the result.
-    if (typeof onRouteStopsCalculated !== "function") return;
-    if (!directionsResultRef.current) return;
-    const cached = routeStopsCacheRef.current[selectedRouteIdx];
-    if (cached) {
-      onRouteStopsCalculated(cached);
-      return;
-    }
-    let cancelled = false;
-    computeStopsForRoute(selectedRouteIdx).then((stops) => {
-      if (cancelled) return;
-      routeStopsCacheRef.current[selectedRouteIdx] = stops;
-      onRouteStopsCalculated(stops);
-    });
+        const info = { distance: data.distance || "", duration: data.duration || "" };
+        setRouteInfo(info);
+        if (typeof onRouteCalculated === "function") onRouteCalculated(info);
+      })
+      .catch(() => {/* OSMMap draws a straight line from the two points */});
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRouteIdx, routes]);
+  }, [haveCoords, fLat, fLon, tLat, tLon]);
 
-  // Empty placeholder while user is picking locations
   if (!haveCoords) {
     return (
-      <div
-        style={{
-          position: "relative",
-          width: "100%",
-          height: mapHeight,
-          background: "linear-gradient(135deg,#dbeafe 0%,#dcfce7 100%)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div style={{ fontSize: 12, color: "#64748b" }}>
-          Pick From and To to see the route
-        </div>
+      <div style={{ position: "relative", width: "100%", height: mapHeight, background: "linear-gradient(135deg,#dbeafe 0%,#dcfce7 100%)", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 14 }}>
+        <div style={{ fontSize: 12, color: "#64748b" }}>Pick From and To to see the route</div>
       </div>
     );
   }
 
-  if (loadError) {
-    return (
-      <div
-        style={{
-          width: "100%",
-          height: mapHeight,
-          background: "#fee2e2",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 12,
-          color: "#b91c1c",
-        }}
-      >
-        Google Maps failed to load — check VITE_GOOGLE_MAPS_API_KEY
-      </div>
-    );
-  }
-
-  // Script loaded but Google rejected the key at runtime — the usual cause of
-  // a blank/white map. Tell the user the real reason instead of showing nothing.
-  if (authFailed) {
-    return (
-      <div
-        style={{
-          width: "100%",
-          height: mapHeight,
-          background: "#fef3c7",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          padding: 12,
-          fontSize: 12,
-          color: "#92400e",
-        }}
-      >
-        Map blocked by Google — add this site's domain to the API key's allowed
-        referrers and enable billing + the Maps JavaScript / Directions / Places APIs.
-      </div>
-    );
-  }
-
-  if (!isLoaded) {
-    return (
-      <div
-        style={{
-          width: "100%",
-          height: mapHeight,
-          background: "#f1f5f9",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 12,
-          color: "#64748b",
-        }}
-      >
-        Loading map…
-      </div>
-    );
-  }
-
-  // Initial center — midpoint between A and B
-  const center = {
-    lat: (Number(fromCoords.lat) + Number(toCoords.lat)) / 2,
-    lng: (Number(fromCoords.lon) + Number(toCoords.lon)) / 2,
-  };
+  const points = [
+    { lat: fLat, lon: fLon, color: "#22c55e", title: fromName || "Start" },
+    { lat: tLat, lon: tLon, color: "#ef4444", title: toName || "Destination" },
+  ];
 
   return (
     <div style={{ width: "100%", height: mapHeight, position: "relative" }}>
-      <GoogleMap
-        mapContainerStyle={{ width: "100%", height: "100%" }}
-        center={center}
-        zoom={7}
-        options={{
-          disableDefaultUI: true,
-          zoomControl: !compact,
-          fullscreenControl: !compact,
-          // Big screen: allow direct scroll/pinch zoom (like Find Ride).
-          // Compact/mobile preview stays non-interactive so it doesn't trap
-          // page scroll.
-          gestureHandling: compact ? "none" : "greedy",
-          clickableIcons: false,
-          styles: [
-            { featureType: "poi", stylers: [{ visibility: "off" }] },
-            { featureType: "transit", stylers: [{ visibility: "off" }] },
-          ],
-        }}
-        onLoad={onMapLoad}
-        onUnmount={onMapUnmount}
-      />
-      {routeError && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 8,
-            left: 8,
-            background: "rgba(220, 38, 38, 0.85)",
-            color: "#fff",
-            fontSize: 10,
-            fontWeight: 600,
-            padding: "4px 8px",
-            borderRadius: 6,
-            pointerEvents: "none",
-          }}
-        >
-          {routeError}
-        </div>
-      )}
+      <OSMMap points={points} line={line} height={mapHeight} interactive={!compact} lineColor="#4f6ef7" />
       {(routeInfo.distance || routeInfo.duration) && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 8,
-            right: 8,
-            display: "flex",
-            gap: 6,
-            pointerEvents: "none",
-          }}
-        >
+        <div style={{ position: "absolute", bottom: 8, right: 8, display: "flex", gap: 6, pointerEvents: "none", zIndex: 500 }}>
           {routeInfo.distance && (
-            <span
-              style={{
-                background: "rgba(15, 23, 42, 0.9)",
-                color: "#fff",
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "5px 10px",
-                borderRadius: 999,
-                boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                lineHeight: 1,
-              }}
-            >
-              <span aria-hidden>📍</span>
-              {routeInfo.distance}
+            <span style={{ background: "rgba(15,23,42,0.9)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 999, display: "inline-flex", alignItems: "center", gap: 4, lineHeight: 1 }}>
+              <span aria-hidden>📍</span>{routeInfo.distance}
             </span>
           )}
           {routeInfo.duration && (
-            <span
-              style={{
-                background: "rgba(79, 110, 247, 0.95)",
-                color: "#fff",
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "5px 10px",
-                borderRadius: 999,
-                boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                lineHeight: 1,
-              }}
-            >
-              <span aria-hidden>⏱</span>
-              {routeInfo.duration}
+            <span style={{ background: "rgba(79,110,247,0.95)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 999, display: "inline-flex", alignItems: "center", gap: 4, lineHeight: 1 }}>
+              <span aria-hidden>⏱</span>{routeInfo.duration}
             </span>
           )}
-        </div>
-      )}
-
-      {/* ── Alternate routes picker ─────────────────────────────────
-          When Google returns more than one option we surface them as
-          chips below the map so the poster can pick the route they
-          actually plan to take. Clicking a chip (or clicking the
-          faded grey line on the map itself) makes that route active. */}
-      {routes.length > 1 && !compact && (
-        <div
-          style={{
-            position: "absolute",
-            top: 8,
-            left: 8,
-            right: 8,
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 6,
-            pointerEvents: "auto",
-          }}
-        >
-          {routes.map((r, idx) => {
-            const active = idx === selectedRouteIdx;
-            const label = r.summary
-              ? `via ${r.summary}`
-              : idx === 0
-              ? "Fastest route"
-              : `Alternate ${idx}`;
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setSelectedRouteIdx(idx)}
-                style={{
-                  background: active ? "#4f6ef7" : "rgba(255,255,255,0.95)",
-                  color: active ? "#fff" : "#1a1a2e",
-                  border: active ? "1px solid #4f6ef7" : "1px solid #cbd5e1",
-                  borderRadius: 999,
-                  padding: "5px 10px",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  lineHeight: 1.1,
-                  maxWidth: "100%",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-                title={`${label} • ${r.distance || ""} • ${r.duration || ""}`}
-              >
-                <span>{label}</span>
-                {(r.distance || r.duration) && (
-                  <span style={{ opacity: 0.85, fontWeight: 600 }}>
-                    · {r.duration || r.distance}
-                  </span>
-                )}
-              </button>
-            );
-          })}
         </div>
       )}
     </div>
