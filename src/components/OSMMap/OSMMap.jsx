@@ -35,6 +35,7 @@ export default function OSMMap({
   const layersRef = useRef([]);
   const liveMarkerRef = useRef(null);
   const LRef = useRef(null);
+  const roRef = useRef(null);
 
   // Clean, valid points (lat/lon present).
   const pts = (points || [])
@@ -66,13 +67,22 @@ export default function OSMMap({
         L.tileLayer(OSM_URL, { maxZoom: 19, attribution: OSM_ATTR }).addTo(map);
         map.setView([13.0827, 80.2707], 11); // Chennai default until points load
         mapRef.current = map;
-        // Leaflet needs a size recalculation when it mounts inside a flex/hidden box.
-        setTimeout(() => { try { map.invalidateSize(); } catch (_e) {} drawAll(); }, 60);
+        // Leaflet renders BLANK tiles if the container is sized AFTER the map
+        // initialises (common when the map sits in a card that grows as data
+        // loads). Recalculate the size several times as the layout settles, and
+        // keep it in sync with a ResizeObserver, then (re)draw + fit.
+        const refresh = () => { try { map.invalidateSize(false); } catch (_e) {} drawAll(); };
+        [0, 150, 350, 700].forEach((ms) => setTimeout(refresh, ms));
+        if (typeof ResizeObserver !== "undefined" && boxRef.current) {
+          roRef.current = new ResizeObserver(() => { try { map.invalidateSize(false); } catch (_e) {} });
+          roRef.current.observe(boxRef.current);
+        }
       })
       .catch(() => {/* CDN unreachable — the box just stays empty, route text still shows */});
 
     return () => {
       cancelled = true;
+      if (roRef.current) { try { roRef.current.disconnect(); } catch (_e) {} roRef.current = null; }
       if (mapRef.current) { try { mapRef.current.remove(); } catch (_e) {} mapRef.current = null; }
       layersRef.current = [];
       liveMarkerRef.current = null;
@@ -120,6 +130,9 @@ export default function OSMMap({
       latlngs.push([p.lat, p.lon]);
     });
 
+    // Make sure the map knows its real pixel size before fitting, otherwise it
+    // fits to a stale/zero size and shows blank tiles.
+    try { map.invalidateSize(false); } catch (_e) {}
     if (latlngs.length === 1) {
       map.setView(latlngs[0], 14);
     } else if (latlngs.length >= 2) {
