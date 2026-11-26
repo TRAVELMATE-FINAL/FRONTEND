@@ -917,33 +917,48 @@ function PostPage({ form, setForm, route, distance, duration, routeLoading, erro
 function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onRouteCalculated, onRouteStopsCalculated }) {
   const mapHeight = compact ? 140 : 260;
   const haveCoords = !!(fromCoords && toCoords);
-  const [line, setLine] = useState(null);
-  const [routeInfo, setRouteInfo] = useState({ distance: "", duration: "" });
+  const [routes, setRoutes] = useState([]);   // [{ distance, duration, summary, line }]
+  const [sel, setSel] = useState(0);
 
   const fLat = Number(fromCoords && fromCoords.lat);
   const fLon = Number(fromCoords && fromCoords.lon);
   const tLat = Number(toCoords && toCoords.lat);
   const tLon = Number(toCoords && toCoords.lon);
 
-  // Fetch the driving geometry + distance/duration from our OSRM proxy.
+  // Fetch the ACTUAL road route (+ alternatives) from our OSRM proxy.
   useEffect(() => {
-    if (!haveCoords || !Number.isFinite(fLat) || !Number.isFinite(tLat)) { setLine(null); return; }
+    if (!haveCoords || !Number.isFinite(fLat) || !Number.isFinite(tLat)) { setRoutes([]); setSel(0); return; }
     let cancelled = false;
     axios
-      .get(`${API}/api/route`, { params: { fromLat: fLat, fromLng: fLon, toLat: tLat, toLng: tLon }, timeout: 9000 })
+      .get(`${API}/api/route`, { params: { fromLat: fLat, fromLng: fLon, toLat: tLat, toLng: tLon }, timeout: 12000 })
       .then(({ data }) => {
         if (cancelled || !data) return;
-        if (Array.isArray(data.geometry) && data.geometry.length > 1) {
-          setLine(data.geometry.map((c) => [c[1], c[0]]));
+        const toLine = (g) => (Array.isArray(g) && g.length > 1 ? g.map((c) => [c[1], c[0]]) : null);
+        const all = [data, ...(Array.isArray(data.alternatives) ? data.alternatives : [])].map((r) => ({
+          distance: r.distance || "",
+          duration: r.duration || "",
+          summary: r.summary || "",
+          line: toLine(r.geometry),
+        }));
+        setRoutes(all);
+        setSel(0);
+        if (typeof onRouteCalculated === "function" && all[0]) {
+          onRouteCalculated({ distance: all[0].distance, duration: all[0].duration });
         }
-        const info = { distance: data.distance || "", duration: data.duration || "" };
-        setRouteInfo(info);
-        if (typeof onRouteCalculated === "function") onRouteCalculated(info);
       })
-      .catch(() => {/* OSMMap draws a straight line from the two points */});
+      .catch(() => { setRoutes([]); /* OSMMap falls back to a straight line */ });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [haveCoords, fLat, fLon, tLat, tLon]);
+
+  // Keep the parent's distance/duration in sync with the chosen route.
+  const choose = (i) => {
+    setSel(i);
+    const r = routes[i];
+    if (r && typeof onRouteCalculated === "function") {
+      onRouteCalculated({ distance: r.distance, duration: r.duration });
+    }
+  };
 
   if (!haveCoords) {
     return (
@@ -957,22 +972,55 @@ function RouteMap({ fromCoords, toCoords, fromName, toName, compact = false, onR
     { lat: fLat, lon: fLon, color: "#22c55e", title: fromName || "Start" },
     { lat: tLat, lon: tLon, color: "#ef4444", title: toName || "Destination" },
   ];
+  const current = routes[sel] || null;
 
   return (
-    <div style={{ width: "100%", height: mapHeight, position: "relative" }}>
-      <OSMMap points={points} line={line} height={mapHeight} interactive={!compact} lineColor="#4f6ef7" />
-      {(routeInfo.distance || routeInfo.duration) && (
-        <div style={{ position: "absolute", bottom: 8, right: 8, display: "flex", gap: 6, pointerEvents: "none", zIndex: 500 }}>
-          {routeInfo.distance && (
-            <span style={{ background: "rgba(15,23,42,0.9)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 999, display: "inline-flex", alignItems: "center", gap: 4, lineHeight: 1 }}>
-              <span aria-hidden>📍</span>{routeInfo.distance}
-            </span>
-          )}
-          {routeInfo.duration && (
-            <span style={{ background: "rgba(79,110,247,0.95)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 999, display: "inline-flex", alignItems: "center", gap: 4, lineHeight: 1 }}>
-              <span aria-hidden>⏱</span>{routeInfo.duration}
-            </span>
-          )}
+    <div style={{ width: "100%", position: "relative" }}>
+      <div style={{ width: "100%", height: mapHeight, position: "relative" }}>
+        <OSMMap points={points} line={current && current.line} height={mapHeight} interactive={!compact} lineColor="#4f6ef7" />
+        {current && (current.distance || current.duration) && (
+          <div style={{ position: "absolute", bottom: 8, right: 8, display: "flex", gap: 6, pointerEvents: "none", zIndex: 500 }}>
+            {current.distance && (
+              <span style={{ background: "rgba(15,23,42,0.9)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 999, display: "inline-flex", alignItems: "center", gap: 4, lineHeight: 1 }}>
+                <span aria-hidden>📍</span>{current.distance}
+              </span>
+            )}
+            {current.duration && (
+              <span style={{ background: "rgba(79,110,247,0.95)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 999, display: "inline-flex", alignItems: "center", gap: 4, lineHeight: 1 }}>
+                <span aria-hidden>⏱</span>{current.duration}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Alternative routes — pick your preferred road route. */}
+      {!compact && routes.length > 1 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+          {routes.map((r, i) => {
+            const active = i === sel;
+            const label = i === 0 ? "Fastest" : `Alternate ${i}`;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => choose(i)}
+                style={{
+                  flex: "1 1 140px", minWidth: 0, textAlign: "left", cursor: "pointer", fontFamily: "inherit",
+                  border: active ? "2px solid #4f6ef7" : "1.5px solid #e5e7eb",
+                  background: active ? "#eef2ff" : "#fff",
+                  borderRadius: 12, padding: "9px 12px",
+                }}
+              >
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: active ? "#4f6ef7" : "#14163a" }}>
+                  {label}{r.summary ? ` · via ${r.summary}` : ""}
+                </div>
+                <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 2 }}>
+                  {r.duration}{r.distance ? ` · ${r.distance}` : ""}
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
