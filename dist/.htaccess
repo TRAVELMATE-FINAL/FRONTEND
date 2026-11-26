@@ -13,14 +13,23 @@
 </IfModule>
 
 # ── Cache policy ───────────────────────────────────────────────────────────
-# index.html is NEVER cached so every visit picks up the latest deploy; hashed
-# build assets are cached forever (their filenames change each build).
+# ROOT CAUSE FIX for "one device stuck on an old build": index.html must NEVER
+# be cached, so every visit re-checks the server and immediately picks up the
+# latest deploy (index.html references the new hashed JS/CSS). Without this, a
+# browser can keep serving a cached index.html that points at the OLD bundle —
+# which is why one phone showed the old Google "Map blocked" screen while other
+# devices already had the new OpenStreetMap build.
+#
+# The hashed build assets (their filenames change on every build) are safe to
+# cache forever.
 <IfModule mod_headers.c>
+  # Never cache the HTML entry point.
   <FilesMatch "\.(html)$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
     Header set Expires "0"
   </FilesMatch>
+  # Cache content-hashed static assets aggressively (filename changes per build).
   <FilesMatch "\.(js|css|woff2?|ttf|eot|png|jpg|jpeg|gif|svg|webp|ico)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
